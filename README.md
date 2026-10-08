@@ -10,9 +10,16 @@
 
 ---
 
-## 一、两种打开方式
+## 一、三种打开方式
 
-### 方式 A · 双击就能打开（推荐给评委和非技术同学）
+### 方式 A · 点开就用（在线体验）
+
+**https://metal783.github.io/foodlenscare/**
+
+不需要安装任何东西，手机浏览器直接打开即可。这是给评委最省事的方式。
+（在线版内容是单文件版的副本，由 `python tools/prepare-pages.py` 同步，见 [docs/README.md](docs/README.md)。）
+
+### 方式 B · 双击就能打开（不依赖网络）
 
 直接双击仓库根目录的 **`FoodLensCare-standalone.html`**。
 
@@ -27,7 +34,7 @@ node tools/bundle-standalone.mjs        # 重新打包出单文件版
 python tools/check-standalone.py        # 校验它在 file:// 下能跑通 7 个页面
 ```
 
-### 方式 B · 多文件开发版（用于日常开发）
+### 方式 C · 多文件开发版（用于日常开发）
 
 ```bash
 python tools/serve.py
@@ -46,21 +53,21 @@ python tools/serve.py
 手机地址生成二维码后扫码即可在真机体验。需要二维码时先 `pip install qrcode`，
 脚本会自动打印；不想装依赖就手动把地址发到手机。
 
-### 两版的关系
+### 三版的关系
 
-| | 单文件版 | 多文件开发版 |
-| --- | --- | --- |
-| 打开方式 | 双击 HTML | `python tools/serve.py` |
-| 依赖 | 无 | 需要 Python（或用任意静态服务） |
-| 联网 | 不需要 | 不需要 |
-| 页面与样式 | **完全一致** | **完全一致** |
-| 离线缓存 / 加桌面 | 无（浏览器限制） | 有（PWA） |
-| 适合 | 提交、演示、发给别人 | 改代码、调样式 |
-| 生成方式 | `node tools/bundle-standalone.mjs` | 直接编辑 `src/` |
+| | 在线体验版 | 单文件版 | 多文件开发版 |
+| --- | --- | --- | --- |
+| 打开方式 | 点链接 | 双击 HTML | `python tools/serve.py` |
+| 依赖 | 无 | 无 | 需要 Python（或任意静态服务） |
+| 联网 | 需要（首次） | 不需要 | 不需要 |
+| 页面与样式 | **完全一致** | **完全一致** | **完全一致** |
+| 离线缓存 / 加桌面 | 有（`docs/sw.js`） | 无（浏览器限制） | 有（PWA） |
+| 适合 | 交给评委体验 | 提交、演示、发给别人 | 改代码、调样式 |
+| 生成方式 | `tools/prepare-pages.py` | `tools/bundle-standalone.mjs` | 直接编辑 `src/` |
 
-两版来自同一份 `src/`：单文件版是把 `index.html` 与 `src/` 内联后的产物，
-不存在「两份代码各改各的」的问题。已用脚本逐像素比对过同一个页面的渲染结果，
-两者**完全一致（SHA-256 相同）**。
+三版来自同一份 `src/`：在线版与单文件版都是把 `index.html` 与 `src/` 内联后的产物，
+不存在「几份代码各改各的」的问题。已用脚本逐像素比对过同一个页面的渲染结果，
+**完全一致（SHA-256 相同）**。
 
 **零配置可用**：不需要任何 API 密钥，默认走「模拟识别 + 内置演示用例」，
 完全离线也能从头到尾走完「拍照 → 结论 → 播报 → 记录」。
@@ -185,12 +192,17 @@ foodcare/
 │   └── styles/
 │       ├── tokens.css            设计令牌（字号、色板、点击区域）
 │       └── app.css               组件样式
-├── docs/screenshots/             11 张运行截图（脚本生成）
-├── _qa/                          截图台与页面探针（仅调试用）
+├── docs/                         GitHub Pages 入口 + 参赛截图
+│   ├── index.html                在线体验版（单文件版的副本，脚本生成）
+│   ├── sw.js                     Pages 版离线缓存（手写）
+│   ├── README.md                 说明这个目录的两个用途
+│   └── screenshots/              11 张运行截图（脚本生成）
+├── _qa/                          截图台与测试台（仅开发用）
 └── tools/
     ├── README.md                 工具说明与 URL 参数一览
     ├── bundle-standalone.mjs     ⭐ 打包单文件版
-    ├── check-standalone.py       校验单文件版 + 给它出截图
+    ├── prepare-pages.py          同步到 docs/index.html（Pages 入口）
+    ├── check-standalone.py       校验单文件版 / Pages 入口 + 出截图
     ├── serve.py                  本地静态服务（局域网 + 二维码）
     ├── rule-selftest.mjs         规则层与解析层自测（74 项）
     ├── module-check.mjs          模块图 + 静态导入/调用 + 定向回归检查
@@ -316,6 +328,10 @@ python tools/verify-regression-checks.py
 node tools/bundle-standalone.mjs
 python tools/check-standalone.py
 
+# 同步到 GitHub Pages 入口，并校验它也能跑通
+python tools/prepare-pages.py
+python tools/check-standalone.py --pages
+
 # 对比度实测（可选：重新生成报告文件）
 node tools/contrast-check.mjs
 node tools/contrast-check.mjs --emit src/data/contrast-report.js
@@ -339,6 +355,7 @@ await FoodLensCare.selfTest();   // 输出表格 + 通过/失败汇总
 | 定向回归检查（选照片/`fill` 导入/语音条/按下反馈） | **4 / 4 通过** |
 | 交互回归（真实点击驱动） | **13 / 13 通过** |
 | 单文件版 file:// 运行校验 | **7 / 7 页面通过** |
+| Pages 入口（docs/index.html）运行校验 | **7 / 7 页面通过** |
 | 单文件版与开发版渲染比对 | **逐像素一致（SHA-256 相同）** |
 | 文本对比度（WCAG） | **最低 5.45:1**，全部达 AA 级（≥ 4.5:1），多数达 AAA 级（≥ 7:1） |
 | 运行截图裁切检查 | 右边缘无非背景像素，无裁切 |

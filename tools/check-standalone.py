@@ -16,6 +16,9 @@
 用法：
     python tools/check-standalone.py                # 只做渲染校验
     python tools/check-standalone.py --shot docs/screenshots/standalone-red.png --to "/result?case=peanut-cookie" --profile allergy
+
+    # 顺带校验 GitHub Pages 的入口（docs/index.html）也能正常渲染
+    python tools/check-standalone.py --pages
 """
 
 from __future__ import annotations
@@ -115,16 +118,22 @@ def visible_text(dom: str) -> str:
     return dom
 
 
-def run_checks(browser: Path, workdir: Path) -> int:
-    print('校验单文件版在 file:// 下能否正常运行：\n')
+def run_checks(browser: Path, workdir: Path, target: Path | None = None) -> int:
+    """校验 file:// 下能不能跑。
+
+    target 默认为单文件版；传 docs/index.html 就顺带校验 Pages 入口。
+    """
+    page = target or STANDALONE
+    label = '单文件版' if page == STANDALONE else f'{page.relative_to(ROOT)}'
+    print(f'校验{label}在 file:// 下能否正常运行：\n')
     failed = 0
 
     for note, route, profile, keywords in CHECKS:
         query = {'_': '1'}
         if profile:
             query['profile'] = profile
-        # 直接打开单文件（不经 iframe），这样 --dump-dom 能拿到渲染结果
-        url = STANDALONE.as_uri() + '?' + urllib.parse.urlencode(query) + '#' + route
+        # 直接打开目标页面（不经 iframe），这样 --dump-dom 能拿到渲染结果
+        url = page.as_uri() + '?' + urllib.parse.urlencode(query) + '#' + route
         dom = dump_dom(browser, url, workdir, tag=route.strip('/').replace('/', '_').replace('?', '_') or 'home')
 
         # 只看渲染出来的文本：脚本里内嵌的提示语不能算作页面内容
@@ -216,10 +225,15 @@ def main() -> int:
     parser.add_argument('--shot', help='把运行画面截图保存到该路径')
     parser.add_argument('--to', default='/home', help='截图对应的 hash 路由')
     parser.add_argument('--profile', default=None, help='预设画像：allergy / plain')
+    parser.add_argument('--pages', action='store_true', help='改为校验 docs/index.html（GitHub Pages 入口）')
     args = parser.parse_args()
 
-    if not STANDALONE.exists():
-        print('还没有单文件版。请先运行：node tools/bundle-standalone.mjs')
+    target = ROOT / 'docs' / 'index.html' if args.pages else STANDALONE
+    if not target.exists():
+        if args.pages:
+            print('还没有 Pages 入口。请先运行：node tools/bundle-standalone.mjs && python tools/prepare-pages.py')
+        else:
+            print('还没有单文件版。请先运行：node tools/bundle-standalone.mjs')
         return 1
     if not HARNESS.exists():
         print(f'缺少截图台：{HARNESS}')
@@ -230,7 +244,7 @@ def main() -> int:
         workdir = Path(tmp)
         if args.shot:
             return take_shot(browser, Path(args.shot), args.to, args.profile, workdir)
-        return run_checks(browser, workdir)
+        return run_checks(browser, workdir, target)
 
 
 if __name__ == '__main__':

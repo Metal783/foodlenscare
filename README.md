@@ -74,15 +74,27 @@ python tools/serve.py
 
 ### 一条链接直达某个演示画面
 
-答辩或录视频时不必每次点进去，直接把参数拼在地址里：
+答辩或录视频时不必每次点进去，直接把参数拼在地址里。
+**下面这些链接在线上版也能直接用**（把域名换掉即可）：
 
 | 链接 | 打开的画面 |
 | --- | --- |
-| `http://127.0.0.1:5173/` | 首页（拍包装） |
-| `…/index.html?profile=allergy#/result?case=peanut-cookie` | 花生过敏画像 + 红色警示 |
-| `…/index.html#/result?case=sugar-drink` | 控糖橙色用例 |
-| `…/index.html#/result?case=blurry-photo` | 灰色补拍用例 |
-| `…/index.html#/help` | 适老化对照表 |
+| `/` | 首页；首次打开会先进画像设置 |
+| `?profile=allergy#/result?case=peanut-cookie` | 花生+牛奶过敏画像 → 红色警示 |
+| `?profile=none#/result?case=plain-milk` | 基准画像 → 绿色结论 |
+| `?reset=1#/result?case=sugar-drink` | 清空当日记录后 → 橙色警示 |
+| `#/help` | 适老化对照表 |
+
+两个参数的用途要说清楚，否则容易被结果绕晕：
+
+| 参数 | 作用 | 为什么需要 |
+| --- | --- | --- |
+| `?profile=allergy` / `plain` / `none` | 预设画像（等同用户自己勾选，会**保存**下来） | 演示不用现场走五步设置 |
+| `?reset=1` | 启动时清空当日记录 | 演示用例的结论依赖「今天吃了多少」，不清空的话同一个用例第二次打开等级会变 |
+
+⚠️ `?profile=` 会**持久保存**。设成 `allergy`（花生+牛奶过敏）之后再打开纯牛奶，
+它会正确地判成红色——这是引擎应有的行为，不是 bug。
+想回到基准画像就加 `?profile=none`。
 
 更多参数见 [tools/README.md](tools/README.md)。
 
@@ -332,6 +344,9 @@ python tools/check-standalone.py
 python tools/prepare-pages.py
 python tools/check-standalone.py --pages
 
+# 线上站点真实浏览器校验（需要已发布到 GitHub Pages）
+python tools/check-live-site.py
+
 # 对比度实测（可选：重新生成报告文件）
 node tools/contrast-check.mjs
 node tools/contrast-check.mjs --emit src/data/contrast-report.js
@@ -356,6 +371,7 @@ await FoodLensCare.selfTest();   // 输出表格 + 通过/失败汇总
 | 交互回归（真实点击驱动） | **13 / 13 通过** |
 | 单文件版 file:// 运行校验 | **7 / 7 页面通过** |
 | Pages 入口（docs/index.html）运行校验 | **7 / 7 页面通过** |
+| 线上站点真实浏览器校验 | **8 / 8 页面通过** |
 | 单文件版与开发版渲染比对 | **逐像素一致（SHA-256 相同）** |
 | 文本对比度（WCAG） | **最低 5.45:1**，全部达 AA 级（≥ 4.5:1），多数达 AAA 级（≥ 7:1） |
 | 运行截图裁切检查 | 右边缘无非背景像素，无裁切 |

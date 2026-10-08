@@ -95,15 +95,21 @@ python tools/capture-screenshots.py 07          # 只截文件名以 07 开头�
 | --- | --- | --- |
 | `?profile=allergy` | 问号参数（在 `#` 之前） | 预设画像：花生 + 牛奶过敏、控糖控盐 |
 | `?profile=plain` | 同上 | 预设画像：无过敏、仅留意血压 |
+| `?profile=none` | 同上 | 基准画像：什么都不设，用于看「纯绿色」结论 |
+| `?reset=1` | 同上 | 启动时清空当日记录，让演示用例可重复 |
 | `?mock=low` | 同上 | 模拟识别返回低置信度结果，走灰色补拍链路 |
 | `?mock=high` | 同上 | 模拟识别返回高置信度结果 |
 | `#/result?case=<id>` | hash 路由 | 直接打开某个内置演示用例的结果页 |
 | `#/settings`、`#/help` … | hash 路由 | 直接打开指定页面 |
 
+⚠️ `?profile=` **会保存到本地画像**。设成 `allergy` 之后再打开纯牛奶会正确地判成红色
+（对乳制品过敏），这不是 bug；想回到基准画像要显式加 `?profile=none`。
+自动化检查就因为没注意这一点误报过一次。
+
 组合示例（一条链接直接进入「花生过敏 + 红色结论」画面）：
 
 ```
-http://127.0.0.1:5173/index.html?profile=allergy#/result?case=peanut-cookie
+https://metal783.github.io/foodlenscare/?profile=allergy&reset=1#/result?case=peanut-cookie
 ```
 
 用例 id 见 `src/data/sample-labels.js`：`peanut-cookie`、`sugar-drink`、

@@ -1,7 +1,0 @@
-chore: 增加一键推送脚本与 Pages 说明
-
-tools/push-to-github.py：
-- 推送前先探一次 GitHub 仓库是否存在，把「仓库没建」这种话说清楚，
-  而不是甩一大段 git remote 拒绝信息
-- 顺带检查工作区是否干净、remote 是否已配置
-- 支持 --dry-run 只看要做什么，以及 --repo 指定其他仓库名

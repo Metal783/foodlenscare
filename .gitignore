@@ -21,6 +21,8 @@ _qa/*.raw.png
 _qa/_*.html
 _qa/_sandbox/
 _qa/_sbx*/
+_qa/_msg*.txt
+_qa/_commitmsg.txt
 
 # ---- 本地接口密钥 ----
 # src/recognize/config.js 里可以填真实的 AK/SK。

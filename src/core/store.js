@@ -145,6 +145,20 @@ export function removeRecord(id) {
   return records;
 }
 
+/**
+ * 清空全部记录。
+ *
+ * 两个用途：
+ *  1. 设置页里的「清空今天的记录」，让用户能自己把当天记录归零；
+ *  2. 配合 URL 参数 ?reset=1，让同一套演示用例可以反复演示——
+ *     否则第二次打开演示用例时，当日额度已经被上一次吃掉了，
+ *     同一个商品会给出不同的结论，答辩现场很难解释。
+ */
+export function clearRecords() {
+  saveRecords([]);
+  return [];
+}
+
 export function recordsOfToday(records = loadRecords()) {
   const today = localDateKey();
   return records.filter((r) => localDateKey(new Date(r.at)) === today);

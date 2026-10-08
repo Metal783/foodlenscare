@@ -13,7 +13,7 @@
  */
 
 import { define, setNotFound, setView, init, navigate, back } from './core/router.js';
-import { loadProfile, saveProfile, loadPrefs, savePrefs } from './core/store.js';
+import { loadProfile, saveProfile, loadPrefs, savePrefs, clearRecords } from './core/store.js';
 import * as speech from './core/speech.js';
 import { pickPhoto, processDemoCase } from './core/flow.js';
 import { renderOnboarding } from './pages/onboarding.js';
@@ -80,6 +80,24 @@ function applyProfileFromUrl() {
   if (!next) return;
   state.profile = { ...next };
   saveProfile(state.profile);
+}
+
+/**
+ * URL 参数 ?reset=1：先把当日记录清空。
+ *
+ * 为什么需要：演示用例的结论依赖「今天已经吃了多少」。同一个演示用例
+ * 第二次打开时，额度已被上一次扣减，牛奶可能从绿色变成橙色——引擎没错，
+ * 但答辩现场很难解释。加上这个参数就能反复演示同一套用例。
+ */
+function applyResetFromUrl() {
+  let shouldReset = false;
+  try {
+    shouldReset = new URLSearchParams(window.location.search).get('reset') === '1';
+  } catch {
+    return false;
+  }
+  if (shouldReset) clearRecords();
+  return shouldReset;
 }
 
 /* -------------------------------------------------------------- 上下文 */
@@ -152,7 +170,8 @@ function hideSpeakerUnless(keep) {
 /* ---------------------------------------------------------------- 启动 */
 
 function boot() {
-  // URL 参数可以预设画像（演示与自动化用），必须在挂路由之前处理
+  // URL 参数可以预设画像与清空当日记录（演示与自动化用），必须在挂路由之前处理
+  applyResetFromUrl();
   applyProfileFromUrl();
 
   // 全站字号由 <html data-text-size> 驱动，rem 自动缩放

@@ -10,7 +10,9 @@ import { h, button, topbar, toast, fill } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { RISK_LEVELS } from '../core/rules.js';
 import { DAILY_LIMITS } from '../data/nutrition.js';
-import { loadRecords, removeRecord, recordsOfToday, todayTotals, localDateKey } from '../core/store.js';
+import {
+  loadRecords, removeRecord, clearRecords, recordsOfToday, todayTotals, localDateKey
+} from '../core/store.js';
 import * as speech from '../core/speech.js';
 
 const NUTRIENT_TITLE = { sodium: '盐（钠）', sugar: '糖', saturatedFat: '油（饱和脂肪）' };
@@ -21,12 +23,10 @@ const NUTRIENT_TITLE = { sodium: '盐（钠）', sugar: '糖', saturatedFat: '�
  * @param {import('../core/router.js').RouteContext} ctx
  */
 export function renderRecords(view, _params, ctx) {
-  const records = loadRecords();
-  const today = recordsOfToday(records);
-  const totals = todayTotals(records);
-
+  // 每次重绘都重新读一遍存储：删掉一条记录或清空之后，额度条要立刻跟着变
   const draw = () => {
-    const list = recordsOfToday(loadRecords()).slice().reverse();
+    const fresh = loadRecords();
+    const list = recordsOfToday(fresh).slice().reverse();
     fill(view, [
       topbar({
         title: '今天的记录',
@@ -36,8 +36,11 @@ export function renderRecords(view, _params, ctx) {
       }),
 
       h('section', { class: 'card' }, [
-        h('h3', { class: 'card-title', text: today.length ? `今天一共看了 ${today.length} 件` : '今天还没有记录' }),
-        ...meterRows(todayTotals()),
+        h('h3', {
+          class: 'card-title',
+          text: list.length ? `今天一共看了 ${list.length} 件` : '今天还没有记录'
+        }),
+        ...meterRows(todayTotals(fresh)),
         h('p', {
           class: 'footnote',
           text: '额度按 60 岁以上人群的建议上限自动扣减，只做提醒，不是医嘱。'
@@ -59,7 +62,21 @@ export function renderRecords(view, _params, ctx) {
         onClick: () => ctx.navigate('home', {}, { replace: true })
       }),
 
-      olderGroup(records)
+      // 撤销始终可用：记录也是可以清掉的，不让用户担心「记错了删不掉」
+      fresh.length
+        ? button({
+            label: '把记录全部清空',
+            variant: 'ghost',
+            block: true,
+            onClick: () => {
+              clearRecords();
+              toast('记录已经清空了，额度也一起归零。');
+              draw();
+            }
+          })
+        : null,
+
+      olderGroup(fresh)
     ]);
   };
 

@@ -21,10 +21,10 @@
   食护家 FoodLensCare · 食品标签初版 · 单文件版
   2026 年第十四届全国大学生数字媒体科技作品及创意竞赛 · 自主选题类 · 移动与网络应用开发
 
-  这是「双击就能打开」的独立版本：31 个源模块、约 199 KB 业务代码
+  这是「双击就能打开」的独立版本：31 个源模块、约 200 KB 业务代码
   全部内联在这一个文件里，不需要服务器、不需要联网、不需要安装任何环境。
 
-  生成时间：2026-10-08 08:48:43
+  生成时间：2026-10-08 09:09:33
   生成方式：node tools/bundle-standalone.mjs
   对应源码：index.html + src/（多文件开发版，二者页面结构与样式完全一致）
 
@@ -709,7 +709,7 @@ details.basis[open] > summary::after { content: '▴'; }
 
 <script>
 /* 启动守卫：万一某个模块出错，不能让老人对着白屏——先给一句人话，再给一行诊断信息。 */
-window.__FLC_BOOT__ = { ok: false, at: "2026-10-08 08:48:43" };
+window.__FLC_BOOT__ = { ok: false, at: "2026-10-08 09:09:33" };
 window.addEventListener('error', function (event) {
   if (window.__FLC_BOOT__.ok) return;
   var view = document.getElementById('view');
@@ -1045,6 +1045,20 @@ window.addEventListener('error', function (event) {
         return records;
       }
 
+   
+          
+  
+        
+                                    
+                                          
+                                  
+                              
+   
+      function clearRecords() {
+        saveRecords([]);
+        return [];
+      }
+
       function recordsOfToday(records = loadRecords()) {
         const today = localDateKey();
         return records.filter((r) => localDateKey(new Date(r.at)) === today);
@@ -1093,6 +1107,7 @@ window.addEventListener('error', function (event) {
     __exports.pruneRecords = pruneRecords;
     __exports.addRecord = addRecord;
     __exports.removeRecord = removeRecord;
+    __exports.clearRecords = clearRecords;
     __exports.recordsOfToday = recordsOfToday;
     __exports.todayTotals = todayTotals;
     __exports.scaleNutrients = scaleNutrients;
@@ -5760,7 +5775,7 @@ window.addEventListener('error', function (event) {
       /* import ../ui/icons.js */ const { icon } = __require("src/ui/icons.js");
       /* import ../core/rules.js */ const { RISK_LEVELS } = __require("src/core/rules.js");
       /* import ../data/nutrition.js */ const { DAILY_LIMITS } = __require("src/data/nutrition.js");
-      /* import ../core/store.js */ const { loadRecords, removeRecord, recordsOfToday, todayTotals, localDateKey } = __require("src/core/store.js");
+      /* import ../core/store.js */ const { loadRecords, removeRecord, clearRecords, recordsOfToday, todayTotals, localDateKey } = __require("src/core/store.js");
       /* import ../core/speech.js */ const speech = __require("src/core/speech.js");
 
       const NUTRIENT_TITLE = { sodium: '盐（钠）', sugar: '糖', saturatedFat: '油（饱和脂肪）' };
@@ -5771,12 +5786,10 @@ window.addEventListener('error', function (event) {
                                                          
    
       function renderRecords(view, _params, ctx) {
-        const records = loadRecords();
-        const today = recordsOfToday(records);
-        const totals = todayTotals(records);
-
+                                        
         const draw = () => {
-          const list = recordsOfToday(loadRecords()).slice().reverse();
+          const fresh = loadRecords();
+          const list = recordsOfToday(fresh).slice().reverse();
           fill(view, [
             topbar({
               title: '今天的记录',
@@ -5786,8 +5799,11 @@ window.addEventListener('error', function (event) {
             }),
 
             h('section', { class: 'card' }, [
-              h('h3', { class: 'card-title', text: today.length ? `今天一共看了 ${today.length} 件` : '今天还没有记录' }),
-              ...meterRows(todayTotals()),
+              h('h3', {
+                class: 'card-title',
+                text: list.length ? `今天一共看了 ${list.length} 件` : '今天还没有记录'
+              }),
+              ...meterRows(todayTotals(fresh)),
               h('p', {
                 class: 'footnote',
                 text: '额度按 60 岁以上人群的建议上限自动扣减，只做提醒，不是医嘱。'
@@ -5809,7 +5825,21 @@ window.addEventListener('error', function (event) {
               onClick: () => ctx.navigate('home', {}, { replace: true })
             }),
 
-            olderGroup(records)
+                                         
+            fresh.length
+              ? button({
+                  label: '把记录全部清空',
+                  variant: 'ghost',
+                  block: true,
+                  onClick: () => {
+                    clearRecords();
+                    toast('记录已经清空了，额度也一起归零。');
+                    draw();
+                  }
+                })
+              : null,
+
+            olderGroup(fresh)
           ]);
         };
 
@@ -6399,7 +6429,7 @@ window.addEventListener('error', function (event) {
    
 
       /* import ./core/router.js */ const { define, setNotFound, setView, init, navigate, back } = __require("src/core/router.js");
-      /* import ./core/store.js */ const { loadProfile, saveProfile, loadPrefs, savePrefs } = __require("src/core/store.js");
+      /* import ./core/store.js */ const { loadProfile, saveProfile, loadPrefs, savePrefs, clearRecords } = __require("src/core/store.js");
       /* import ./core/speech.js */ const speech = __require("src/core/speech.js");
       /* import ./core/flow.js */ const { pickPhoto, processDemoCase } = __require("src/core/flow.js");
       /* import ./pages/onboarding.js */ const { renderOnboarding } = __require("src/pages/onboarding.js");
@@ -6466,6 +6496,24 @@ window.addEventListener('error', function (event) {
         if (!next) return;
         state.profile = { ...next };
         saveProfile(state.profile);
+      }
+
+   
+                            
+  
+                                    
+                                      
+                               
+   
+      function applyResetFromUrl() {
+        let shouldReset = false;
+        try {
+          shouldReset = new URLSearchParams(window.location.search).get('reset') === '1';
+        } catch {
+          return false;
+        }
+        if (shouldReset) clearRecords();
+        return shouldReset;
       }
 
                                                                         
@@ -6538,7 +6586,8 @@ window.addEventListener('error', function (event) {
                                                                          
 
       function boot() {
-                                     
+                                            
+        applyResetFromUrl();
         applyProfileFromUrl();
 
                                             

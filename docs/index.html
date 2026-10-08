@@ -21,10 +21,10 @@
   食护家 FoodLensCare · 食品标签初版 · 单文件版
   2026 年第十四届全国大学生数字媒体科技作品及创意竞赛 · 自主选题类 · 移动与网络应用开发
 
-  这是「双击就能打开」的独立版本：31 个源模块、约 200 KB 业务代码
+  这是「双击就能打开」的独立版本：31 个源模块、约 201 KB 业务代码
   全部内联在这一个文件里，不需要服务器、不需要联网、不需要安装任何环境。
 
-  生成时间：2026-10-08 09:09:33
+  生成时间：2026-10-08 09:15:04
   生成方式：node tools/bundle-standalone.mjs
   对应源码：index.html + src/（多文件开发版，二者页面结构与样式完全一致）
 
@@ -709,7 +709,7 @@ details.basis[open] > summary::after { content: '▴'; }
 
 <script>
 /* 启动守卫：万一某个模块出错，不能让老人对着白屏——先给一句人话，再给一行诊断信息。 */
-window.__FLC_BOOT__ = { ok: false, at: "2026-10-08 09:09:33" };
+window.__FLC_BOOT__ = { ok: false, at: "2026-10-08 09:15:04" };
 window.addEventListener('error', function (event) {
   if (window.__FLC_BOOT__.ok) return;
   var view = document.getElementById('view');
@@ -6458,12 +6458,15 @@ window.addEventListener('error', function (event) {
       };
 
    
-                                               
+                                                               
   
-                                        
+                                   
                          
                   
                                   
+  
+                                             
+                                        
    
       function applyProfileFromUrl() {
         let preset = null;
@@ -6475,6 +6478,7 @@ window.addEventListener('error', function (event) {
         if (!preset) return;
 
         const PRESETS = {
+                               
           allergy: {
             completed: true,
             ageGroup: 'age70',
@@ -6483,12 +6487,22 @@ window.addEventListener('error', function (event) {
             conditions: [],
             voiceOn: true
           },
+                               
           plain: {
             completed: true,
             ageGroup: 'age70',
             concerns: ['salt'],
             allergens: [],
             conditions: ['hypertension'],
+            voiceOn: true
+          },
+                          
+          none: {
+            completed: true,
+            ageGroup: 'age70',
+            concerns: [],
+            allergens: [],
+            conditions: [],
             voiceOn: true
           }
         };

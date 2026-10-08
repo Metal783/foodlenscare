@@ -19,15 +19,22 @@ EDGE = Path(r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe')
 CHECKS = [
     # 注意：整轮共用一个浏览器 profile，所以第一条会先落到「画像设置」页（首访）。
     #
-    # 每条带演示用例的地址都加 ?reset=1：演示用例的结论依赖「今天已经吃了多少」，
-    # 不清空的话第二次打开同一个用例会得到不同等级（牛奶第二次会从绿色变橙色）。
-    # 这不是 bug，是当日额度在起作用，但演示需要可重复，所以显式重置。
+    # 两条与「状态」有关的约定，都是被真实失败教会的：
+    #  1. ?reset=1：演示用例的结论依赖「今天已经吃了多少」。不清空的话，
+    #     第二次打开同一个用例会得到不同等级——引擎没错，但演示需要可重复。
+    #  2. ?profile=...：预设画像会**保存**下来。红色用例把画像设成
+    #     「花生 + 牛奶过敏」之后，纯牛奶就会正确地判成红色，
+    #     所以绿色用例必须显式声明 ?profile=none 才能回到基准画像。
     ('首访进入画像设置', '', ['先认识一下您', '您今年多大岁数']),
     ('画像设置可继续', '#/onboarding', ['您今年多大岁数', '下一步']),
-    ('结果页：红色（花生过敏）', '?profile=allergy&reset=1#/result?case=peanut-cookie', ['红色', '别吃', '花生']),
-    ('结果页：橙色（糖超标）', '?reset=1#/result?case=sugar-drink', ['要当心', '这个太甜了']),
-    ('结果页：灰色（看不清）', '?reset=1#/result?case=blurry-photo', ['看不清', '能再拍一张吗']),
-    ('结果页：绿色（无冲突）', '?reset=1#/result?case=plain-milk', ['可以吃']),
+    ('结果页：红色（花生过敏）',
+     '?profile=allergy&reset=1#/result?case=peanut-cookie', ['红色', '别吃', '花生']),
+    ('结果页：橙色（糖超标）',
+     '?profile=none&reset=1#/result?case=sugar-drink', ['要当心', '这个太甜了']),
+    ('结果页：灰色（看不清）',
+     '?profile=none&reset=1#/result?case=blurry-photo', ['看不清', '能再拍一张吗']),
+    ('结果页：绿色（无冲突）',
+     '?profile=none&reset=1#/result?case=plain-milk', ['可以吃']),
     ('适老化自检页', '#/help', ['适老化对照表', '对比度']),
     ('今日记录', '#/records', ['今天的记录', '额度']),
     ('设置', '#/settings', ['字要大一点', '语音播报']),

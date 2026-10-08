@@ -42,12 +42,15 @@ const state = {
 };
 
 /**
- * URL 参数预设画像：?profile=allergy / ?profile=plain
+ * URL 参数预设画像：?profile=allergy / ?profile=plain / ?profile=none
  *
- * 用途一：答辩演示时一条链接直接进入「花生过敏」的画像，不必现场走五步设置；
+ * 用途一：答辩演示时一条链接直接进入指定画像，不必现场走五步设置；
  * 用途二：录制演示视频时反复定位到同一个画面；
  * 用途三：自动化截图与回归检查。
  * 效果等同于用户自己在画像设置里勾选，写入的也是真实的本地画像。
+ *
+ * 注意：它会**覆盖并保存**本地画像，所以用了 allergy 之后再打开别的用例，
+ * 过敏设置仍然生效。想回到「什么都不过敏」就用 ?profile=none。
  */
 function applyProfileFromUrl() {
   let preset = null;
@@ -59,6 +62,7 @@ function applyProfileFromUrl() {
   if (!preset) return;
 
   const PRESETS = {
+    // 花生 + 牛奶过敏，控糖控盐：用来看「红色警示」
     allergy: {
       completed: true,
       ageGroup: 'age70',
@@ -67,12 +71,22 @@ function applyProfileFromUrl() {
       conditions: [],
       voiceOn: true
     },
+    // 无过敏、只留意血压：用来看同一件食品换个人的结论
     plain: {
       completed: true,
       ageGroup: 'age70',
       concerns: ['salt'],
       allergens: [],
       conditions: ['hypertension'],
+      voiceOn: true
+    },
+    // 什么都不设：用来看「纯绿色」的基准结论
+    none: {
+      completed: true,
+      ageGroup: 'age70',
+      concerns: [],
+      allergens: [],
+      conditions: [],
       voiceOn: true
     }
   };

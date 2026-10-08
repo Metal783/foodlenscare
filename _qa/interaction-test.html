@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-text-size="large">
+<head>
+<meta charset="utf-8" />
+<title>交互回归测试 · 食护家 FoodLensCare</title>
+<!--
+  这个文件不是应用的一部分，只是 tools/check-interaction.py 用的测试载体。
+  它直接复用 src/ 下的全部源码（因此永远和被测代码同源、同步），
+  在页面里用真实 DOM 事件驱动按钮，再把结果写进 <pre id="probe"> 供 dump-dom 读取。
+
+  为什么不用 iframe：iframe 的 load 事件与模块求值顺序会相互竞争，
+  偶尔会在应用挂载前就开测，导致测试自己偶发失败。
+-->
+<link rel="stylesheet" href="/src/styles/tokens.css" />
+<link rel="stylesheet" href="/src/styles/app.css" />
+<style>
+  #probe {
+    position: fixed; left: 0; top: 0; right: 0; bottom: 0;
+    margin: 0; padding: 10px; overflow: auto;
+    background: #fff; color: #16202B;
+    font: 13px/1.55 monospace; white-space: pre-wrap; z-index: 9999;
+  }
+</style>
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <main id="view" class="view" role="main" aria-live="polite"></main>
+  </div>
+
+  <div id="speaker" class="speaker-bar" hidden>
+    <button id="speaker-btn" class="btn btn-speak" type="button" aria-label="重新朗读结论">
+      <span aria-hidden="true">🔊</span>
+      <span>再念一遍</span>
+    </button>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="assertive" hidden></div>
+  <div id="aria-live" class="sr-only" aria-live="assertive"></div>
+
+  <pre id="probe">pending</pre>
+
+  <!-- 先挂错误捕获，避免脚本自身抛错时一片沉默 -->
+  <script>
+    window.__errors = [];
+    window.addEventListener('error', (e) => {
+      window.__errors.push('ERROR: ' + e.message + ' @ ' + (e.filename || '') + ':' + (e.lineno || ''));
+      const p = document.getElementById('probe');
+      if (p) p.textContent = window.__errors.join('\n');
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+      window.__errors.push('REJECT: ' + ((e.reason && (e.reason.stack || e.reason.message)) || e.reason));
+      const p = document.getElementById('probe');
+      if (p) p.textContent = window.__errors.join('\n');
+    });
+  </script>
+
+  <script type="module">
+    // 用绝对路径：这个文件在 /_qa/ 下，相对路径 './src/app.js' 会解析成 /_qa/src/app.js
+    import '/src/app.js';
+
+    const out = document.getElementById('probe');
+    const lines = [];
+    let pass = 0;
+    let fail = 0;
+
+    const log = (text) => { lines.push(text); out.textContent = lines.join('\n'); };
+    const ok = (name, detail) => { pass += 1; log('PASS  ' + name + (detail ? '  →  ' + detail : '')); };
+    const bad = (name, detail) => { fail += 1; log('FAIL  ' + name + (detail ? '  →  ' + detail : '')); };
+    const flush = () => {
+      out.textContent = lines.join('\n') + '\n\n小计：通过 ' + pass + '，失败 ' + fail;
+    };
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    async function waitFor(get, timeoutMs = 6000, stepMs = 80) {
+      const deadline = Date.now() + timeoutMs;
+      for (;;) {
+        const value = get();
+        if (value) return value;
+        if (Date.now() > deadline) return null;
+        await wait(stepMs);
+      }
+    }
+
+    const view = document.getElementById('view');
+    const viewText = () => view.textContent || '';
+    const findButton = (text) =>
+      [...view.querySelectorAll('button')].find((b) => (b.textContent || '').includes(text));
+
+    /** 走完整的 pointer / mouse / click 事件链，尽量接近真实点击 */
+    function tap(el) {
+      const opts = { bubbles: true, cancelable: true, composed: true, view: window };
+      el.dispatchEvent(new PointerEvent('pointerdown', opts));
+      el.dispatchEvent(new MouseEvent('mousedown', opts));
+      el.dispatchEvent(new PointerEvent('pointerup', opts));
+      el.dispatchEvent(new MouseEvent('mouseup', opts));
+      el.dispatchEvent(new MouseEvent('click', opts));
+    }
+
+    function pickFile(input) {
+      const file = new File([new Uint8Array([1, 2, 3, 4, 5])], 'test-label.jpg', { type: 'image/jpeg' });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    (async () => {
+      try {
+        const app = await waitFor(() => window.FoodLensCare);
+        if (!app) {
+          bad('应用启动', 'FoodLensCare 未挂到 window 上');
+          flush();
+          return;
+        }
+        ok('应用启动', 'profile.completed=' + app.state.profile.completed);
+
+        /* 每次测试都从首页开始，并把上一轮可能残留的状态清掉 */
+        app.state.pendingFile = null;
+        app.state.progressPhoto = null;
+        app.state.result = null;
+        location.hash = '#/home';
+        await wait(500);
+
+        /* ---- 1. 「设置」按钮 ---- */
+        const settingsBtn = findButton('设置');
+        if (!settingsBtn) {
+          bad('首页找到「设置」按钮', '没找到');
+        } else {
+          tap(settingsBtn);
+          await waitFor(() => viewText().includes('字要大一点'), 3000);
+          if (location.hash.includes('settings') && viewText().includes('字要大一点')) {
+            ok('点「设置」→ 进入设置页', location.hash);
+          } else {
+            bad('点「设置」→ 进入设置页', 'hash=' + location.hash);
+          }
+        }
+
+        /* ---- 2. 「返回」按钮 ---- */
+        const backBtn = findButton('返回');
+        if (backBtn) {
+          tap(backBtn);
+          await waitFor(() => viewText().includes('拍一张照片'), 3000);
+          if (viewText().includes('拍一张照片')) {
+            ok('点「返回」→ 回到首页');
+          } else {
+            bad('点「返回」→ 回到首页', 'hash=' + location.hash);
+          }
+        } else {
+          bad('设置页找到「返回」按钮', '没找到');
+        }
+
+        /* ---- 3. 演示用例 → 结果页 ---- */
+        const demoBtn = findButton('含花生的饼干');
+        if (!demoBtn) {
+          bad('首页找到演示用例按钮', '没找到');
+        } else {
+          tap(demoBtn);
+          const level = await waitFor(() => document.querySelector('[data-level]'), 4000);
+          if (level) {
+            ok('点演示用例 → 出结果页', '等级=' + level.dataset.level);
+          } else {
+            bad('点演示用例 → 出结果页', 'hash=' + location.hash + ' 页面=' + viewText().slice(0, 80));
+          }
+        }
+
+        /* ---- 4. 结果页的「依据」可展开、语音条出现 ---- */
+        const details = document.querySelector('details.basis');
+        if (details) {
+          details.open = true;
+          if (details.querySelector('.basis-list').children.length > 0) {
+            ok('结果页「依据在哪」可展开且有条目');
+          } else {
+            bad('结果页「依据在哪」有内容', '展开后是空的');
+          }
+        } else {
+          bad('结果页有「依据在哪」区块', '没找到 details.basis');
+        }
+        const bar = document.getElementById('speaker');
+        if (bar && !bar.hasAttribute('hidden')) {
+          ok('结果页「再念一遍」可点');
+        } else {
+          bad('结果页「再念一遍」可用', '语音条仍是隐藏的');
+        }
+
+        /* ---- 5. pickPhoto 不会被超时逻辑提前判成「取消」 ---- */
+        location.hash = '#/home';
+        await waitFor(() => viewText().includes('拍一张照片'), 3000);
+        const pickPhoto = app.debug.pickPhoto;
+        let resolved = null;
+        let settled = false;
+        pickPhoto('album').then((file) => { resolved = file; settled = true; });
+        await wait(2600);
+        if (!settled) {
+          ok('选照片过程中不会被提前判成「取消」', '等待 2.6 秒仍未 settle');
+        } else {
+          bad('选照片过程中不会被提前判成「取消」', '被提前 settle 成 ' + String(resolved));
+        }
+        // 收尾，避免这条悬挂的 Promise 影响后面的用例
+        const hangingInput = document.querySelector('input[type=file]');
+        if (hangingInput) hangingInput.dispatchEvent(new Event('cancel', { bubbles: true }));
+        await wait(200);
+
+        /* ---- 6. 真实路径：点「从相册里选一张」→ 选照片 → 确认页 ---- */
+        const albumBtn = findButton('从相册里选一张');
+        if (!albumBtn) {
+          bad('首页找到「从相册里选一张」按钮', '没找到');
+        } else {
+          tap(albumBtn);
+          const input = await waitFor(() => document.querySelector('input[type=file]'), 2000);
+          if (!input) {
+            bad('点相册按钮 → 生成文件选择控件', '没有 input[type=file]');
+          } else {
+            ok('点相册按钮 → 生成文件选择控件');
+            pickFile(input);
+            const reached = await waitFor(() => viewText().includes('这张拍得清楚吗'), 3000);
+            if (reached) {
+              ok('选完照片 → 进入确认页');
+            } else {
+              bad(
+                '选完照片 → 进入确认页',
+                'hash=' + location.hash + ' | 有 pendingFile=' + Boolean(app.state.pendingFile) +
+                  ' | 页面=' + JSON.stringify(viewText().slice(0, 140))
+              );
+            }
+          }
+        }
+
+        /* ---- 7. 取消选择要有明确提示 ---- */
+        location.hash = '#/home';
+        await waitFor(() => viewText().includes('拍一张照片'), 3000);
+        const albumBtn2 = findButton('从相册里选一张');
+        if (albumBtn2) {
+          tap(albumBtn2);
+          const input2 = await waitFor(() => document.querySelector('input[type=file]'), 2000);
+          if (input2) {
+            input2.dispatchEvent(new Event('cancel', { bubbles: true }));
+            await wait(400);
+            const toastText = document.getElementById('toast').textContent;
+            if (toastText.includes('没有选照片')) {
+              ok('取消选择 → 给出提示', toastText);
+            } else {
+              bad('取消选择 → 给出提示', 'toast=' + JSON.stringify(toastText));
+            }
+            if (viewText().includes('拍一张照片')) {
+              ok('取消选择 → 留在首页');
+            } else {
+              bad('取消选择 → 留在首页', 'hash=' + location.hash);
+            }
+          } else {
+            bad('取消选择测试', '没找到文件选择控件');
+          }
+        } else {
+          bad('取消选择测试', '没找到相册按钮');
+        }
+
+        /* ---- 8. 不能有 null 文本漏到页面上 ---- */
+        for (const route of ['/home', '/onboarding', '/records', '/settings', '/help']) {
+          location.hash = '#' + route;
+          await wait(350);
+          if (viewText().includes('null')) {
+            bad('页面不出现 null 文本', route);
+          }
+        }
+        ok('各页面都不出现 null 文本');
+
+        /* ---- 9. 每个页面都能正常渲染（没有「页面出了点问题」） ---- */
+        const crashRoutes = [];
+        for (const route of ['/home', '/onboarding', '/records', '/settings', '/help',
+                             '/result?case=peanut-cookie', '/result?case=sugar-drink',
+                             '/result?case=blurry-photo', '/result?case=plain-milk',
+                             '/result?case=spinach-noodle', '/result?case=sausage']) {
+          location.hash = '#' + route;
+          await wait(route.startsWith('/result') ? 800 : 300);
+          if (viewText().includes('页面出了点问题')) {
+            crashRoutes.push(route + ' → ' + viewText().replace(/\s+/g, ' ').slice(0, 100));
+          }
+        }
+        if (crashRoutes.length) {
+          bad('全部页面可渲染', crashRoutes.join(' ;; '));
+        } else {
+          ok('全部页面可渲染', '11 个页面 / 用例无报错');
+        }
+      } catch (error) {
+        bad('测试执行', (error && error.stack) || String(error));
+      }
+      flush();
+    })();
+  </script>
+</body>
+</html>

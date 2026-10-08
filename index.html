@@ -1,0 +1,43 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN" data-text-size="large">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=3" />
+<meta name="theme-color" content="#0F4C81" />
+<meta name="description" content="食护家 FoodLensCare —— 面向老年家庭的食品标签智能解读工具。拍一张照片，用一句听得懂的话告诉您这个能不能吃。" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="format-detection" content="telephone=no" />
+<title>食护家 FoodLensCare</title>
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="icon" href="./assets/icons/icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="./assets/icons/icon.svg" />
+<link rel="stylesheet" href="./src/styles/tokens.css" />
+<link rel="stylesheet" href="./src/styles/app.css" />
+</head>
+<body>
+  <!-- 全局：无广告、无弹窗、无诱导按键；每屏只呈现一个动作 -->
+  <div id="app" class="app-shell">
+    <main id="view" class="view" role="main" aria-live="polite"></main>
+  </div>
+
+  <!-- 全局语音播报控制条：任何页面都能一键重听，无需寻找入口 -->
+  <div id="speaker" class="speaker-bar" hidden>
+    <button id="speaker-btn" class="btn btn-speak" type="button" aria-label="重新朗读结论">
+      <span class="btn-icon" aria-hidden="true">🔊</span>
+      <span>再念一遍</span>
+    </button>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="assertive" hidden></div>
+  <div id="aria-live" class="sr-only" aria-live="assertive"></div>
+
+  <noscript>
+    <p style="padding:24px;font-size:22px;line-height:1.6">
+      本应用需要开启浏览器 JavaScript 才能运行。请在手机浏览器的设置中开启 JavaScript 后重新打开本页面。
+    </p>
+  </noscript>
+
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>

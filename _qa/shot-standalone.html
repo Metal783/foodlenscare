@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>单文件版截图台</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #FFFFFF; }
+  /* 固定 390×844（iPhone 14 逻辑分辨率）：应用在 iframe 内以真实手机宽度排版 */
+  iframe { display: block; width: 390px; height: 844px; border: 0; margin: 0; }
+</style>
+</head>
+<body>
+<iframe id="frame" src="../FoodLensCare-standalone.html#/home"></iframe>
+<script>
+  // 通过 ?to=<hash路由> 指定页面；?profile= 预设画像
+  // 注意是 ../：单文件躺在仓库根目录，这个页面在 _qa/ 下
+  const params = new URLSearchParams(location.search);
+  const to = params.get('to') || '/home';
+  const preset = params.get('profile');
+  const qs = '?v=' + Date.now() + (preset ? '&profile=' + preset : '');
+  document.getElementById('frame').src =
+    '../FoodLensCare-standalone.html' + qs + '#' + to;
+</script>
+</body>
+</html>

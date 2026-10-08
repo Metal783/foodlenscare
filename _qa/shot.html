@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>截图台</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #FFFFFF; }
+  /* 固定 390×844（iPhone 14 逻辑分辨率），应用在 iframe 内以真实手机宽度排版 */
+  iframe { display: block; width: 390px; height: 844px; border: 0; margin: 0; }
+</style>
+</head>
+<body>
+<iframe id="frame" src="/index.html#/home"></iframe>
+<pre id="err" style="color:#c00;font:14px/1.4 monospace;white-space:pre-wrap"></pre>
+<script>
+  // 通过 ?to=<hash路由> 指定要截的页面；?profile= 预设画像
+  const params = new URLSearchParams(location.search);
+  const to = params.get('to') || '/home';
+  const preset = params.get('profile');
+  // 加时间戳绕开 Service Worker 的 cache-first：截图必须反映当前源码
+  const qs = '?v=' + Date.now() + (preset ? '&profile=' + preset : '');
+  const frame = document.getElementById('frame');
+  const err = document.getElementById('err');
+  frame.addEventListener('load', () => {
+    const w = frame.contentWindow;
+    w.addEventListener('error', (e) => {
+      err.textContent += 'ERROR: ' + e.message + ' @ ' + (e.filename || '') + ':' + (e.lineno || '') + '\n';
+    });
+    w.addEventListener('unhandledrejection', (e) => {
+      err.textContent += 'REJECT: ' + ((e.reason && (e.reason.stack || e.reason.message)) || e.reason) + '\n';
+    });
+  });
+  frame.src = '/index.html' + qs + '#' + to;
+</script>
+</body>
+</html>

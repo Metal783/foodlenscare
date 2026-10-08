@@ -1,0 +1,75 @@
+/* ============================================================
+   食护家 FoodLensCare · 设计令牌
+   依据：工信部《移动互联网应用（APP）适老化通用设计规范》
+   - 无衬线字体；主要文字 ≥ 18dp/pt；最大字体 ≥ 30dp/pt
+   - 行距 ≥ 1.3 倍；段间距 ≥ 行距的 1.3 倍
+   - 文本对比度 ≥ 4.5:1；大字号 ≥ 3:1
+   - 颜色不得作为唯一信息载体（等级同时用颜色+文字+图标+语音）
+   - 主要组件点击区域 ≥ 60×60 dp/pt
+   - 禁止广告、插件、随机弹窗与诱导按键
+
+   尺寸策略（重要）：
+   html 的 font-size 固定在 16px 不动，布局尺寸（1rem = 16px）保持稳定；
+   文字大小由 --fs-scale 单独缩放。若把字号挂到 html font-size 上，
+   全站的 rem 尺寸会跟着一起放大，容器宽度会超出手机屏幕。
+   ============================================================ */
+
+:root {
+  /* ---- 文字缩放系数：由 data-text-size 驱动，只作用于文字 ---- */
+  --fs-scale: 1.25;
+
+  /* ---- 品牌与语义色（均为浅底深字，正文对比度 ≥ 7:1） ---- */
+  --c-brand: #0F4C81;
+  --c-brand-ink: #0A3560;
+  --c-brand-soft: #E8F1FA;
+  --c-ink: #16202B;
+  --c-ink-2: #3A4653;
+  --c-ink-3: #5A6673;
+  --c-line: #C9D3DE;
+  --c-line-soft: #E3E9F0;
+  --c-surface: #FFFFFF;
+  --c-surface-2: #F4F7FA;
+  --c-surface-3: #EAF0F6;
+
+  /* ---- 风险五级：color + label + icon + speech 四重编码 ---- */
+  --c-risk-red: #B3261E;      /* 明确命中过敏成分 */
+  --c-risk-red-soft: #FBE9E7;
+  --c-risk-orange: #9A4A00;   /* 糖/钠显著超出当日剩余额度 */
+  --c-risk-orange-soft: #FDF0E2;
+  --c-risk-yellow: #7A5A00;   /* 一般性营养结构提示 */
+  --c-risk-yellow-soft: #FCF4DC;
+  --c-risk-green: #1B5E3A;    /* 未发现与画像明显冲突 */
+  --c-risk-green-soft: #E6F2EA;
+  --c-risk-gray: #4A5560;     /* 信息不足，请补拍 */
+  --c-risk-gray-soft: #EDF0F3;
+
+  /* ---- 体型（固定尺寸，不随字号变化） ---- */
+  --radius-s: 8px;
+  --radius-m: 14px;
+  --radius-l: 20px;
+  --space-1: 6px;
+  --space-2: 12px;
+  --space-3: 18px;
+  --space-4: 26px;
+  --space-5: 36px;
+
+  --line-height: 1.5;                             /* 行距 1.5 倍 */
+  --para-gap: calc(var(--fs-scale) * 1rem * var(--line-height) * 1.3); /* 段间距 = 行距 × 1.3 */
+
+  /* ---- 点击区域：适老版主要组件 ≥ 60×60 dp/pt，主操作 ≥ 96×96 ---- */
+  --tap-min: 60px;
+  --tap-primary: 96px;
+
+  --shadow-1: 0 1px 2px rgba(16, 32, 48, 0.08), 0 2px 8px rgba(16, 32, 48, 0.06);
+  --shadow-2: 0 4px 16px rgba(16, 32, 48, 0.14);
+  --focus-ring: 0 0 0 4px #FFD34D;
+}
+
+/* 三档字号：正文 20 / 24 / 28.8 px；结论文字为正文 1.6 倍（32 / 38.4 / 46 px） */
+html[data-text-size='large']  { --fs-scale: 1.25; }
+html[data-text-size='xlarge'] { --fs-scale: 1.5; }
+html[data-text-size='huge']   { --fs-scale: 1.8; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "食护家 FoodLensCare",
+  "short_name": "食护家",
+  "description": "拍一张食品包装照片，用一句听得懂的话告诉您这个能不能吃。",
+  "lang": "zh-CN",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4F7FA",
+  "theme_color": "#0F4C81",
+  "icons": [
+    {
+      "src": "./assets/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

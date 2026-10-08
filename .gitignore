@@ -1,0 +1,39 @@
+# 食护家 FoodLensCare · Git 忽略规则
+
+# ---- Python（工具脚本）----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# ---- Node（本项目无依赖，留在这里是防止以后误装）----
+node_modules/
+npm-debug.log*
+pnpm-debug.log*
+
+# ---- 自动化检查的中间产物 ----
+# 截图/探针脚本会在这些位置写临时文件
+_qa/*.out
+_qa/*.err
+_qa/*.raw.png
+_qa/_*.html
+_qa/_sandbox/
+_qa/_sbx*/
+
+# ---- 本地接口密钥 ----
+# src/recognize/config.js 里可以填真实的 AK/SK。
+# 本仓库提交的是「留空版」，请勿把填了密钥的版本推上来；
+# 如果你在本地填了密钥，可以改用下面这行忽略它（但记得另存一份模板）：
+# src/recognize/config.js
+.env
+.env.local
+
+# ---- 编辑器与系统 ----
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+.DS_Store

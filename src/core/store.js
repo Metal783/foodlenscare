@@ -135,7 +135,7 @@ export function addRecord(record) {
     ...record
   };
   records.push(item);
-  saveRecords(records);
+  if (!saveRecords(records)) throw new Error('记录无法保存，请检查浏览器的本地存储权限。');
   return item;
 }
 
@@ -172,6 +172,8 @@ export function recordsOfToday(records = loadRecords()) {
 export function todayTotals(records = loadRecords()) {
   const totals = { sodium: 0, sugar: 0, saturatedFat: 0, fat: 0, count: 0 };
   for (const r of recordsOfToday(records)) {
+    // 旧版扫描记录保留供查看，不作为已确认摄入；演示不计入真实摄入。
+    if (r.consumptionConfirmed !== true || r.origin === 'demo') continue;
     if (!r.nutrients) continue;
     totals.count += 1;
     for (const key of ['sodium', 'sugar', 'saturatedFat', 'fat']) {
@@ -188,7 +190,7 @@ export function scaleNutrients(per100g, grams) {
   if (!Number.isFinite(g) || g <= 0) return null;
   const out = {};
   for (const [key, value] of Object.entries(per100g || {})) {
-    const v = Number(value);
+    const v = value == null || String(value).trim() === '' ? NaN : Number(value);
     out[key] = Number.isFinite(v) ? Math.round(v * g) / 100 : null;  }
   return out;
 }

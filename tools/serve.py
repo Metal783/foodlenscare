@@ -22,6 +22,7 @@ import http.server
 import socket
 import socketserver
 import sys
+from urllib.parse import unquote, urlsplit
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -31,6 +32,7 @@ ROOT = Path(__file__).resolve().parent.parent
 EXTRA_TYPES = {
     '.js': 'text/javascript; charset=utf-8',
     '.mjs': 'text/javascript; charset=utf-8',
+    '.wasm': 'application/wasm',
     '.css': 'text/css; charset=utf-8',
     '.html': 'text/html; charset=utf-8',
     '.json': 'application/json; charset=utf-8',
@@ -79,6 +81,27 @@ class Server(socketserver.ThreadingTCPServer):
     daemon_threads = True
 
 
+class MobileHandler(Handler):
+    """手机试用仅公开运行页面与固定 OCR 资源，不公开项目目录。"""
+    ALLOWED = {
+        '/', '/index.html', '/sw.js',
+        '/assets/ocr/tesseract.min.js', '/assets/ocr/worker.min.js',
+        '/assets/ocr/tesseract-core-lstm.wasm.js',
+        '/assets/ocr/tesseract-core-lstm.wasm',
+        '/assets/ocr/chi_sim.traineddata.gz'
+    }
+
+    def __init__(self, *args, **kwargs):
+        http.server.SimpleHTTPRequestHandler.__init__(self, *args, directory=str(ROOT / 'docs'), **kwargs)
+
+    def send_head(self):
+        requested = unquote(urlsplit(self.path).path)
+        if requested not in self.ALLOWED:
+            self.send_error(404, 'Not found')
+            return None
+        return super().send_head()
+
+
 def local_ip() -> str:
     """取本机在局域网中的地址（不会真的发包）。"""
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -110,6 +133,7 @@ def main() -> int:
     parser.add_argument('--port', type=int, default=5173, help='监听端口，默认 5173')
     parser.add_argument('--host', default='0.0.0.0', help='监听地址，默认 0.0.0.0（局域网可访问）')
     parser.add_argument('--no-qr', action='store_true', help='不打印二维码')
+    parser.add_argument('--mobile', action='store_true', help='手机试用：仅提供 docs 运行页面与 OCR 资源，不公开项目目录')
     args = parser.parse_args()
 
     ip = local_ip()
@@ -120,7 +144,7 @@ def main() -> int:
     port = args.port
     for _ in range(20):
         try:
-            httpd = Server((args.host, port), Handler)
+            httpd = Server((args.host, port), MobileHandler if args.mobile else Handler)
             break
         except OSError:
             port += 1
@@ -140,6 +164,8 @@ def main() -> int:
     print(f'  手机打开：  {lan_url}   ← 手机需与电脑同一 Wi-Fi')
     print('  ' + '─' * 46)
     print('  提示：手机浏览器「添加到主屏幕」后可全屏运行，更像一个 App。')
+    if args.mobile:
+        print('  手机试用模式：仅提供运行页面与 OCR 资源。')
     print('  按 Ctrl+C 停止服务。')
     print()
 

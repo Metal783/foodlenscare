@@ -456,8 +456,87 @@
           bad('取消选择测试', '没找到相册按钮');
         }
 
-        /* ---- 8. 不能有 null 文本漏到页面上 ---- */
-        for (const route of ['/home', '/onboarding', '/records', '/settings', '/help']) {
+        /* ---- 8. 拍照读取配料表入口：首页 → 拍照读取配料表页 ---- */
+        location.hash = '#/home';
+        await waitFor(() => viewText().includes('拍一张照片'), 3000);
+        const scanEntryBtn = findButton('拍照读取配料表');
+        if (!scanEntryBtn) {
+          bad('首页找到「拍照读取配料表」按钮', '没找到');
+        } else {
+          tap(scanEntryBtn);
+          const scanPage = await waitFor(() => viewText().includes('对准配料表拍一张'), 4000);
+          if (scanPage && location.hash.includes('scan')) {
+            ok('点「拍照读取配料表」入口 → 进入拍照读取配料表页', location.hash);
+          } else {
+            bad('点「拍照读取配料表」入口 → 进入拍照读取配料表页', 'hash=' + location.hash + ' 页面=' + viewText().slice(0, 80));
+          }
+        }
+
+        const ingredientAlbumBtn = findButton('从相册里选一张配料表照片');
+        if (!ingredientAlbumBtn) {
+          bad('拍照读取配料表页找到「从相册里选一张配料表照片」按钮', '没找到');
+        } else {
+          ok('拍照读取配料表页有拍照与相册两条路径');
+          tap(ingredientAlbumBtn);
+          const ingredientInput = document.querySelector('input[type=file]');
+          if (ingredientInput) {
+            const recordCount = JSON.parse(localStorage.getItem('flc.records.v1') || '[]').length;
+            pickFile(ingredientInput);
+            await waitFor(() => viewText().includes('这张拍得清楚吗'), 3000);
+            if (app.state.pendingReturn === 'scan') ok('配料表照片进入确认页，并保留返回入口');
+            else bad('配料表照片进入确认页', location.hash);
+            const retake = findButton('重拍一张');
+            tap(retake);
+            ingredientInput.dispatchEvent(new Event('cancel', { bubbles: true }));
+            await wait(100);
+            if (app.state.pendingFile && viewText().includes('这张拍得清楚吗')) ok('取消重拍后保留当前照片');
+            else bad('取消重拍后保留当前照片');
+            tap(findButton('就用这张'));
+            await waitFor(() => location.hash.includes('result'), 6000);
+            if (app.state.result?.assessment.level === 'gray' && !app.state.result.photo.label.ingredientText) {
+              ok('无法读取时保持空配料，不替换成演示商品');
+            } else bad('无法读取时不替换成演示商品');
+            if (JSON.parse(localStorage.getItem('flc.records.v1') || '[]').length === recordCount) ok('未读取到配料的照片不计入摄入记录');
+            else bad('未读取照片不计入记录');
+            tap(findButton('再拍一张清楚点的'));
+            await waitFor(() => location.hash.includes('scan'), 2000);
+            if (location.hash.includes('scan')) ok('补拍返回配料表拍照页');
+            else bad('补拍返回配料表拍照页');
+
+            tap(findButton('从相册里选一张配料表照片'));
+            pickFile(ingredientInput);
+            await waitFor(() => viewText().includes('这张拍得清楚吗'), 2000);
+            tap(findButton('就用这张'));
+            await waitFor(() => findButton('取消读取'), 2000);
+            tap(findButton('取消读取'));
+            await wait(1800);
+            if (location.hash.includes('scan') && !app.state.progressPhoto) ok('取消读取后不被异步结果带回结果页');
+            else bad('取消读取后不被异步结果带回结果页', location.hash);
+          } else bad('配料表相册入口生成文件控件');
+        }
+
+        // 清晰照片且未配置接口：必须返回空标签，不走模拟通道。
+        const { recognizePhoto } = await import('/src/recognize/index.js');
+        const canvas = document.createElement('canvas');
+        canvas.width = 640; canvas.height = 960;
+        const paint = canvas.getContext('2d');
+        paint.fillStyle = '#b4b4b4'; paint.fillRect(0, 0, 640, 960);
+        paint.fillStyle = '#505050'; paint.font = '24px sans-serif';
+        for (let y = 40; y < 940; y += 40) paint.fillText('配料：小麦粉、水、食用盐。营养成分表', 20, y);
+        const imageBlob = await new Promise((resolve) => canvas.toBlob(resolve));
+        const { CONFIG } = await import('/src/recognize/config.js');
+        const localWasEnabled = CONFIG.localOcr.enabled;
+        CONFIG.localOcr.enabled = false;
+        let empty;
+        try { empty = await recognizePhoto({ file: imageBlob }); }
+        finally { CONFIG.localOcr.enabled = localWasEnabled; }
+        if (!empty.quality.blurry && empty.channelId === 'unavailable' &&
+            !empty.label.ingredientText && Object.values(empty.label.nutritionPer100g).every((v) => v === null) &&
+            empty.fallbackReason.includes('尚未连接')) ok('清晰照片未接接口时明确提示未连接，所有字段为空');
+        else bad('清晰照片未接接口时不模拟商品', JSON.stringify(empty));
+
+        /* ---- 9. 不能有 null 文本漏到页面上 ---- */
+        for (const route of ['/home', '/onboarding', '/records', '/settings', '/help', '/scan']) {
           location.hash = '#' + route;
           await wait(350);
           if (viewText().includes('null')) {
@@ -466,9 +545,9 @@
         }
         ok('各页面都不出现 null 文本');
 
-        /* ---- 9. 每个页面都能正常渲染（没有「页面出了点问题」） ---- */
+        /* ---- 10. 每个页面都能正常渲染（没有「页面出了点问题」） ---- */
         const crashRoutes = [];
-        for (const route of ['/home', '/onboarding', '/records', '/settings', '/help',
+        for (const route of ['/home', '/onboarding', '/records', '/settings', '/help', '/scan',
                              '/result?case=peanut-cookie', '/result?case=sugar-drink',
                              '/result?case=blurry-photo', '/result?case=plain-milk',
                              '/result?case=spinach-noodle', '/result?case=sausage']) {
@@ -481,7 +560,7 @@
         if (crashRoutes.length) {
           bad('全部页面可渲染', crashRoutes.join(' ;; '));
         } else {
-          ok('全部页面可渲染', '11 个页面 / 用例无报错');
+          ok('全部页面可渲染', '12 个页面 / 用例无报错');
         }
       } catch (error) {
         bad('测试执行', (error && error.stack) || String(error));

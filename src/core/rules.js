@@ -313,6 +313,7 @@ function label(value, unit) {
  * @returns {RiskAssessment}
  */
 export function evaluate({ label, profile, consumedToday, servingGrams }) {
+  if (label.readingOnly) return evaluateReading(label, profile);
   const gray = detectGray(label);
   if (gray.isGray) {
     return buildGray(gray, label);
@@ -354,7 +355,8 @@ export function evaluate({ label, profile, consumedToday, servingGrams }) {
   for (const field of NUTRIENT_FIELDS) {
     const limit = DAILY_LIMITS[field.key];
     if (!limit) continue;                       // 能量、蛋白质、碳水不参与分级
-    const per100 = Number(per100g[field.key]);
+    const raw = per100g[field.key];
+    const per100 = raw === null || raw === undefined || raw === '' ? NaN : Number(raw);
     if (!Number.isFinite(per100)) continue;
     const amount = scaleIntake(per100, servingGrams);
     const consumed = Number(consumedToday?.[field.key]) || 0;
@@ -406,12 +408,50 @@ export function evaluate({ label, profile, consumedToday, servingGrams }) {
 /** 字段置信度低于该值即视为「读不准」 */
 export const CONFIDENCE_FLOOR = 0.7;
 
+/** 配料风险与营养完整度分别评估；未发现冲突不等于食品安全。 */
+function evaluateReading(label, profile) {
+  const gray = detectGray(label);
+  const assessment = buildGray(gray, label);
+  const allergens = matchAllergens(label);
+  const mine = new Set(profile.allergens || []);
+  const conflicts = allergens.filter((a) => mine.has(a.allergenId));
+  const low = !label.ingredientsConfirmed && (label.ocrConfidence ?? 0) < CONFIDENCE_FLOOR;
+  assessment.partial = true;
+  assessment.nutritionUnavailable = true;
+  assessment.allAllergens = allergens;
+  assessment.allergenConflicts = conflicts;
+  if (conflicts.length) {
+    const names = conflicts.map((a) => a.short).join('、');
+    assessment.level = 'red';
+    assessment.headline = label.ingredientsConfirmed
+      ? `核对的配料含有您过敏的${names}，请别吃`
+      : `识别文字疑似含有您过敏的${names}，请先别吃并核对包装`;
+    assessment.advice = `${low ? '文字识别把握较低，可能严重漏读。' : ''}请对照包装确认配料和致敏物质提示。营养信息尚未核对，本次不计算摄入量。`;
+    assessment.basis.unshift({ kind: 'rule', title: '配料中的过敏冲突',
+      lines: conflicts.map((a) => `您的画像设置了${a.short}过敏；${label.ingredientsConfirmed ? '核对后的文字' : 'OCR 文字'}命中「${a.alias}」。`),
+      source: '用户过敏画像与配料词典匹配；OCR 文字须对照包装核对' });
+  } else if (label.ingredientsConfirmed) {
+    assessment.headline = '配料已核对，营养信息仍不足';
+    assessment.advice = '核对的文字中未匹配到您的过敏成分，这不代表一定可以吃。可继续填写并核对营养表，再查看营养提醒。';
+  } else if (low) {
+    assessment.headline = '文字可能严重漏读，请核对或重新拍摄';
+    assessment.advice = '识别把握较低，不能依赖这段文字判断食品风险。请先对照包装补齐配料和致敏提示，或重新拍一张清楚的照片。';
+  }
+  return assessment;
+}
+
 function detectGray(label) {
   const reasons = [];
+  if (label.readingOnly) {
+    reasons.push({ code: 'readingOnly', text: '本次已读取照片文字，营养表的列与单位尚未核对，不据此判断摄入量。' });
+    if (!label.ingredientText) reasons.push({ code: 'noIngredientTitle', text: '没有找到清晰的配料标题，请查看识别全文或重新拍摄配料表。' });
+    return { isGray: true, reasons, hard: reasons };
+  }
   const criticalKeys = ['energy', 'protein', 'fat', 'carbohydrate', 'sodium'];
   const per100g = label.nutritionPer100g || {};
-  const present = criticalKeys.filter((k) => Number.isFinite(Number(per100g[k])));
-  const missingNew = ['saturatedFat', 'sugar'].filter((k) => !Number.isFinite(Number(per100g[k])));
+  const hasNumber = (v) => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v));
+  const present = criticalKeys.filter((k) => hasNumber(per100g[k]));
+  const missingNew = ['saturatedFat', 'sugar'].filter((k) => !hasNumber(per100g[k]));
 
   if (!label.ingredientText && present.length === 0) {
     reasons.push({ code: 'noContent', text: '照片里没有读到配料表或营养成分表。' });
@@ -461,8 +501,9 @@ function detectGray(label) {
 
 function buildGray(gray, label) {
   const level = 'gray';
-  const headline = '照片有点看不清，能再拍一张吗？';
-  const advice = '把手机靠近包装背面，让配料表和营养成分表填满画面，光线亮一点再拍一次。';
+  const headline = label.readingOnly && label.ingredientText ? '已读取配料表，请对照照片核对' : label.readingOnly && label.rawText ? '已读取照片文字，未找到配料表标题' : label.unavailableReason && !label.imageQuality?.blurry && !label.imageQuality?.tooSmall
+    ? '还没有读取到这张照片的配料表' : '照片有点看不清，能再拍一张吗？';
+  const advice = label.readingOnly ? '下面是这张照片实际识别出的文字，可以放大和朗读。请核对错字与漏字；需要营养建议时还须核对完整营养表。' : label.unavailableReason || '把手机靠近包装背面，让配料表和营养成分表填满画面，光线亮一点再拍一次。';
   return {
     level,
     headline,
@@ -475,7 +516,7 @@ function buildGray(gray, label) {
     basis: [
       {
         kind: 'conflict',
-        title: '为什么不给结论',
+        title: label.readingOnly ? '营养信息为什么仍不足' : '为什么不给结论',
         lines: gray.reasons.map((r) => r.text),
         source: '方案 4.3 灰色等级：承认不知道，比编一个答案更重要'
       },
@@ -484,7 +525,7 @@ function buildGray(gray, label) {
         title: '本次识别情况',
         lines: [
           `识别到配料表文本长度 ${(label.ingredientText || '').length} 字`,
-          `字段置信度：${Object.entries(label.confidence || {})
+          label.readingOnly ? `文字识别把握：${Math.round((label.ocrConfidence || 0) * 100)}%；${label.ingredientsConfirmed ? '配料已由用户核对' : '配料尚未核对'}` : `字段置信度：${Object.entries(label.confidence || {})
             .map(([k, v]) => `${NUTRIENT_LABEL[k] || k} ${(v * 100).toFixed(0)}%`)
             .join('、') || '无'}`
         ],
@@ -706,12 +747,12 @@ function buildBasis({ label, allergenConflicts, nutrients, allergens, additives,
   /* 4. 识别通道与置信度（区分确定性与估算） */
   const conf = label.confidence || {};
   blocks.push({
-    kind: 'model',
-    title: '识别置信度（模型推测部分，与规则判定分开）',
+    kind: label.nutritionConfirmed ? 'rule' : 'model',
+    title: label.nutritionConfirmed ? '用户核对的标签字段' : '识别置信度（模型推测部分，与规则判定分开）',
     lines: [
       `识别通道：${label.channelLabel || '未知'}`,
       `配料表文本：${label.ingredientText ? `${label.ingredientText.length} 字` : '未读到'}`,
-      `字段置信度：${
+      label.nutritionConfirmed ? '配料与七项营养值由用户对照包装核对；营养值为人工填写，并非 OCR 自动识别或准确率承诺。' : `字段置信度：${
         Object.entries(conf)
           .map(([k, v]) => `${NUTRIENT_LABEL[k] || k} ${(v * 100).toFixed(0)}%`)
           .join('、') || '无'

@@ -23,6 +23,8 @@ let notFound = null;
 let stack = [];
 let currentPath = '';
 let context = null;
+let cleanup = null;
+let renderRevision = 0;
 
 export function define(name, render) {
   routes.set(name, render);
@@ -129,12 +131,20 @@ function escapeHtml(value) {
 function render(name, params) {
   const renderFn = routes.get(name) || notFound;
   if (!viewEl || !renderFn) return;
+  const revision = ++renderRevision;
+  const previousCleanup = cleanup;
+  cleanup = null;
+  previousCleanup?.();
 
   const previous = document.activeElement;
   window.scrollTo({ top: 0, behavior: 'auto' });
 
   try {
-    renderFn(viewEl, params, context);
+    const dispose = renderFn(viewEl, params, context);
+    if (typeof dispose === 'function') {
+      if (renderRevision === revision) cleanup = dispose;
+      else dispose();
+    }
   } catch (error) {
     console.error('[FoodLensCare] 页面渲染失败：', error);
     // 出问题时把页面名和具体错误一起写出来：只写「出了点问题」会让人无从下手，

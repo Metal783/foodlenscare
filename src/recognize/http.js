@@ -6,7 +6,7 @@
  * 优势是零样本、对版面差异鲁棒、无需训练数据。
  *
  * 本文件负责：图片 → base64 → 请求 → JSON 解析 → 归一化为 ParsedLabel。
- * 未配置 `config.vision.endpoint` 时抛出可识别的错误，由路由层降级到模拟通道。
+ * 未配置 `config.vision.endpoint` 时抛出可识别的错误，真实照片保持未读取状态。
  */
 
 import { CONFIG, VISION_PROMPT } from './config.js';
@@ -65,11 +65,14 @@ export async function recognize({ file, signal }) {
   }
 
   const started = performance.now();
+  if (signal?.aborted) throw new DOMException('读取已取消', 'AbortError');
   const dataUrl = await toDataUrl(file);
+  if (signal?.aborted) throw new DOMException('读取已取消', 'AbortError');
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), CONFIG.vision.timeoutMs);
-  if (signal) signal.addEventListener('abort', () => controller.abort(), { once: true });
+  const cancel = () => controller.abort();
+  if (signal) signal.addEventListener('abort', cancel, { once: true });
 
   const body = {
     model: CONFIG.vision.model,
@@ -110,6 +113,7 @@ export async function recognize({ file, signal }) {
     throw error;
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener('abort', cancel);
   }
 
   if (!response.ok) {
@@ -168,7 +172,8 @@ export function normalize(parsed) {
   const confidence = {};
   for (const field of NUTRIENT_FIELDS) {
     const raw = parsed?.nutritionPer100g?.[field.key];
-    const value = typeof raw === 'string' ? Number(raw.replace(/[^\d.\-]/g, '')) : Number(raw);
+    const value = raw === null || raw === undefined || raw === '' ? NaN :
+      typeof raw === 'string' ? Number(raw.replace(/[^\d.\-]/g, '')) : Number(raw);
     nutritionPer100g[field.key] = Number.isFinite(value) && value >= 0 ? value : null;
 
     const c = Number(parsed?.confidence?.[field.key]);

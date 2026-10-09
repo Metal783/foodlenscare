@@ -6,9 +6,12 @@
 ## 一键检查
 
 ```bash
+node tools/review-selftest.mjs         # 本次修复逻辑回归：25 项
 node tools/rule-selftest.mjs           # 规则层与解析层自测（74 项断言）
 node tools/module-check.mjs            # 模块导入导出 + 具名导入/调用 + 定向回归检查
 python tools/check-interaction.py      # 交互回归：真实点击驱动按钮
+node tools/check-real-ocr.cjs           # 真实中文图片 OCR + 页面流程 + 缓存后断网检查（需要 playwright 和 Edge）
+node tools/check-real-ocr.cjs --file    # 双击版真实 OCR 检查（需要网络）
 python tools/verify-regression-checks.py  # 验证定向回归检查真的抓得到问题
 node tools/bundle-standalone.mjs       # 打包「双击就能打开」的单文件版
 python tools/check-standalone.py       # 校验单文件版在 file:// 下能跑通
@@ -97,8 +100,8 @@ python tools/capture-screenshots.py 07          # 只截文件名以 07 开头�
 | `?profile=plain` | 同上 | 预设画像：无过敏、仅留意血压 |
 | `?profile=none` | 同上 | 基准画像：什么都不设，用于看「纯绿色」结论 |
 | `?reset=1` | 同上 | 启动时清空当日记录，让演示用例可重复 |
-| `?mock=low` | 同上 | 模拟识别返回低置信度结果，走灰色补拍链路 |
-| `?mock=high` | 同上 | 模拟识别返回高置信度结果 |
+| `?mock=low` | 同上 | 仅显式指定 prefer=mock 时控制低置信度，不影响正常照片 |
+| `?mock=high` | 同上 | 仅显式指定 prefer=mock 时控制高置信度，不影响正常照片 |
 | `#/result?case=<id>` | hash 路由 | 直接打开某个内置演示用例的结果页 |
 | `#/settings`、`#/help` … | hash 路由 | 直接打开指定页面 |
 

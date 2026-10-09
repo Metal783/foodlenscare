@@ -39,12 +39,6 @@ export const ICONS = {
       '<path d="M8.6 10h6.8M8.6 13.6h6.8M8.6 17.2h4.2"/>'
   ),
   sliders: wrap('<path d="M5 8h9M18 8h1M5 16h4M13 16h6"/><circle cx="16" cy="8" r="2.2"/><circle cx="11" cy="16" r="2.2"/>'),
-  qr: wrap(
-    '<rect x="3.5" y="3.5" width="6.5" height="6.5" rx="1.5"/>' +
-      '<rect x="14" y="3.5" width="6.5" height="6.5" rx="1.5"/>' +
-      '<rect x="3.5" y="14" width="6.5" height="6.5" rx="1.5"/>' +
-      '<path d="M14 14h2.5v2.5H14zM18 18h2.5v2.5H18zM14 20.5h2"/>'
-  ),
   refresh: wrap('<path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4.5h-4.5"/>'),
   shield: wrap('<path d="M12 3.2 19 6v6.2c0 4.2-3 7.2-7 8.6-4-1.4-7-4.4-7-8.6V6z"/><path d="m8.8 12.2 2.4 2.4 4-4.6"/>'),
   home: wrap('<path d="M4 10.5 12 4l8 6.5V19a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19z"/><path d="M9.5 20.5v-6h5v6"/>'),

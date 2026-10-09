@@ -98,7 +98,7 @@ export function splitIngredientLines(text) {
  */
 export function missingMandatoryFields(per100g = {}) {
   return NUTRIENT_FIELDS.filter(
-    (f) => f.mandatory && !Number.isFinite(Number(per100g[f.key]))
+    (f) => f.mandatory && (per100g[f.key] == null || String(per100g[f.key]).trim() === '' || !Number.isFinite(Number(per100g[f.key])))
   ).map((f) => f.key);
 }
 

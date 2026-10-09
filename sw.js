@@ -9,12 +9,17 @@
  *  - 不缓存任何用户照片，照片只在本机内存与 localStorage 记录里流转。
  */
 
-const VERSION = 'flc-v1';
+const VERSION = 'flc-v4-label-review';
 const SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
   './assets/icons/icon.svg',
+  './assets/ocr/tesseract.min.js',
+  './assets/ocr/worker.min.js',
+  './assets/ocr/tesseract-core-lstm.wasm.js',
+  './assets/ocr/tesseract-core-lstm.wasm',
+  './assets/ocr/chi_sim.traineddata.gz',
   './src/styles/tokens.css',
   './src/styles/app.css',
   './src/app.js',
@@ -23,6 +28,7 @@ const SHELL = [
   './src/core/store.js',
   './src/core/speech.js',
   './src/core/flow.js',
+  './src/core/label-review.js',
   './src/data/allergens.js',
   './src/data/additives.js',
   './src/data/nutrition.js',
@@ -37,6 +43,7 @@ const SHELL = [
   './src/recognize/mock.js',
   './src/recognize/http.js',
   './src/recognize/ocr-huawei.js',
+  './src/recognize/ocr-local.js',
   './src/recognize/crypto-utils.js',
   './src/ui/dom.js',
   './src/ui/icons.js',
@@ -47,7 +54,8 @@ const SHELL = [
   './src/pages/result.js',
   './src/pages/records.js',
   './src/pages/settings.js',
-  './src/pages/help.js'
+  './src/pages/help.js',
+  './src/pages/scan.js'
 ];
 
 self.addEventListener('install', (event) => {

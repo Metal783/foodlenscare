@@ -63,7 +63,7 @@ export function renderHome(view, _params, ctx) {
         toast('没有选照片。再点一次就能重新拍。', 2600);
         return;
       }
-      ctx.setState({ pendingFile: file, pendingOrigin: mode });
+      ctx.setState({ pendingFile: file, pendingOrigin: mode, pendingReturn: 'home', result: null });
       ctx.navigate('confirm');
     } catch (error) {
       setShutterNote('');
@@ -105,7 +105,21 @@ export function renderHome(view, _params, ctx) {
         variant: 'secondary',
         block: true,
         onClick: () => grab('album')
-      })
+      }),
+
+      /* 拍照引导收进折叠项：它是次级帮助，不该和「拍一张照片」抢主视线。
+         主库本次新增了 scan 引导页，入口挂在这里。 */
+      h('details', { class: 'basis' }, [
+        h('summary', { text: '拍照帮助' }),
+        h('p', { text: '对准包装背面的配料表，避开反光，让字清楚地占满画面。' }),
+        h('p', { text: '先帮您读文字、找过敏冲突；营养信息核对完整后，再查看摄入提醒。' }),
+        button({
+          label: '拍照读取配料表：查看引导',
+          variant: 'secondary',
+          block: true,
+          onClick: () => ctx.navigate('scan')
+        })
+      ])
     ]),
 
     /* ---------- 2 · 今日摄入概览 ---------- */
@@ -146,7 +160,7 @@ function overviewCard(totals) {
 
     h('div', { class: 'meters' }, METER_KEYS.map((key) => meterRow(key, totals[key] || 0))),
 
-    h('p', { class: 'footnote', text: '按 60 岁以上人群的建议上限逐件扣减，只是提醒，不是医嘱。' })
+    h('p', { class: 'footnote', text: '只统计已确认吃过的；按 60 岁以上人群的建议上限逐件扣减，只是提醒，不是医嘱。' })
   ]);
 }
 

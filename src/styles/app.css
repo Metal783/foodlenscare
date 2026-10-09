@@ -852,6 +852,14 @@ details.basis[open] > summary::after { content: '▴'; }
 
 .divider { height: 2px; background: var(--c-line-soft); border: 0; margin: var(--space-2) 0; }
 
+.review-form { padding: var(--space-2); display: grid; gap: var(--space-2); }
+.review-field { display: grid; gap: 0.5rem; margin: 0.5rem 0; }
+.review-input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 3rem; padding: 0.6rem; font: inherit; color: var(--c-ink); background: var(--c-surface); border: 2px solid var(--c-ink-3); border-radius: var(--radius-m); }
+textarea.review-input { resize: vertical; }
+.review-check { display: flex; align-items: flex-start; gap: 0.6rem; }
+.review-check input { flex-shrink: 0; width: 1.5rem; height: 1.5rem; margin-top: 0.2rem; }
+.error-box[hidden] { display: none; }
+
 @media (min-width: 512px) {
   .app-shell { box-shadow: 0 0 0 2px var(--c-line-soft); }
 }

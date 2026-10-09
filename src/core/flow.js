@@ -13,7 +13,7 @@
 
 import * as recognizer from '../recognize/index.js';
 import { evaluate } from './rules.js';
-import { addRecord, todayTotals, scaleNutrients } from './store.js';
+import { addRecord, loadRecords, todayTotals, scaleNutrients } from './store.js';
 import * as speech from './speech.js';
 import { toast } from '../ui/dom.js';
 
@@ -106,7 +106,7 @@ function ensureInput() {
   return input;
 }
 
-export function pickPhoto(mode = 'camera') {
+export async function pickPhoto(mode = 'camera') {
   const input = ensureInput();
   if (mode === 'camera') input.setAttribute('capture', 'environment');
   else input.removeAttribute('capture');
@@ -118,10 +118,17 @@ export function pickPhoto(mode = 'camera') {
     previous(null);
   }
 
-  return new Promise((resolve) => {
+  const file = await new Promise((resolve) => {
     pendingResolve = resolve;
     input.click();
   });
+  if (file && (!file.type.startsWith('image/') || file.size === 0)) {
+    throw new Error('请选择一张有效的食品配料表照片。');
+  }
+  if (file && file.size > 20 * 1024 * 1024) {
+    throw new Error('这张照片太大了，请换一张小于 20 MB 的照片。');
+  }
+  return file;
 }
 
 /**
@@ -131,11 +138,17 @@ export function pickPhoto(mode = 'camera') {
  * @param {import('./store.js').Profile} profile
  * @returns {Promise<{photo:PhotoLabel, assessment:Object}>}
  */
-export async function processPhoto(file, origin, profile) {
+export async function processPhoto(file, origin, profile, options = {}) {
   const prepared = file instanceof File ? await compressPhoto(file) : file;
   const previewUrl = URL.createObjectURL(prepared);
 
-  const outcome = await recognizer.recognizePhoto({ file: prepared });
+  let outcome;
+  try {
+    outcome = await recognizer.recognizePhoto({ file: prepared, signal: options.signal, onProgress: options.onProgress });
+  } catch (error) {
+    URL.revokeObjectURL(previewUrl);
+    throw error;
+  }
   const photo = {
     label: outcome.label,
     origin,
@@ -199,28 +212,37 @@ export function speakAndRecord({ photo, assessment }, profile, options = {}) {
     speech.unlock();
     speech.speak(speech.buildSpeechText(assessment));
   }
-  if (options.record === false) return null;
-  return recordResult({ photo, assessment });
+  if (options.record !== true) return null;
+  return recordResult({ photo, assessment }, options);
 }
 
 /** 写入当日记录：名称、结论、时间、风险等级与关键营养量 */
-export function recordResult({ photo, assessment }) {
+export function recordResult(result, options = {}) {
+  const { photo, assessment } = result;
+  if (options.consumptionConfirmed !== true || assessment.level === 'gray' || photo.label.readingOnly || photo.origin === 'demo') return null;
+  const existing = result.consumptionRecordId && loadRecords().find((r) => r.id === result.consumptionRecordId);
+  if (existing) return existing;
   const label = photo.label;
-  const servingGrams = Number(label.servingGrams) || 100;
+  const servingGrams = Number(label.servingGrams);
+  if (!Number.isFinite(servingGrams) || servingGrams <= 0) throw new Error('请填写大于 0 的实际食用数量。');
   const nutrients = scaleNutrients(label.nutritionPer100g || {}, servingGrams);
-  return addRecord({
+  const item = addRecord({
+    consumptionConfirmed: true,
     productName: label.productName || '未识别名称的食品',
     level: assessment.level,
     headline: assessment.headline,
     advice: assessment.advice,
     channel: label.channelLabel,
     servingGrams,
+    servingUnit: label.servingUnit || 'g',
     nutrients,
     allergenHits: (assessment.allergenConflicts || []).map((a) => a.short),
     origin: photo.origin,
     demoCaseId: photo.demoCaseId || null,
     previewUrl: photo.previewUrl || null
   });
+  result.consumptionRecordId = item.id;
+  return item;
 }
 
 /** 统一的失败提示：任何异常都要给出下一步动作，而不是只报错 */

@@ -99,7 +99,7 @@ npm run build
 
 仅修改 `src/` 时运行 `node tools/bundle-standalone.mjs` 和 `python -X utf8 tools/prepare-pages.py` 即可。构建依赖不需要在用户设备上安装。GitHub 更新后由 Pages 部署，实际生效版本以部署状态为准。
 
-详细变更、操作步骤和检查命令见 [更新日志](更新日志.md)。
+详细变更、操作步骤和检查命令见 [CHANGELOG.md](CHANGELOG.md)。
 当前加载优化：页面 SDK 约61KB，计算库只在工作线程中加载；同一页面连续识别复用模型。双击 HTML 的四个大型公共资源下载后保存在浏览器中，再次打开优先读缓存，并显示具体资源准备进度。首次资源准备仍受网络速度影响。按完整参赛方案核对的待开发项见 [功能补齐清单](功能补齐清单.md)。
 引擎来源、固定版本与许可证见 `assets/paddle/README.md`、`assets/paddle/manifest.json`。旧 `assets/ocr/` 是历史资源，不再加载或执行。
 

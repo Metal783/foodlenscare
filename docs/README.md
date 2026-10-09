@@ -30,4 +30,4 @@ python tools/prepare-pages.py                        # 再同步到 docs/index.h
 
 首次构建或修改 OCR 依赖时，在根目录执行 `npm ci`、`npm run build`。GitHub 更新后由 Pages 部署，实际生效版本以部署状态为准。电脑本地体验双击根目录的 `启动新版OCR.cmd`；完整操作及原图复测见根目录更新日志。
 
-新增 `screenshots/12-reviewed-intake.png`：本次更新的营养核对、实际食用确认与额度展示，390px 宽整页截图。操作方法见根目录 `更新日志.md`。
+新增 `screenshots/12-reviewed-intake.png`：本次更新的营养核对、实际食用确认与额度展示，390px 宽整页截图。操作方法见 [CHANGELOG.md](../CHANGELOG.md)。

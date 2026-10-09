@@ -129,7 +129,7 @@ export function measureImage(image) {
   if (tooDark) tips.push('这边光线有点暗，换到亮一点的地方。');
   if (tooBright) tips.push('有反光，稍微斜一点拿包装，避开灯光直射。');
   if (tooSmall) tips.push('把手机再靠近包装一点，让字占满画面。');
-  if (!tips.length) tips.push('照片很清楚。');
+  if (!tips.length) tips.push('未发现明显模糊或曝光问题，识别文字仍需核对。');
 
   return {
     blurry,

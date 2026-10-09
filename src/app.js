@@ -196,6 +196,12 @@ function boot() {
   savePrefs({ ...state.prefs, textSize: state.prefs.textSize });
 
   setView(document.getElementById('view'));
+  if (window.location.protocol === 'file:') {
+    document.getElementById('app').prepend(h('aside', { class: 'card', role: 'status' }, [
+      h('h2', { class: 'card-title', text: '新版 OCR 请从启动文件打开' }),
+      h('p', { text: '当前是双击 HTML 模式，使用基础文字识别。请双击同目录的“启动新版OCR.cmd”，浏览器会自动打开新版；打开后重新选择照片。' })
+    ]));
+  }
   init({
     start: state.profile.completed ? 'home' : 'onboarding',
     ctx

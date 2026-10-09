@@ -9,7 +9,7 @@
  *  - 不缓存任何用户照片，照片只在本机内存与 localStorage 记录里流转。
  */
 
-const VERSION = 'flc-v4-label-review';
+const VERSION = 'flc-v6-region-ocr-entry';
 const SHELL = [
   './',
   './index.html',
@@ -44,6 +44,8 @@ const SHELL = [
   './src/recognize/http.js',
   './src/recognize/ocr-huawei.js',
   './src/recognize/ocr-local.js',
+  './src/recognize/ocr-paddle.js',
+  './src/recognize/parse-regions.js',
   './src/recognize/crypto-utils.js',
   './src/ui/dom.js',
   './src/ui/icons.js',

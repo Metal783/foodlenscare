@@ -25,7 +25,7 @@ const full = reviewLabel(ocr, { ingredientText: '配料：水、白砂糖。', n
 test('完整核对营养后开放评估', () => { assert.equal(full.readingOnly, false); assert.equal(full.servingUnit, 'ml'); assert.ok(assess(full).nutrients.length); });
 test('有效零值不视为缺失', () => { assert.equal(reviewLabel(ocr, { ingredientText: '配料：水。', nutrients: { ...nutrients, sugar: 0 } }).nutritionPer100g.sugar, 0); });
 test('拒绝空配料', () => assert.throws(() => reviewLabel(ocr, { ingredientText: ' ' })));
-test('拒绝不完整营养表', () => assert.throws(() => reviewLabel(ocr, { ingredientText: '水', nutrients: { sugar: 1 } })));
+test('部分营养可核对，缺失值不补零', () => { const l=reviewLabel(ocr, {ingredientText:'水',nutrients:{sugar:1}}); assert.equal(l.readingOnly,false); assert.equal(l.nutritionPartial,true); assert.equal(l.nutritionPer100g.sodium,null); });
 test('拒绝负数营养', () => assert.throws(() => reviewLabel(ocr, { ingredientText: '水', nutrients: { ...nutrients, sodium: -1 } })));
 test('拒绝非数值营养', () => assert.throws(() => reviewLabel(ocr, { ingredientText: '水', nutrients: { ...nutrients, sodium: 'abc' } })));
 test('拒绝每份口径', () => assert.throws(() => reviewLabel(ocr, { ingredientText: '水', nutrients, unit: 'serving' })));

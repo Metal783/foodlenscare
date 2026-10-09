@@ -1,5 +1,5 @@
 /** 真实本地 OCR：照片在浏览器内处理，不上传到第三方。 */
-import { parseLabelText, splitIngredientLines } from './parse-label.js';
+import { parseLabelText, splitIngredientLines, findIngredientHeading } from './parse-label.js';
 import { NUTRIENT_FIELDS } from '../data/nutrition.js';
 
 let enginePromise;
@@ -35,17 +35,26 @@ export function labelFromOcr(data) {
   const normalized = rawText.replace(/([\u3400-\u9fff])[ \t\u3000]+(?=[\u3400-\u9fff])/g, '$1');
   const score = Math.max(0, Math.min(1, Number(data?.confidence || 0) / 100));
   const label = parseLabelText(normalized, { channelLabel: '本机照片文字识别' });
-  if (!/(?:配料表|配料|原料)\s*[:：]?/.test(normalized)) {
+
+  // 只有真的找到配料标题（含常见错字写法）才认这个配料区段；
+  // 找不到就留空，让页面如实说明「没有读到配料表」，而不是猜一段出来。
+  const heading = findIngredientHeading(normalized);
+  if (!heading) {
     label.ingredientText = '';
     label.ingredientLines = [];
-  } else label.ingredientLines = splitIngredientLines(label.ingredientText);
+  } else {
+    label.ingredientLines = splitIngredientLines(label.ingredientText);
+    // 标题是错字时（配科表 / 妃料表）置信度打折，页面会提示用户核对
+    label.ingredientHeadingSuspect = !/^(?:配料表|配料|原料与辅料|原料|原辅料)/.test(heading.heading);
+  }
+
   for (const field of NUTRIENT_FIELDS) {
     // OCR 只转录全文，不自动把不可靠的表格排列解释为每 100 g 数值。
     label.nutritionPer100g[field.key] = null;
     label.confidence[field.key] = 0;
   }
   label.rawText = rawText;
-  label.ocrConfidence = score;
+  label.ocrConfidence = label.ingredientHeadingSuspect ? score * 0.7 : score;
   label.channel = 'localOcr';
   // 单纯 OCR 无法保证表格列与单位口径对应，因此不给摄入量结论。
   label.readingOnly = true;

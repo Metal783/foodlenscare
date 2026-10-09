@@ -13,10 +13,10 @@
   食护家 FoodLensCare · 食品标签初版 · 单文件版
   2026 年第十四届全国大学生数字媒体科技作品及创意竞赛 · 自主选题类 · 移动与网络应用开发
 
-  这是「双击就能打开」的独立版本：34 个源模块、约 229 KB 业务代码
+  这是「双击就能打开」的独立版本：36 个源模块、约 244 KB 业务代码
   全部内联在这一个文件里，不需要服务器、不需要联网、不需要安装任何环境。
 
-  生成时间：2026-10-09 07:06:07
+  生成时间：2026-10-09 11:32:10
   生成方式：node tools/bundle-standalone.mjs
   对应源码：index.html + src/（多文件开发版，二者页面结构与样式完全一致）
 
@@ -709,7 +709,7 @@ textarea.review-input { resize: vertical; }
 
 <script>
 /* 启动守卫：万一某个模块出错，不能让老人对着白屏——先给一句人话，再给一行诊断信息。 */
-window.__FLC_BOOT__ = { ok: false, at: "2026-10-09 07:06:07" };
+window.__FLC_BOOT__ = { ok: false, at: "2026-10-09 11:32:10" };
 window.addEventListener('error', function (event) {
   if (window.__FLC_BOOT__.ok) return;
   var view = document.getElementById('view');
@@ -1080,15 +1080,17 @@ window.addEventListener('error', function (event) {
 
 
       function todayTotals(records = loadRecords()) {
-        const totals = { sodium: 0, sugar: 0, saturatedFat: 0, fat: 0, count: 0 };
+        const totals = { sodium: 0, sugar: 0, saturatedFat: 0, fat: 0, count: 0, unknown: { sodium:0, sugar:0, saturatedFat:0, fat:0 } };
         for (const r of recordsOfToday(records)) {
 
           if (r.consumptionConfirmed !== true || r.origin === 'demo') continue;
           if (!r.nutrients) continue;
           totals.count += 1;
           for (const key of ['sodium', 'sugar', 'saturatedFat', 'fat']) {
-            const v = Number(r.nutrients[key]);
+            const raw = r.nutrients[key];
+            const v = raw == null || String(raw).trim() === '' ? NaN : Number(raw);
             if (Number.isFinite(v)) totals[key] += v;
+            else totals.unknown[key]++;
           }
         }
         return totals;
@@ -1267,6 +1269,7 @@ window.addEventListener('error', function (event) {
       const CONFIG = {
 
         localOcr: { enabled: true },
+        paddleOcr: { enabled: true },
 
         vision: {
 
@@ -1477,7 +1480,7 @@ window.addEventListener('error', function (event) {
         if (tooDark) tips.push('这边光线有点暗，换到亮一点的地方。');
         if (tooBright) tips.push('有反光，稍微斜一点拿包装，避开灯光直射。');
         if (tooSmall) tips.push('把手机再靠近包装一点，让字占满画面。');
-        if (!tips.length) tips.push('照片很清楚。');
+        if (!tips.length) tips.push('未发现明显模糊或曝光问题，识别文字仍需核对。');
 
         return {
           blurry,
@@ -1891,12 +1894,105 @@ window.addEventListener('error', function (event) {
       }
 
 
+
+
+
+
+
+
+      const INGREDIENT_HEADINGS = [
+        /配料表/g,
+        /配料/g,
+        /原料与辅料/g,
+        /原料/g,
+        /原辅料/g,
+        /配科表/g,
+        /配科/g,
+        /妃料表/g,
+        /妃料/g
+      ];
+
+
+
+
+
+
+
+
+
+      const NUTRITION_HEADING = /(?:营养[ \t\u3000]*成分表|营养[ \t\u3000]*成分|营养标签)/g;
+
+
+      function squeezeCjkSpaces(text) {
+        return text.replace(/([\u3400-\u9fff])[ \t\u3000]+(?=[\u3400-\u9fff])/g, '$1');
+      }
+
+
+
+
+
+
+
+
+
+
+
+
+      function findIngredientHeading(text) {
+        if (!text) return null;
+        const squeezed = squeezeCjkSpaces(text);
+
+        let best = null;
+        for (const pattern of INGREDIENT_HEADINGS) {
+          pattern.lastIndex = 0;
+          const match = pattern.exec(squeezed);
+          if (!match) continue;
+          if (!best || match.index < best.index) {
+            best = { index: match.index, heading: match[0], viaIngredients: true };
+          }
+        }
+        if (best) return best;
+
+
+        const nutritionSpans = [];
+        for (const match of squeezed.matchAll(NUTRITION_HEADING)) {
+          nutritionSpans.push([match.index, match.index + match[0].length]);
+        }
+        for (const match of squeezed.matchAll(/成分/g)) {
+          const insideNutrition = nutritionSpans.some(
+            ([start, end]) => match.index >= start && match.index < end
+          );
+          if (!insideNutrition) {
+            return { index: match.index, heading: match[0], viaIngredients: false };
+          }
+        }
+        return null;
+      }
+
+
+
+
+
+
+
+
+
       function extractIngredientSection(text) {
         if (!text) return '';
-        const startMatch = text.match(/(?:配料表|配料|原料|成分)[:：]?/);
-        const start = startMatch ? startMatch.index : -1;
-        const tail = start >= 0 ? text.slice(start) : text;
-        const endMatch = tail.slice(1).match(/(致敏物质|过敏原|营养成分表|营养标签|净含量|保质期|贮存条件|生产日期)/);
+
+        const squeezed = squeezeCjkSpaces(text);
+        const heading = findIngredientHeading(squeezed);
+
+
+
+        if (!heading) return '';
+
+        const tail = squeezed.slice(heading.index);
+
+
+        const endMatch = tail
+          .slice(1)
+          .match(/(致敏物质|过敏原|营养[ \t\u3000]*成分表|营养[ \t\u3000]*成分|营养标签|净含量|保质期|贮存(?:条件|及运输条件)|生产日期|产品标准号|产品类型|食用方法|执行标准|果汁含量|产品名称|生产商|地址|产地)/);
         if (!endMatch) return tail.trim();
         const end = endMatch.index + 1;
         const sliced = tail.slice(0, end).trim();
@@ -1931,6 +2027,7 @@ window.addEventListener('error', function (event) {
     __exports.extractAllergenDeclaration = extractAllergenDeclaration;
     __exports.extractNetContent = extractNetContent;
     __exports.parseLabelText = parseLabelText;
+    __exports.findIngredientHeading = findIngredientHeading;
     __exports.extractIngredientSection = extractIngredientSection;
     },
 
@@ -2864,7 +2961,7 @@ window.addEventListener('error', function (event) {
     // ── src/recognize/ocr-local.js
     "src/recognize/ocr-local.js": function (__exports, __require) {
 
-      /* import ./parse-label.js */ const { parseLabelText, splitIngredientLines } = __require("src/recognize/parse-label.js");
+      /* import ./parse-label.js */ const { parseLabelText, splitIngredientLines, findIngredientHeading } = __require("src/recognize/parse-label.js");
       /* import ../data/nutrition.js */ const { NUTRIENT_FIELDS } = __require("src/data/nutrition.js");
 
       let enginePromise;
@@ -2900,17 +2997,26 @@ window.addEventListener('error', function (event) {
         const normalized = rawText.replace(/([\u3400-\u9fff])[ \t\u3000]+(?=[\u3400-\u9fff])/g, '$1');
         const score = Math.max(0, Math.min(1, Number(data?.confidence || 0) / 100));
         const label = parseLabelText(normalized, { channelLabel: '本机照片文字识别' });
-        if (!/(?:配料表|配料|原料)\s*[:：]?/.test(normalized)) {
+
+
+
+        const heading = findIngredientHeading(normalized);
+        if (!heading) {
           label.ingredientText = '';
           label.ingredientLines = [];
-        } else label.ingredientLines = splitIngredientLines(label.ingredientText);
+        } else {
+          label.ingredientLines = splitIngredientLines(label.ingredientText);
+
+          label.ingredientHeadingSuspect = !/^(?:配料表|配料|原料与辅料|原料|原辅料)/.test(heading.heading);
+        }
+
         for (const field of NUTRIENT_FIELDS) {
 
           label.nutritionPer100g[field.key] = null;
           label.confidence[field.key] = 0;
         }
         label.rawText = rawText;
-        label.ocrConfidence = score;
+        label.ocrConfidence = label.ingredientHeadingSuspect ? score * 0.7 : score;
         label.channel = 'localOcr';
 
         label.readingOnly = true;
@@ -2971,6 +3077,120 @@ window.addEventListener('error', function (event) {
     __exports.recognize = recognize;
     },
 
+    // ── src/recognize/parse-regions.js
+    "src/recognize/parse-regions.js": function (__exports, __require) {
+
+      /* import ./parse-label.js */ const { parseLabelText, splitIngredientLines, findIngredientHeading } = __require("src/recognize/parse-label.js");
+      /* import ../data/nutrition.js */ const { NUTRIENT_FIELDS } = __require("src/data/nutrition.js");
+      const TITLES = { energy:/^(?:能量|热量)/, protein:/^蛋白(?:质)?/, saturatedFat:/^饱和脂肪(?:酸)?/, fat:/^脂肪/, carbohydrate:/^碳水(?:化合物|化物)/, sugar:/^(?:糖|总糖|糖分|添加糖)/, sodium:/^钠/ };
+      const normalize = t=>String(t||'').replace(/([\u3400-\u9fff])[ \t\u3000]+(?=[\u3400-\u9fff])/g,'$1').trim();
+      function groupOcrRows(items=[]) {
+        const lines=items.filter(i=>i.text?.trim() && i.poly?.length>=4 && i.poly.every(p=>p.length>=2 && p.every(Number.isFinite))).map(i=>({
+          ...i,text:normalize(i.text), x:Math.min(...i.poly.map(p=>p[0])), y:i.poly.reduce((s,p)=>s+p[1],0)/i.poly.length,
+          height:Math.max(1,((i.poly[3][1]-i.poly[0][1])+(i.poly[2][1]-i.poly[1][1]))/2)
+        })).sort((a,b)=>a.y-b.y || a.x-b.x);
+        const rows=[];
+        for(const line of lines) {
+          const row=rows.find(r=>Math.abs(r.y-line.y)<=Math.min(r.height,line.height)*0.6);
+          if(row) { row.items.push(line); row.y=row.items.reduce((s,l)=>s+l.y,0)/row.items.length; }
+          else rows.push({y:line.y,height:line.height,items:[line]});
+        }
+        return rows.sort((a,b)=>a.y-b.y).map(r=>{r.items.sort((a,b)=>a.x-b.x); return {...r,text:r.items.map(i=>i.text).join(' '),confidence:Math.min(...r.items.map(i=>i.score??0))};});
+      }
+      function readValue(text,key) {
+        const hit=text.match(/(?<![\d.\-])([0-9]+(?:\.[0-9]+)?)\s*(千焦|干焦|kJ|千卡|kcal|毫克|mg|克|g)(?![a-z])/i);
+        if(!hit) return null;
+        let value=Number(hit[1]); const unit=hit[2].toLowerCase();
+        if(key==='energy') {
+          if(/^(千卡|kcal)$/.test(unit)) value=Math.round(value*4.184*1000)/1000;
+          else if(!/^(千焦|干焦|kj)$/.test(unit)) return null;
+        } else if(key==='sodium') {
+          if(/^(克|g)$/.test(unit)) value*=1000;
+          else if(!/^(毫克|mg)$/.test(unit)) return null;
+        } else {
+          if(/^(毫克|mg)$/.test(unit)) value/=1000;
+          else if(!/^(克|g)$/.test(unit)) return null;
+        }
+        return {value,raw:hit[0],warning:unit==='干焦'?'原文单位识别为“干焦”，请核对是否为千焦。':''};
+      }
+      function labelFromRegions(result) {
+        const rows=groupOcrRows(result.items),rawText=rows.map(r=>r.text).join('\n');
+        const label=parseLabelText(rawText,{channelLabel:'本机中文区域识别'});
+        const candidates={},per100g={},confidence={};
+        for(const f of NUTRIENT_FIELDS) {per100g[f.key]=null;confidence[f.key]=0;}
+        let start=rows.findIndex(r=>/营养成分表|营养标签/.test(r.text));
+        if(start<0) start=rows.findIndex(r=>/每\s*100\s*(?:毫升|ml|克|g)/i.test(r.text));
+        const tail=start<0?[]:rows.slice(start);
+        const end=tail.findIndex((r,i)=>i>0 && /^(?:产品名称|产品类型|配料|原料|净含量|生产日期|保质期)/.test(r.text));
+        const table=end<0?tail:tail.slice(0,end),header=table.slice(0,3).map(r=>r.text).join(' ');
+        const basis=header.match(/每\s*100\s*(毫升|ml|克|g)/i);
+        const bases=[...header.matchAll(/每\s*100\s*(毫升|ml|克|g)/gi)].map(m=>/毫升|ml/i.test(m[1])?'ml':'g');
+        const ambiguous=new Set(bases).size>1 || (Boolean(basis) && /每\s*(份|瓶|包|袋)/.test(header));
+        const servingUnit=basis&&!ambiguous?(/毫升|ml/i.test(basis[1])?'ml':'g'):null;
+        if(servingUnit) for(const row of table) {
+          const key=Object.keys(TITLES).find(k=>TITLES[k].test(row.text.replace(/\s/g,'')));
+          if(!key) continue;
+          const parsed=readValue(row.text,key); if(!parsed) continue;
+          if(candidates[key] && candidates[key].value!==parsed.value) {per100g[key]=null;confidence[key]=0;candidates[key].conflict=true;continue;}
+          if(candidates[key]?.conflict) continue;
+          candidates[key]={...parsed,confidence:row.confidence,text:row.text,boxes:row.items.map(i=>i.poly)};
+          per100g[key]=parsed.value;confidence[key]=row.confidence;
+        }
+        const heading=findIngredientHeading(label.ingredientText),ingredientRows=rows.filter(r=>/配料|原料/.test(r.text));
+        return {...label,rawText,ingredientLines:splitIngredientLines(label.ingredientText),
+          ingredientHeadingSuspect:heading?!/^(?:配料表|配料|原料|原辅料)/.test(heading.heading):false,
+          nutritionPer100g:per100g,nutritionCandidates:candidates,confidence,
+          missingFields:NUTRIENT_FIELDS.filter(f=>per100g[f.key]==null).map(f=>f.key),
+          servingUnit,servingLabel:servingUnit==='ml'?'每 100 毫升':servingUnit==='g'?'每 100 克':'口径待核对',
+          declaredPer:servingUnit?'per100g':'unknown',servingBasis:'per100g',
+          ocrConfidence:ingredientRows.length?Math.min(...ingredientRows.map(r=>r.confidence)):rows.length?rows.reduce((s,r)=>s+r.confidence,0)/rows.length:0,
+          ocrRows:rows.map(r=>({text:r.text,confidence:r.confidence,boxes:r.items.map(i=>i.poly)})),
+          imageDimensions:result.image,readingOnly:true,channel:'paddleOcr',nutritionConfirmed:false};
+      }
+
+    __exports.groupOcrRows = groupOcrRows;
+    __exports.labelFromRegions = labelFromRegions;
+    },
+
+    // ── src/recognize/ocr-paddle.js
+    "src/recognize/ocr-paddle.js": function (__exports, __require) {
+      /* import ./parse-regions.js */ const { labelFromRegions } = __require("src/recognize/parse-regions.js");
+      async function recognize({file,signal,onProgress}) {
+        if(signal?.aborted) throw new DOMException('读取已取消','AbortError');
+        let worker,sdk,cancelled=false;
+        let rejectStop;
+        const stopped=new Promise((_,reject)=>{rejectStop=reject;});
+        const stop=e=>{cancelled=true;worker?.terminate();rejectStop(e);};
+        const abort=()=>stop(new DOMException('读取已取消','AbortError'));
+        signal?.addEventListener('abort',abort,{once:true});
+        const timer=setTimeout(()=>stop(new Error('中文识别超时，请重试或缩小拍摄区域。')),120000);
+        const run=async()=>{
+          const base=new URL('assets/paddle/',document.baseURI).href;
+          onProgress?.({text:'正在加载中文识别模型……',note:'首次下载模型需要稍等，照片在本机处理。'});
+          const runtimeUrl=base+'paddle.mjs';
+          const {PaddleOCR}=await import(runtimeUrl);
+          if(cancelled) throw new DOMException('读取已取消','AbortError');
+          sdk=await PaddleOCR.create({
+            worker:{createWorker:()=>{if(cancelled) throw new DOMException('读取已取消','AbortError');worker=new Worker(base+'ocr-worker.mjs',{type:'module'});return worker;}},
+            textDetectionModelName:'PP-OCRv5_mobile_det',textRecognitionModelName:'PP-OCRv5_mobile_rec',
+            textDetectionModelAsset:{url:base+'models/PP-OCRv5_mobile_det.tar'},textRecognitionModelAsset:{url:base+'models/PP-OCRv5_mobile_rec.tar'},
+            ortOptions:{backend:'wasm',numThreads:1,wasmPaths:base},textDetLimitSideLen:1600,textDetLimitType:'max',textRecScoreThresh:0.3
+          });
+          if(cancelled) throw new DOMException('读取已取消','AbortError');
+          onProgress?.({text:'正在定位并读取配料和营养表……',note:'识别出的字段会先交给您对照包装核对。'});
+          const [data]=await sdk.predict(file);
+          if(cancelled) throw new DOMException('读取已取消','AbortError');
+          const label=labelFromRegions(data);
+          if(!label.rawText) throw new Error('没有找到文字，请靠近配料表重新拍摄。');
+          return {label,channel:'paddleOcr'};
+        };
+        try {return await Promise.race([run(),stopped]);}
+        finally {clearTimeout(timer);signal?.removeEventListener('abort',abort);if(sdk&&!cancelled){try{await sdk.dispose();}catch{}}worker?.terminate();}
+      }
+
+    __exports.recognize = recognize;
+    },
+
     // ── src/recognize/channels.js
     "src/recognize/channels.js": function (__exports, __require) {
 
@@ -2985,6 +3205,7 @@ window.addEventListener('error', function (event) {
 
 
       const CHANNELS = {
+        paddleOcr: {id:'paddleOcr',label:'本机中文区域识别',short:'中文区域 OCR',description:'按文字位置识别配料和营养表，数值核对后使用，照片不上传。',offline:true},
         localOcr: {
           id: 'localOcr', label: '本机照片文字识别', short: '本机 OCR',
           description: '中文与英文文字在浏览器内识别，照片不上传。', offline: true
@@ -3048,6 +3269,7 @@ window.addEventListener('error', function (event) {
       /* import ./demo.js */ const demoChannel = __require("src/recognize/demo.js");
       /* import ./ocr-huawei.js */ const ocrChannel = __require("src/recognize/ocr-huawei.js");
       /* import ./ocr-local.js */ const localOcr = __require("src/recognize/ocr-local.js");
+      /* import ./ocr-paddle.js */ const paddleOcr = __require("src/recognize/ocr-paddle.js");
       /* import ./channels.js */ const { CHANNELS, CROSS_CHECK_TOLERANCE } = __require("src/recognize/channels.js");
       /* import ../data/nutrition.js */ const { NUTRIENT_FIELDS } = __require("src/data/nutrition.js");
 
@@ -3108,7 +3330,7 @@ window.addEventListener('error', function (event) {
 
         if (prefer === 'mock') return fallbackToMock({ file, quality, mockMode, started, reason: '模拟识别：以下内容为演示数据。' });
 
-        if (!image || (hardBad && !CONFIG.localOcr.enabled)) return unreadOutcome(quality, started, '照片不够清楚，请调整光线并重新拍摄。');
+        if (!image || (hardBad && !CONFIG.localOcr.enabled && !CONFIG.paddleOcr.enabled)) return unreadOutcome(quality, started, '照片不够清楚，请调整光线并重新拍摄。');
 
 
         if (prefer !== 'ocr' && httpChannel.isConfigured()) {
@@ -3163,11 +3385,20 @@ window.addEventListener('error', function (event) {
         }
 
 
+        let paddleFailure = null;
+        if (CONFIG.paddleOcr.enabled && window.location.protocol !== 'file:') {
+          try {
+            const result = await paddleOcr.recognize({ file, signal, onProgress });
+            checkAbort(signal);
+            return finalize(result, quality, failedService ? '云端服务不可用，已改用本机中文区域识别。' : null, started);
+          } catch (error) { checkAbort(signal); paddleFailure = error.message; }
+        }
+
         if (CONFIG.localOcr.enabled) {
           try {
             const result = await localOcr.recognize({ file, signal, onProgress });
             checkAbort(signal);
-            return finalize(result, quality, failedService ? '云端服务暂时不可用，本次已改用本机文字识别。' : null, started);
+            return finalize(result, quality, paddleFailure ? `中文区域识别未能运行，已改用基础文字识别：${paddleFailure}` : failedService ? '云端服务暂时不可用，本次已改用本机文字识别。' : null, started);
           } catch (error) {
             checkAbort(signal);
             return unreadOutcome(quality, started, error.message || '照片文字读取失败，请重新拍摄。');
@@ -3935,12 +4166,21 @@ window.addEventListener('error', function (event) {
             isConcern: concernNutrients.has(field.key),
             naturalSugarOnly: field.key === 'sugar' && lactoseOnly
           });
-          if (evaluated) nutrients.push(evaluated);
+          if (evaluated) nutrients.push({ ...evaluated, incompleteToday: Boolean(consumedToday?.unknown?.[field.key]) });
         }
 
-        const level = decideLevel({ allergenConflicts, nutrients });
-        const headline = headlineFor({ level, allergenConflicts, nutrients, concernNames, label });
-        const advice = adviceFor({ level, allergenConflicts, nutrients });
+        let level = decideLevel({ allergenConflicts, nutrients });
+        let headline = headlineFor({ level, allergenConflicts, nutrients, concernNames, label });
+        let advice = adviceFor({ level, allergenConflicts, nutrients });
+        if (label.nutritionPartial) {
+          const missing = (label.missingFields || []).map(k => NUTRIENT_LABEL[k] || k).join('、');
+          if (level === 'green') { level = 'gray'; headline = '已核对部分营养，缺失项目无法判断'; }
+          advice = `仅计算您已核对的项目；${missing}未知，不能据此判断完整营养风险。${level === 'gray' ? '' : advice}`;
+        }
+        if (nutrients.some(n=>n.incompleteToday)) {
+          if (level === 'green') { level = 'gray'; headline = '今日记录有缺失，剩余额度无法确定'; }
+          advice += ' 今日部分已食用记录缺少营养数据，仅显示已知摄入量，不能确定完整余量。';
+        }
         const basis = buildBasis({
           label,
           allergenConflicts,
@@ -4014,6 +4254,11 @@ window.addEventListener('error', function (event) {
           if (!label.ingredientText) reasons.push({ code: 'noIngredientTitle', text: '没有找到清晰的配料标题，请查看识别全文或重新拍摄配料表。' });
           return { isGray: true, reasons, hard: reasons };
         }
+        if (label.nutritionConfirmed && label.ingredientsConfirmed) {
+          const missing = label.missingFields || [];
+          return { isGray: false, hard: [], reasons: missing.length ? [{ code:'partialNutrition', soft:true,
+            text:`${missing.map(k=>NUTRIENT_LABEL[k] || k).join('、')}没有已核对的数据，对应摄入量无法计算。` }] : [] };
+        }
         const criticalKeys = ['energy', 'protein', 'fat', 'carbohydrate', 'sodium'];
         const per100g = label.nutritionPer100g || {};
         const hasNumber = (v) => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v));
@@ -4070,7 +4315,7 @@ window.addEventListener('error', function (event) {
         const level = 'gray';
         const headline = label.readingOnly && label.ingredientText ? '已读取配料表，请对照照片核对' : label.readingOnly && label.rawText ? '已读取照片文字，未找到配料表标题' : label.unavailableReason && !label.imageQuality?.blurry && !label.imageQuality?.tooSmall
           ? '还没有读取到这张照片的配料表' : '照片有点看不清，能再拍一张吗？';
-        const advice = label.readingOnly ? '下面是这张照片实际识别出的文字，可以放大和朗读。请核对错字与漏字；需要营养建议时还须核对完整营养表。' : label.unavailableReason || '把手机靠近包装背面，让配料表和营养成分表填满画面，光线亮一点再拍一次。';
+        const advice = label.readingOnly ? '下面是这张照片实际识别出的文字，可以放大和朗读。请核对错字与漏字；需要营养建议时还须核对包装已标示的营养项目和单位。' : label.unavailableReason || '把手机靠近包装背面，让配料表和营养成分表填满画面，光线亮一点再拍一次。';
         return {
           level,
           headline,
@@ -4319,7 +4564,7 @@ window.addEventListener('error', function (event) {
           lines: [
             `识别通道：${label.channelLabel || '未知'}`,
             `配料表文本：${label.ingredientText ? `${label.ingredientText.length} 字` : '未读到'}`,
-            label.nutritionConfirmed ? '配料与七项营养值由用户对照包装核对；营养值为人工填写，并非 OCR 自动识别或准确率承诺。' : `字段置信度：${
+            label.nutritionConfirmed ? '配料和填写的营养值已由用户对照包装核对；未标示或未确认的字段保持未知。' : `字段置信度：${
               Object.entries(conf)
                 .map(([k, v]) => `${NUTRIENT_LABEL[k] || k} ${(v * 100).toFixed(0)}%`)
                 .join('、') || '无'
@@ -4862,7 +5107,8 @@ window.addEventListener('error', function (event) {
             sodium: totals.sodium,
             sugar: totals.sugar,
             saturatedFat: totals.saturatedFat,
-            fat: totals.fat
+            fat: totals.fat,
+            unknown: totals.unknown
           },
           servingGrams
         });
@@ -4886,7 +5132,7 @@ window.addEventListener('error', function (event) {
 
       function recordResult(result, options = {}) {
         const { photo, assessment } = result;
-        if (options.consumptionConfirmed !== true || assessment.level === 'gray' || photo.label.readingOnly || photo.origin === 'demo') return null;
+        if (options.consumptionConfirmed !== true || (assessment.level === 'gray' && !photo.label.nutritionConfirmed) || photo.label.readingOnly || photo.origin === 'demo') return null;
         const existing = result.consumptionRecordId && loadRecords().find((r) => r.id === result.consumptionRecordId);
         if (existing) return existing;
         const label = photo.label;
@@ -4903,6 +5149,7 @@ window.addEventListener('error', function (event) {
           servingGrams,
           servingUnit: label.servingUnit || 'g',
           nutrients,
+          nutritionPartial: Boolean(label.nutritionPartial),
           allergenHits: (assessment.allergenConflicts || []).map((a) => a.short),
           origin: photo.origin,
           demoCaseId: photo.demoCaseId || null,
@@ -5404,7 +5651,7 @@ window.addEventListener('error', function (event) {
               h('span', { text: `${limitLabel(key)}今天还能吃` }),
               h('span', {
                 class: 'meter-value',
-                text: `还剩 ${Math.max(0, Math.round((limit.limit - used) * 10) / 10)} ${limit.unit}`
+                text: totals.unknown[key] ? '有缺失记录，余量未知' : `还剩 ${Math.max(0, Math.round((limit.limit - used) * 10) / 10)} ${limit.unit}`
               })
             ]),
             h('div', { class: 'meter-track' }, [
@@ -5676,28 +5923,82 @@ window.addEventListener('error', function (event) {
       /* import ../data/nutrition.js */ const { NUTRIENT_FIELDS } = __require("src/data/nutrition.js");
       /* import ../recognize/parse-label.js */ const { splitIngredientLines } = __require("src/recognize/parse-label.js");
 
+
+      const INTAKE_RELEVANT = ['sugar', 'sodium', 'fat', 'saturatedFat'];
+
+
+
+
+
+
+
+
+
+
+
+
+
+
       function reviewLabel(label, { ingredientText, allergenDeclaration = '', nutrients = {}, unit = 'g' }) {
         if (!ingredientText?.trim()) throw new Error('请填写完整配料；没有看清时请重新拍摄。');
         if (!['g', 'ml'].includes(unit)) throw new Error('请选择每 100 克或每 100 毫升。');
+
         const values = {};
-        let filled = 0;
+        const confidence = {};
+        const filledFields = [];
+        const missingFields = [];
+
         for (const field of NUTRIENT_FIELDS) {
           const raw = nutrients[field.key];
-          if (raw == null || String(raw).trim() === '') { values[field.key] = null; continue; }
+          if (raw == null || String(raw).trim() === '') {
+            values[field.key] = null;
+            confidence[field.key] = 0;
+            missingFields.push(field.key);
+            continue;
+          }
           const value = Number(raw);
-          if (!Number.isFinite(value) || value < 0) throw new Error(`${field.label}请填写大于或等于 0 的数值。`);
+          if (!Number.isFinite(value) || value < 0) {
+            throw new Error(`${field.label}请填写大于或等于 0 的数值。`);
+          }
           values[field.key] = value;
-          filled++;
+          confidence[field.key] = 1;
+          filledFields.push(field.key);
         }
-        if (filled && filled !== NUTRIENT_FIELDS.length) throw new Error('请核对并填写全部七项营养值；包装未标示的项目请留空，不要填成 0。也可以清空全部营养值，仅核对配料。');
+
+        const anyFilled = filledFields.length > 0;
+        const allFilled = missingFields.length === 0;
+
+
+        const uncomputable = missingFields
+          .filter((key) => INTAKE_RELEVANT.includes(key))
+          .map((key) => NUTRIENT_FIELDS.find((f) => f.key === key)?.label || key);
+
         return {
-          ...label, ingredientText: ingredientText.trim(), ingredientLines: splitIngredientLines(ingredientText),
-          allergenDeclaration: allergenDeclaration.trim(), ingredientsConfirmed: true,
-          readingOnly: filled !== NUTRIENT_FIELDS.length, nutritionConfirmed: filled === NUTRIENT_FIELDS.length,
-          nutritionPer100g: values, confidence: Object.fromEntries(NUTRIENT_FIELDS.map((f) => [f.key, values[f.key] === null ? 0 : 1])),
-          declaredPer: 'per100g', servingBasis: 'per100g', servingUnit: unit,
+          ...label,
+          ingredientText: ingredientText.trim(),
+          ingredientLines: splitIngredientLines(ingredientText),
+          allergenDeclaration: allergenDeclaration.trim(),
+          ingredientsConfirmed: true,
+
+
+          readingOnly: !anyFilled,
+
+          nutritionConfirmed: anyFilled,
+
+          nutritionPartial: anyFilled && !allFilled,
+
+          nutritionPer100g: values,
+          confidence,
+          filledFields,
+          missingFields,
+          uncomputable,
+
+          declaredPer: 'per100g',
+          servingBasis: 'per100g',
+          servingUnit: unit,
           servingLabel: unit === 'ml' ? '每 100 毫升' : '每 100 克',
-          imageQuality: {}, unavailableReason: null
+          imageQuality: {},
+          unavailableReason: null
         };
       }
 
@@ -5789,7 +6090,7 @@ window.addEventListener('error', function (event) {
             h('span', { class: 'risk-icon', html: icon(iconNameFor(assessment.level)) }),
             h('div', { class: 'risk-body' }, [
               h('div', { class: 'risk-level' }, [
-                h('span', { class: 'risk-level-label', text: assessment.partial && assessment.allergenConflicts.length ? '配料过敏提醒 · 营养待核对' : label.readingOnly ? '配料读取 · 营养待核对' : label.channel === 'unavailable' ? '灰色 · 尚未读取' : `${meta.label} · ${meta.text}` }),
+                h('span', { class: 'risk-level-label', text: label.nutritionPartial ? '部分营养已核对 · 缺失项目未知' : assessment.partial && assessment.allergenConflicts.length ? '配料过敏提醒 · 营养待核对' : label.readingOnly ? '配料读取 · 营养待核对' : label.channel === 'unavailable' ? '灰色 · 尚未读取' : `${meta.label} · ${meta.text}` }),
                 label.productName ? h('span', { text: `　${label.productName}` }) : null
               ]),
               h('h2', { class: 'risk-headline', text: assessment.headline })
@@ -5803,7 +6104,7 @@ window.addEventListener('error', function (event) {
           ]),
 
 
-          assessment.level !== 'gray' && assessment.nutrients?.length
+          (assessment.level !== 'gray' || label.nutritionConfirmed) && assessment.nutrients?.length
             ? budgetCard(assessment, result)
             : null,
 
@@ -5812,8 +6113,8 @@ window.addEventListener('error', function (event) {
 
           photoCard(photo, label),
 
-          label.channel === 'localOcr' && !result.consumptionRecordId ? reviewCard(result, ctx) : null,
-          !label.readingOnly && assessment.level !== 'gray' ? consumptionCard(result, ctx) : null,
+          ['localOcr','paddleOcr'].includes(label.channel) && !result.consumptionRecordId ? reviewCard(result, ctx) : null,
+          !label.readingOnly && (assessment.level !== 'gray' || label.nutritionConfirmed) ? consumptionCard(result, ctx) : null,
 
 
           ...(assessment.basis || []).map(basisBlock),
@@ -5907,7 +6208,7 @@ window.addEventListener('error', function (event) {
               h('span', { text: `${NUTRIENT_TITLE[n.key] || n.label}　这一份 ${n.amount} ${n.unit}` }),
               h('span', {
                 class: 'meter-value',
-                text: remaining > 0 ? `${recorded ? '已记录，还剩' : '如果吃这一份，还剩'} ${remaining} ${n.unit}` : '达到今日建议上限'
+                text: totals.unknown[n.key] ? '今日有缺失数据，余量无法确定' : remaining > 0 ? `${recorded ? '已记录，还剩' : '如果吃这一份，还剩'} ${remaining} ${n.unit}` : '达到今日建议上限'
               })
             ]),
             h('div', { class: 'meter-track' }, [
@@ -5915,7 +6216,7 @@ window.addEventListener('error', function (event) {
             ]),
             h('p', {
               class: 'photo-meta',
-              text: `今天已经吃进 ${Math.round(usedBefore * 10) / 10} ${n.unit}，一天的建议上限是 ${limit.limit} ${n.unit}`
+              text: `今天已知记录 ${Math.round(usedBefore * 10) / 10} ${n.unit}，一天的参考上限是 ${limit.limit} ${n.unit}${totals.unknown[n.key] ? '；另有记录未标示此项' : ''}`
             })
           ]);
         }).filter(Boolean);
@@ -6045,15 +6346,17 @@ window.addEventListener('error', function (event) {
         const ingredient = h('textarea', { id: 'review-ingredients', class: 'review-input', rows: 4, value: label.ingredientText || '' });
         const declaration = h('textarea', { id: 'review-allergens', class: 'review-input', rows: 2, value: label.allergenDeclaration || '' });
         const unit = h('select', { id: 'review-unit', class: 'review-input' }, [
-          h('option', { value: 'g', text: '每 100 克' }), h('option', { value: 'ml', text: '每 100 毫升' })
+          h('option', { value: '', text: '请选择包装口径' }), h('option', { value: 'g', text: '每 100 克' }), h('option', { value: 'ml', text: '每 100 毫升' })
         ]);
-        unit.value = label.servingUnit || 'g';
+        unit.value = label.servingUnit || '';
         const inputs = {};
         const nutrientRows = NUTRIENT_FIELDS.map((field) => {
           const input = h('input', { id: `review-${field.key}`, class: 'review-input', type: 'number', min: 0, step: 'any', inputMode: 'decimal',
-            value: label.nutritionConfirmed ? label.nutritionPer100g[field.key] : '', placeholder: '未标示请留空' });
+            value: label.nutritionConfirmed || label.nutritionCandidates ? label.nutritionPer100g[field.key] ?? '' : '', placeholder: '未标示请留空' });
           inputs[field.key] = input;
-          return h('label', { class: 'review-field', htmlFor: input.id }, [h('span', { text: `${field.label}（${field.unit}）` }), input]);
+          const candidate = label.nutritionCandidates?.[field.key];
+          return h('label', { class: 'review-field', htmlFor: input.id }, [h('span', { text: `${field.label}（${field.unit}）` }), input,
+            candidate ? h('span', {class:'footnote',text:`识别原文：${candidate.text}${candidate.conflict ? '；同名项目数值冲突，请自行核对' : candidate.warning ? '；'+candidate.warning : ''}（待核对）`}) : null]);
         });
         const checked = h('input', { type: 'checkbox', id: 'review-checked' });
         const error = h('p', { class: 'error-box', role: 'alert', hidden: true });
@@ -6063,10 +6366,10 @@ window.addEventListener('error', function (event) {
             h('p', { class: 'footnote', text: '对照上方照片补齐错字、漏字。请查看包装的完整配料及致敏提示；没匹配到过敏成分不代表一定安全。' }),
             h('label', { class: 'review-field', htmlFor: ingredient.id }, [h('span', { text: '完整配料表' }), ingredient]),
             h('label', { class: 'review-field', htmlFor: declaration.id }, [h('span', { text: '包装致敏物质提示（无标示可留空）' }), declaration]),
-            h('details', { class: 'basis' }, [
+            h('details', { class: 'basis', open: Boolean(label.nutritionCandidates) }, [
               h('summary', { text: '填写营养表（可选）' }),
               h('div', { class: 'review-form' }, [
-                h('p', { class: 'footnote', text: '仅支持包装明确标示每 100 克或每 100 毫升的数值。填写含量列，不要填写 NRV%；每份标签请先补拍每 100 克/毫升口径。七项都核对后才计算营养摄入量。' }),
+                h('p', { class: 'footnote', text: '识别值是待核对候选，请对照包装检查含量和单位，不能填写 NRV%。支持每 100 克或每 100 毫升；包装列了几项就核对几项，未标示的项目留空，仅计算已核对的数据。' }),
                 h('label', { class: 'review-field', htmlFor: unit.id }, [h('span', { text: '包装标示口径' }), unit]), ...nutrientRows
               ])
             ]),
@@ -6077,7 +6380,7 @@ window.addEventListener('error', function (event) {
                 if (!checked.checked) throw new Error('请先对照包装核对，再勾选确认。');
                 if (Object.values(inputs).some((input) => input.validity.badInput)) throw new Error('营养值请输入有效数字。');
                 const next = reviewLabel(label, { ingredientText: ingredient.value, allergenDeclaration: declaration.value,
-                  nutrients: Object.fromEntries(Object.entries(inputs).map(([key, input]) => [key, input.value])), unit: unit.value });
+                  nutrients: Object.fromEntries(Object.entries(inputs).map(([key, input]) => [key, input.value])), unit: unit.value || (Object.values(inputs).every(i=>i.value === '') ? 'g' : '') });
                 result.photo.label = next;
                 result.assessment = evaluateLabel(next, ctx.state.profile);
                 result.spoken = false;
@@ -6235,7 +6538,7 @@ window.addEventListener('error', function (event) {
             h('p', { class: 'record-name', text: record.productName }),
             h('p', { class: 'record-line', text: record.headline }),
             h('p', { class: 'record-line record-time' }, [
-              h('span', { text: `${meta.label} · ${meta.text}　${time}` }),
+              h('span', { text: `${record.nutritionPartial ? '部分营养已核对' : `${meta.label} · ${meta.text}`}　${time}` }),
               record.servingGrams ? h('span', { text: `　${record.consumptionConfirmed ? '已食用' : '旧版查看记录'} ${record.servingGrams} ${record.servingUnit || 'g'}` }) : null
             ])
           ]),
@@ -6279,7 +6582,7 @@ window.addEventListener('error', function (event) {
               h('span', { text: NUTRIENT_TITLE[key] }),
               h('span', {
                 class: 'meter-value',
-                text: ratio >= 1 ? '今天已经吃满了' : `还剩 ${Math.round((limit.limit - used) * 10) / 10} ${limit.unit}`
+                text: totals.unknown[key] ? '有缺失记录，余量未知' : ratio >= 1 ? '今天已经吃满了' : `还剩 ${Math.round((limit.limit - used) * 10) / 10} ${limit.unit}`
               })
             ]),
             h('div', { class: 'meter-track' }, [
@@ -6287,7 +6590,7 @@ window.addEventListener('error', function (event) {
             ]),
             h('p', {
               class: 'photo-meta',
-              text: `今天已经吃进 ${Math.round((totals[key] || 0) * 10) / 10} ${limit.unit}，一天的建议上限是 ${limit.limit} ${limit.unit}`
+              text: `今天已知记录 ${Math.round((totals[key] || 0) * 10) / 10} ${limit.unit}，参考上限 ${limit.limit} ${limit.unit}${totals.unknown[key] ? '；另有记录未标示此项' : ''}`
             })
           ]);
         });

@@ -167,18 +167,20 @@ export function recordsOfToday(records = loadRecords()) {
 /**
  * 当日已摄入量统计（只统计有营养数据的记录）。
  * @param {ReturnType<typeof loadRecords>} [records]
- * @returns {{sodium:number, sugar:number, saturatedFat:number, fat:number, count:number}}
+ * @returns {{sodium:number, sugar:number, saturatedFat:number, fat:number, count:number, unknown:Record<string,number>}} unknown 为已食用记录中各营养项的缺失数量
  */
 export function todayTotals(records = loadRecords()) {
-  const totals = { sodium: 0, sugar: 0, saturatedFat: 0, fat: 0, count: 0 };
+  const totals = { sodium: 0, sugar: 0, saturatedFat: 0, fat: 0, count: 0, unknown: { sodium:0, sugar:0, saturatedFat:0, fat:0 } };
   for (const r of recordsOfToday(records)) {
     // 旧版扫描记录保留供查看，不作为已确认摄入；演示不计入真实摄入。
     if (r.consumptionConfirmed !== true || r.origin === 'demo') continue;
     if (!r.nutrients) continue;
     totals.count += 1;
     for (const key of ['sodium', 'sugar', 'saturatedFat', 'fat']) {
-      const v = Number(r.nutrients[key]);
+      const raw = r.nutrients[key];
+      const v = raw == null || String(raw).trim() === '' ? NaN : Number(raw);
       if (Number.isFinite(v)) totals[key] += v;
+      else totals.unknown[key]++;
     }
   }
   return totals;

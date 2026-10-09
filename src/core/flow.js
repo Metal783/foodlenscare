@@ -195,7 +195,8 @@ export function evaluateLabel(label, profile) {
       sodium: totals.sodium,
       sugar: totals.sugar,
       saturatedFat: totals.saturatedFat,
-      fat: totals.fat
+      fat: totals.fat,
+      unknown: totals.unknown
     },
     servingGrams
   });
@@ -219,7 +220,7 @@ export function speakAndRecord({ photo, assessment }, profile, options = {}) {
 /** 写入当日记录：名称、结论、时间、风险等级与关键营养量 */
 export function recordResult(result, options = {}) {
   const { photo, assessment } = result;
-  if (options.consumptionConfirmed !== true || assessment.level === 'gray' || photo.label.readingOnly || photo.origin === 'demo') return null;
+  if (options.consumptionConfirmed !== true || (assessment.level === 'gray' && !photo.label.nutritionConfirmed) || photo.label.readingOnly || photo.origin === 'demo') return null;
   const existing = result.consumptionRecordId && loadRecords().find((r) => r.id === result.consumptionRecordId);
   if (existing) return existing;
   const label = photo.label;
@@ -236,6 +237,7 @@ export function recordResult(result, options = {}) {
     servingGrams,
     servingUnit: label.servingUnit || 'g',
     nutrients,
+    nutritionPartial: Boolean(label.nutritionPartial),
     allergenHits: (assessment.allergenConflicts || []).map((a) => a.short),
     origin: photo.origin,
     demoCaseId: photo.demoCaseId || null,

@@ -11,6 +11,8 @@ import { renderResult } from '../src/pages/result.js';
 import { emptyProfile } from '../src/core/store.js';
 import { CONFIG } from '../src/recognize/config.js';
 const DEFAULT_PROFILE = emptyProfile();
+// 此文件专门检查基础 Tesseract 通道；区域模型另有真实包装回归。
+CONFIG.paddleOcr.enabled = false;
 const passes = [];
 function check(ok, message) { if (!ok) throw new Error(message); passes.push(message); }
 try {

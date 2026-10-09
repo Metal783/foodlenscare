@@ -10,7 +10,7 @@
  * 注意：单文件版的全部内容都在 index.html 里，所以这里只需要缓存它自己。
  */
 
-const VERSION = 'flc-pages-v4-label-review';
+const VERSION = 'flc-pages-v6-region-ocr-entry';
 const SHELL = ['./', './index.html',
   './assets/ocr/tesseract.min.js', './assets/ocr/worker.min.js',
   './assets/ocr/tesseract-core-lstm.wasm.js', './assets/ocr/tesseract-core-lstm.wasm',

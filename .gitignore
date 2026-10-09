@@ -8,7 +8,7 @@ __pycache__/
 .venv/
 venv/
 
-# ---- Node（本项目无依赖，留在这里是防止以后误装）----
+# ---- Node（仅构建 OCR 资源需要依赖）----
 node_modules/
 npm-debug.log*
 pnpm-debug.log*
@@ -23,6 +23,7 @@ _qa/_sandbox/
 _qa/_sbx*/
 _qa/_msg*.txt
 _qa/_commitmsg.txt
+_qa/ocr-bench/
 
 # ---- 本地接口密钥 ----
 # src/recognize/config.js 里可以填真实的 AK/SK。

@@ -81,7 +81,7 @@ export function renderResult(view, params, ctx) {
       h('span', { class: 'risk-icon', html: icon(iconNameFor(assessment.level)) }),
       h('div', { class: 'risk-body' }, [
         h('div', { class: 'risk-level' }, [
-          h('span', { class: 'risk-level-label', text: assessment.partial && assessment.allergenConflicts.length ? '配料过敏提醒 · 营养待核对' : label.readingOnly ? '配料读取 · 营养待核对' : label.channel === 'unavailable' ? '灰色 · 尚未读取' : `${meta.label} · ${meta.text}` }),
+          h('span', { class: 'risk-level-label', text: label.nutritionPartial ? '部分营养已核对 · 缺失项目未知' : assessment.partial && assessment.allergenConflicts.length ? '配料过敏提醒 · 营养待核对' : label.readingOnly ? '配料读取 · 营养待核对' : label.channel === 'unavailable' ? '灰色 · 尚未读取' : `${meta.label} · ${meta.text}` }),
           label.productName ? h('span', { text: `　${label.productName}` }) : null
         ]),
         h('h2', { class: 'risk-headline', text: assessment.headline })
@@ -95,7 +95,7 @@ export function renderResult(view, params, ctx) {
     ]),
 
     /* ---------- 当日额度 ---------- */
-    assessment.level !== 'gray' && assessment.nutrients?.length
+    (assessment.level !== 'gray' || label.nutritionConfirmed) && assessment.nutrients?.length
       ? budgetCard(assessment, result)
       : null,
 
@@ -104,8 +104,8 @@ export function renderResult(view, params, ctx) {
     /* ---------- 看见的照片与识别通道 ---------- */
     photoCard(photo, label),
 
-    label.channel === 'localOcr' && !result.consumptionRecordId ? reviewCard(result, ctx) : null,
-    !label.readingOnly && assessment.level !== 'gray' ? consumptionCard(result, ctx) : null,
+    ['localOcr','paddleOcr'].includes(label.channel) && !result.consumptionRecordId ? reviewCard(result, ctx) : null,
+    !label.readingOnly && (assessment.level !== 'gray' || label.nutritionConfirmed) ? consumptionCard(result, ctx) : null,
 
     /* ---------- 依据在哪 ---------- */
     ...(assessment.basis || []).map(basisBlock),
@@ -199,7 +199,7 @@ function budgetCard(assessment, result) {
         h('span', { text: `${NUTRIENT_TITLE[n.key] || n.label}　这一份 ${n.amount} ${n.unit}` }),
         h('span', {
           class: 'meter-value',
-          text: remaining > 0 ? `${recorded ? '已记录，还剩' : '如果吃这一份，还剩'} ${remaining} ${n.unit}` : '达到今日建议上限'
+          text: totals.unknown[n.key] ? '今日有缺失数据，余量无法确定' : remaining > 0 ? `${recorded ? '已记录，还剩' : '如果吃这一份，还剩'} ${remaining} ${n.unit}` : '达到今日建议上限'
         })
       ]),
       h('div', { class: 'meter-track' }, [
@@ -207,7 +207,7 @@ function budgetCard(assessment, result) {
       ]),
       h('p', {
         class: 'photo-meta',
-        text: `今天已经吃进 ${Math.round(usedBefore * 10) / 10} ${n.unit}，一天的建议上限是 ${limit.limit} ${n.unit}`
+        text: `今天已知记录 ${Math.round(usedBefore * 10) / 10} ${n.unit}，一天的参考上限是 ${limit.limit} ${n.unit}${totals.unknown[n.key] ? '；另有记录未标示此项' : ''}`
       })
     ]);
   }).filter(Boolean);
@@ -337,15 +337,17 @@ function reviewCard(result, ctx) {
   const ingredient = h('textarea', { id: 'review-ingredients', class: 'review-input', rows: 4, value: label.ingredientText || '' });
   const declaration = h('textarea', { id: 'review-allergens', class: 'review-input', rows: 2, value: label.allergenDeclaration || '' });
   const unit = h('select', { id: 'review-unit', class: 'review-input' }, [
-    h('option', { value: 'g', text: '每 100 克' }), h('option', { value: 'ml', text: '每 100 毫升' })
+    h('option', { value: '', text: '请选择包装口径' }), h('option', { value: 'g', text: '每 100 克' }), h('option', { value: 'ml', text: '每 100 毫升' })
   ]);
-  unit.value = label.servingUnit || 'g';
+  unit.value = label.servingUnit || '';
   const inputs = {};
   const nutrientRows = NUTRIENT_FIELDS.map((field) => {
     const input = h('input', { id: `review-${field.key}`, class: 'review-input', type: 'number', min: 0, step: 'any', inputMode: 'decimal',
-      value: label.nutritionConfirmed ? label.nutritionPer100g[field.key] : '', placeholder: '未标示请留空' });
+      value: label.nutritionConfirmed || label.nutritionCandidates ? label.nutritionPer100g[field.key] ?? '' : '', placeholder: '未标示请留空' });
     inputs[field.key] = input;
-    return h('label', { class: 'review-field', htmlFor: input.id }, [h('span', { text: `${field.label}（${field.unit}）` }), input]);
+    const candidate = label.nutritionCandidates?.[field.key];
+    return h('label', { class: 'review-field', htmlFor: input.id }, [h('span', { text: `${field.label}（${field.unit}）` }), input,
+      candidate ? h('span', {class:'footnote',text:`识别原文：${candidate.text}${candidate.conflict ? '；同名项目数值冲突，请自行核对' : candidate.warning ? '；'+candidate.warning : ''}（待核对）`}) : null]);
   });
   const checked = h('input', { type: 'checkbox', id: 'review-checked' });
   const error = h('p', { class: 'error-box', role: 'alert', hidden: true });
@@ -355,10 +357,10 @@ function reviewCard(result, ctx) {
       h('p', { class: 'footnote', text: '对照上方照片补齐错字、漏字。请查看包装的完整配料及致敏提示；没匹配到过敏成分不代表一定安全。' }),
       h('label', { class: 'review-field', htmlFor: ingredient.id }, [h('span', { text: '完整配料表' }), ingredient]),
       h('label', { class: 'review-field', htmlFor: declaration.id }, [h('span', { text: '包装致敏物质提示（无标示可留空）' }), declaration]),
-      h('details', { class: 'basis' }, [
+      h('details', { class: 'basis', open: Boolean(label.nutritionCandidates) }, [
         h('summary', { text: '填写营养表（可选）' }),
         h('div', { class: 'review-form' }, [
-          h('p', { class: 'footnote', text: '仅支持包装明确标示每 100 克或每 100 毫升的数值。填写含量列，不要填写 NRV%；每份标签请先补拍每 100 克/毫升口径。七项都核对后才计算营养摄入量。' }),
+          h('p', { class: 'footnote', text: '识别值是待核对候选，请对照包装检查含量和单位，不能填写 NRV%。支持每 100 克或每 100 毫升；包装列了几项就核对几项，未标示的项目留空，仅计算已核对的数据。' }),
           h('label', { class: 'review-field', htmlFor: unit.id }, [h('span', { text: '包装标示口径' }), unit]), ...nutrientRows
         ])
       ]),
@@ -369,7 +371,7 @@ function reviewCard(result, ctx) {
           if (!checked.checked) throw new Error('请先对照包装核对，再勾选确认。');
           if (Object.values(inputs).some((input) => input.validity.badInput)) throw new Error('营养值请输入有效数字。');
           const next = reviewLabel(label, { ingredientText: ingredient.value, allergenDeclaration: declaration.value,
-            nutrients: Object.fromEntries(Object.entries(inputs).map(([key, input]) => [key, input.value])), unit: unit.value });
+            nutrients: Object.fromEntries(Object.entries(inputs).map(([key, input]) => [key, input.value])), unit: unit.value || (Object.values(inputs).every(i=>i.value === '') ? 'g' : '') });
           result.photo.label = next;
           result.assessment = evaluateLabel(next, ctx.state.profile);
           result.spoken = false;

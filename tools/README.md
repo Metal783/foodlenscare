@@ -5,7 +5,11 @@
 
 ## 一键检查
 
+电脑体验新版 OCR 可直接双击根目录的 `启动新版OCR.cmd`；终端保持开启，浏览器自动打开。双击 HTML 使用基础识别，页面会明确提示启动方式。
+
 ```bash
+node tools/regions-selftest.mjs        # 区域识别与未知字段回归
+node tools/ingredient-section-selftest.mjs # 配料区段与营养标题隔离
 node tools/review-selftest.mjs         # 本次修复逻辑回归：25 项
 node tools/rule-selftest.mjs           # 规则层与解析层自测（74 项断言）
 node tools/module-check.mjs            # 模块导入导出 + 具名导入/调用 + 定向回归检查
@@ -17,8 +21,11 @@ node tools/bundle-standalone.mjs       # 打包「双击就能打开」的单文
 python tools/check-standalone.py       # 校验单文件版在 file:// 下能跑通
 node tools/contrast-check.mjs          # 对比度实测（WCAG 相对亮度公式）
 python tools/serve.py                  # 本地服务（局域网 + 二维码）
+python tools/serve.py --mobile --host 127.0.0.1 --no-qr --open # 自动打开新版 OCR（仅本机）
 python tools/capture-screenshots.py
 ```
+
+新版区域 OCR 原图回归：`node tools/check-paddle.cjs "原图.jpg"`（需 Playwright 和 Edge，可设置 `FLC_PLAYWRIGHT_PATH`）。原图由本机路径提供，不复制到仓库。OCR 依赖固定版本及构建步骤见根目录 README 和 `assets/paddle/README.md`。
 
 | 脚本 | 作用 | 什么时候跑 |
 | --- | --- | --- |

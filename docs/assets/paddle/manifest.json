@@ -1,0 +1,38 @@
+{
+  "sdk": "0.4.2",
+  "onnxruntime": "1.24.3",
+  "files": {
+    "paddle.mjs": {
+      "bytes": 10893364,
+      "sha256": "26387a803d021f4ec719a50a2a50c8a18acab9f5d905a499fd3d086a9687c3a6"
+    },
+    "ocr-worker.mjs": {
+      "bytes": 10872914,
+      "sha256": "13af5bc4e3128c3d7061e08c0228ac525e755d3527b7a7cb75f60f04209b479d"
+    },
+    "ort-wasm-simd-threaded.mjs": {
+      "bytes": 24274,
+      "sha256": "5687566b1bc1c8cf628d76c2ddb16b2a3b81a7997273d4666564880495088e57"
+    },
+    "ort-wasm-simd-threaded.wasm": {
+      "bytes": 12361745,
+      "sha256": "be0e129949062ad50290ef94683fac8be5bb6156f709e030b7a5f1661a2f6c17"
+    },
+    "ort-wasm-simd-threaded.jsep.mjs": {
+      "bytes": 46595,
+      "sha256": "9a99acd12acc495184c9ea4d458ac9424f8180aacfbc7b8371ed64f9351e4a81"
+    },
+    "ort-wasm-simd-threaded.jsep.wasm": {
+      "bytes": 25014754,
+      "sha256": "2e0a3d0e3f6b7c13ecfaba38c13691fd19c9ed470e72f9d7d8416ca59ab6dbcd"
+    },
+    "models/PP-OCRv5_mobile_det.tar": {
+      "bytes": 4843520,
+      "sha256": "781056046c9ed77a15c94681605db6a0f62317c2e9cce6931c71da2478d4bc30"
+    },
+    "models/PP-OCRv5_mobile_rec.tar": {
+      "bytes": 16701440,
+      "sha256": "f7e792bc836f36e7ef895ad47c426d75b0b75b1650caa6d63fe9418441ffba8c"
+    }
+  }
+}

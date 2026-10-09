@@ -13,7 +13,7 @@ const server = http.createServer((req, res) => {
     if (fs.existsSync(target) && fs.statSync(target).isDirectory()) target = path.join(target, 'index.html');
   }
   if (!target.startsWith(root + path.sep)) { res.writeHead(403).end(); return; }
-  const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.wasm': 'application/wasm' };
+  const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.wasm': 'application/wasm' };
   fs.readFile(target, (error, data) => {
     if (error) { res.writeHead(404).end(); return; }
     res.writeHead(200, { 'Content-Type': mime[path.extname(target)] || 'application/octet-stream' });
@@ -31,7 +31,7 @@ const server = http.createServer((req, res) => {
     page.on('request', req => { if (/^https?:/.test(req.url()) && !req.url().startsWith('http://127.0.0.1:')) external.push(req.url()); });
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(`http://127.0.0.1:${server.address().port}/_qa/ocr-test.html`);
-    await page.waitForFunction(() => /^(PASS|FAIL)/.test(document.getElementById('probe').textContent), { timeout: 180000 });
+    await page.waitForFunction(() => /^(PASS|FAIL)/.test(document.getElementById('probe').textContent), null, { timeout: 180000 });
     const report = await page.locator('#probe').textContent();
     console.log(report);
     if (!report.startsWith('PASS')) console.log(await page.evaluate(() => JSON.stringify(window.ocrResult)));
@@ -55,7 +55,7 @@ const server = http.createServer((req, res) => {
         await app.getByRole('button', { name: '从相册里选一张配料表照片' }).click();
         await (await chooser).setFiles({ name: '配料表.png', mimeType: 'image/png', buffer: fixture });
         await app.getByRole('button', { name: /就用这张/ }).click();
-        await app.waitForFunction(() => window.FoodLensCare.state.result?.photo.label.readingOnly, { timeout: 150000 });
+        await app.waitForFunction(() => window.FoodLensCare.state.result?.photo.label.readingOnly, null, { timeout: 150000 });
         const text = await app.locator('#view').textContent();
         if (!text.includes('小麦') || !text.includes('花生') || !text.includes('照片识别全文')) throw new Error(entry + ': 真实照片未展示');
         if (await app.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error('配料核对界面出现横向溢出');
@@ -82,7 +82,7 @@ const server = http.createServer((req, res) => {
       if (!(await app.locator('#view').textContent()).includes('请先对照包装核对')) throw new Error('未经勾选应阻止提交');
       await app.locator('#review-ingredients').fill('配料：水、白砂糖。');
       await app.locator('#review-allergens').fill('');
-      await app.getByText('填写营养表（可选）', { exact: true }).click();
+      if (!(await app.locator('#review-unit').isVisible())) await app.getByText('填写营养表（可选）', { exact: true }).click();
       await app.locator('#review-unit').selectOption('ml');
       const nutrition = { energy: 100, protein: 1, fat: 2, saturatedFat: 0.5, carbohydrate: 8, sugar: 5, sodium: 100 };
       for (const [key, value] of Object.entries(nutrition)) await app.locator('#review-' + key).fill(String(value));

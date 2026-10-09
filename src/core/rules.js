@@ -368,12 +368,21 @@ export function evaluate({ label, profile, consumedToday, servingGrams }) {
       isConcern: concernNutrients.has(field.key),
       naturalSugarOnly: field.key === 'sugar' && lactoseOnly
     });
-    if (evaluated) nutrients.push(evaluated);
+    if (evaluated) nutrients.push({ ...evaluated, incompleteToday: Boolean(consumedToday?.unknown?.[field.key]) });
   }
 
-  const level = decideLevel({ allergenConflicts, nutrients });
-  const headline = headlineFor({ level, allergenConflicts, nutrients, concernNames, label });
-  const advice = adviceFor({ level, allergenConflicts, nutrients });
+  let level = decideLevel({ allergenConflicts, nutrients });
+  let headline = headlineFor({ level, allergenConflicts, nutrients, concernNames, label });
+  let advice = adviceFor({ level, allergenConflicts, nutrients });
+  if (label.nutritionPartial) {
+    const missing = (label.missingFields || []).map(k => NUTRIENT_LABEL[k] || k).join('、');
+    if (level === 'green') { level = 'gray'; headline = '已核对部分营养，缺失项目无法判断'; }
+    advice = `仅计算您已核对的项目；${missing}未知，不能据此判断完整营养风险。${level === 'gray' ? '' : advice}`;
+  }
+  if (nutrients.some(n=>n.incompleteToday)) {
+    if (level === 'green') { level = 'gray'; headline = '今日记录有缺失，剩余额度无法确定'; }
+    advice += ' 今日部分已食用记录缺少营养数据，仅显示已知摄入量，不能确定完整余量。';
+  }
   const basis = buildBasis({
     label,
     allergenConflicts,
@@ -447,6 +456,11 @@ function detectGray(label) {
     if (!label.ingredientText) reasons.push({ code: 'noIngredientTitle', text: '没有找到清晰的配料标题，请查看识别全文或重新拍摄配料表。' });
     return { isGray: true, reasons, hard: reasons };
   }
+  if (label.nutritionConfirmed && label.ingredientsConfirmed) {
+    const missing = label.missingFields || [];
+    return { isGray: false, hard: [], reasons: missing.length ? [{ code:'partialNutrition', soft:true,
+      text:`${missing.map(k=>NUTRIENT_LABEL[k] || k).join('、')}没有已核对的数据，对应摄入量无法计算。` }] : [] };
+  }
   const criticalKeys = ['energy', 'protein', 'fat', 'carbohydrate', 'sodium'];
   const per100g = label.nutritionPer100g || {};
   const hasNumber = (v) => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v));
@@ -503,7 +517,7 @@ function buildGray(gray, label) {
   const level = 'gray';
   const headline = label.readingOnly && label.ingredientText ? '已读取配料表，请对照照片核对' : label.readingOnly && label.rawText ? '已读取照片文字，未找到配料表标题' : label.unavailableReason && !label.imageQuality?.blurry && !label.imageQuality?.tooSmall
     ? '还没有读取到这张照片的配料表' : '照片有点看不清，能再拍一张吗？';
-  const advice = label.readingOnly ? '下面是这张照片实际识别出的文字，可以放大和朗读。请核对错字与漏字；需要营养建议时还须核对完整营养表。' : label.unavailableReason || '把手机靠近包装背面，让配料表和营养成分表填满画面，光线亮一点再拍一次。';
+  const advice = label.readingOnly ? '下面是这张照片实际识别出的文字，可以放大和朗读。请核对错字与漏字；需要营养建议时还须核对包装已标示的营养项目和单位。' : label.unavailableReason || '把手机靠近包装背面，让配料表和营养成分表填满画面，光线亮一点再拍一次。';
   return {
     level,
     headline,
@@ -752,7 +766,7 @@ function buildBasis({ label, allergenConflicts, nutrients, allergens, additives,
     lines: [
       `识别通道：${label.channelLabel || '未知'}`,
       `配料表文本：${label.ingredientText ? `${label.ingredientText.length} 字` : '未读到'}`,
-      label.nutritionConfirmed ? '配料与七项营养值由用户对照包装核对；营养值为人工填写，并非 OCR 自动识别或准确率承诺。' : `字段置信度：${
+      label.nutritionConfirmed ? '配料和填写的营养值已由用户对照包装核对；未标示或未确认的字段保持未知。' : `字段置信度：${
         Object.entries(conf)
           .map(([k, v]) => `${NUTRIENT_LABEL[k] || k} ${(v * 100).toFixed(0)}%`)
           .join('、') || '无'

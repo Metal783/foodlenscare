@@ -19,6 +19,8 @@
 *.webp    binary
 *.ico     binary
 *.woff2   binary
+*.wasm    binary
+*.tar     binary
 
 # 让 GitHub 语言统计更准确
 *.html    linguist-documentation=false

@@ -7,5 +7,5 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-python -X utf8 tools\serve.py --mobile --no-qr
+python -X utf8 tools\serve.py --mobile --no-qr --open
 pause

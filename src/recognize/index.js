@@ -15,6 +15,7 @@ import * as mockChannel from './mock.js';
 import * as demoChannel from './demo.js';
 import * as ocrChannel from './ocr-huawei.js';
 import * as localOcr from './ocr-local.js';
+import * as paddleOcr from './ocr-paddle.js';
 import { CHANNELS, CROSS_CHECK_TOLERANCE } from './channels.js';
 import { NUTRIENT_FIELDS } from '../data/nutrition.js';
 
@@ -75,7 +76,7 @@ export async function recognizePhoto({ file, signal, prefer = 'auto', onProgress
   // 模拟识别只能显式用于开发测试；日常拍照不返回构造数据。
   if (prefer === 'mock') return fallbackToMock({ file, quality, mockMode, started, reason: '模拟识别：以下内容为演示数据。' });
   // 白底标签容易被亮度阈值误判为反光。本机 OCR 仍尝试读取可解码的照片。
-  if (!image || (hardBad && !CONFIG.localOcr.enabled)) return unreadOutcome(quality, started, '照片不够清楚，请调整光线并重新拍摄。');
+  if (!image || (hardBad && !CONFIG.localOcr.enabled && !CONFIG.paddleOcr.enabled)) return unreadOutcome(quality, started, '照片不够清楚，请调整光线并重新拍摄。');
 
   // 2. 真实主通道
   if (prefer !== 'ocr' && httpChannel.isConfigured()) {
@@ -129,12 +130,23 @@ export async function recognizePhoto({ file, signal, prefer = 'auto', onProgress
     }
   }
 
-  // 4. 无需密钥的真实本机文字识别。
+  // 按文字位置识别中文包装，生成待核对的营养候选。
+  let paddleFailure = null;
+  if (CONFIG.paddleOcr.enabled && window.location.protocol !== 'file:') {
+    try {
+      const result = await paddleOcr.recognize({ file, signal, onProgress });
+      checkAbort(signal);
+      return finalize(result, quality, failedService ? '云端服务不可用，已改用本机中文区域识别。' : null, started);
+    } catch (error) { checkAbort(signal); paddleFailure = error.message; }
+  }
+  // 基础识别只转录文字，不根据低质量全文猜测营养列。
   if (CONFIG.localOcr.enabled) {
     try {
       const result = await localOcr.recognize({ file, signal, onProgress });
       checkAbort(signal);
-      return finalize(result, quality, failedService ? '云端服务暂时不可用，本次已改用本机文字识别。' : null, started);
+      return finalize(result, quality, window.location.protocol === 'file:'
+        ? '当前通过双击 HTML 打开，使用基础文字识别。新版中文识别请双击同目录的“启动新版OCR.cmd”，打开后重新选择照片。'
+        : paddleFailure ? `中文区域识别未能运行，已改用基础文字识别：${paddleFailure}` : failedService ? '云端服务暂时不可用，本次已改用本机文字识别。' : null, started);
     } catch (error) {
       checkAbort(signal);
       return unreadOutcome(quality, started, error.message || '照片文字读取失败，请重新拍摄。');

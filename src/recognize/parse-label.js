@@ -173,17 +173,110 @@ export function parseLabelText(rawText, options = {}) {
   };
 }
 
-/** 提取配料表区段：从「配料」到「致敏物质／营养成分表／净含量」之前 */
+/**
+ * 配料表标题的候选写法（已去掉汉字之间的空白）。
+ *
+ * 单独把「成分」列出来是有风险的：营养成分表里就含「成分」两个字，
+ * 而且实测中它常常排在配料表前面（葡萄汁那瓶就是「营养表在上、配料表在下」）。
+ * 所以下面用 findIngredientHeading 而不是一个裸正则。
+ */
+const INGREDIENT_HEADINGS = [
+  /配料表/g,
+  /配料/g,
+  /原料与辅料/g,
+  /原料/g,
+  /原辅料/g,
+  /配科表/g,
+  /配科/g,
+  /妃料表/g,
+  /妃料/g
+];
+
+/**
+ * 营养成分表 / 营养标签的标题。
+ *
+ * 注意这里只能用「空格」而不能用 `\s`：
+ * 用 `\s*` 会让 `营养成分表\n成分…` 里的换行被吃掉，把下一行的「成分」
+ * 也包进营养标题的范围，于是那处「成分」就不再被判定为属于营养表，
+ * 配料区段又会从它开始——原来的 bug 会以另一种形式复现。
+ */
+const NUTRITION_HEADING = /(?:营养[ \t\u3000]*成分表|营养[ \t\u3000]*成分|营养标签)/g;
+
+/** 去掉汉字之间的空白，用来对付 OCR 把「妃 料 表」逐字分开的情况 */
+function squeezeCjkSpaces(text) {
+  return text.replace(/([\u3400-\u9fff])[ \t\u3000]+(?=[\u3400-\u9fff])/g, '$1');
+}
+
+/**
+ * 找出真正的配料表标题位置。
+ *
+ * 规则：
+ *  1. 「配料表 / 配料 / 原料 / 原辅料」这类写法优先，取全文最早命中；
+ *  2. OCR 错字（配科、妃料）同样按第 1 条处理；
+ *  3. 「成分」只在它不属于营养成分表时才作为兜底候选。
+ *
+ * @param {string} text
+ * @returns {{index:number, heading:string, viaIngredients:boolean}|null}
+ */
+export function findIngredientHeading(text) {
+  if (!text) return null;
+  const squeezed = squeezeCjkSpaces(text);
+
+  let best = null;
+  for (const pattern of INGREDIENT_HEADINGS) {
+    pattern.lastIndex = 0;
+    const match = pattern.exec(squeezed);
+    if (!match) continue;
+    if (!best || match.index < best.index) {
+      best = { index: match.index, heading: match[0], viaIngredients: true };
+    }
+  }
+  if (best) return best;
+
+  // 兜底：只写了「成分」的情况，但必须排除营养成分表
+  const nutritionSpans = [];
+  for (const match of squeezed.matchAll(NUTRITION_HEADING)) {
+    nutritionSpans.push([match.index, match.index + match[0].length]);
+  }
+  for (const match of squeezed.matchAll(/成分/g)) {
+    const insideNutrition = nutritionSpans.some(
+      ([start, end]) => match.index >= start && match.index < end
+    );
+    if (!insideNutrition) {
+      return { index: match.index, heading: match[0], viaIngredients: false };
+    }
+  }
+  return null;
+}
+
+/**
+ * 提取配料表区段。
+ *
+ * 修复记录：原实现用 `(?:配料表|配料|原料|成分)` 取全文最早命中。
+ * 遇到「营养成分表在上、配料表在下」的排版时，最早命中的是营养表里的「成分」，
+ * 于是把能量、蛋白质、产品标准号全归进了配料——即使 OCR 一个字都没读错。
+ * 现在改为按标题词优先级定位，并且不再把营养表的内容当成配料。
+ */
 export function extractIngredientSection(text) {
   if (!text) return '';
-  const startMatch = text.match(/(?:配料表|配料|原料|成分)[:：]?/);
-  const start = startMatch ? startMatch.index : -1;
-  const tail = start >= 0 ? text.slice(start) : text;
-  const endMatch = tail.slice(1).match(/(致敏物质|过敏原|营养成分表|营养标签|净含量|保质期|贮存条件|生产日期)/);
+  // 与 findIngredientHeading 用同一份「去掉汉字间空白」的文本，索引才对得上
+  const squeezed = squeezeCjkSpaces(text);
+  const heading = findIngredientHeading(squeezed);
+
+  // 没有配料标题就不猜：返回空，由页面如实说明「没有读到配料表」。
+  // 之前这里会把整段文字当成配料，等于把营养表的内容当成配料表。
+  if (!heading) return '';
+
+  const tail = squeezed.slice(heading.index);
+
+  // 终点：配料表之后出现的第一个「其他区段」标题
+  const endMatch = tail
+    .slice(1)
+    .match(/(致敏物质|过敏原|营养[ \t\u3000]*成分表|营养[ \t\u3000]*成分|营养标签|净含量|保质期|贮存(?:条件|及运输条件)|生产日期|产品标准号|产品类型|食用方法|执行标准|果汁含量|产品名称|生产商|地址|产地)/);
   if (!endMatch) return tail.trim();
   const end = endMatch.index + 1;
   const sliced = tail.slice(0, end).trim();
-  // 兜底：万一截断掉的信息比留下的还多，说明这个标签排版很特殊，
+  // 兜底：万一截断掉的信息比留下的还少，说明这个标签排版很特殊，
   // 宁可不截断（多留一点原文），也不要丢掉配料表主体。
   return sliced.length >= 6 ? sliced : tail.trim();
 }

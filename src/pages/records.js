@@ -93,7 +93,7 @@ function recordItem(record, ctx, onChanged) {
       h('p', { class: 'record-name', text: record.productName }),
       h('p', { class: 'record-line', text: record.headline }),
       h('p', { class: 'record-line record-time' }, [
-        h('span', { text: `${meta.label} · ${meta.text}　${time}` }),
+        h('span', { text: `${record.nutritionPartial ? '部分营养已核对' : `${meta.label} · ${meta.text}`}　${time}` }),
         record.servingGrams ? h('span', { text: `　${record.consumptionConfirmed ? '已食用' : '旧版查看记录'} ${record.servingGrams} ${record.servingUnit || 'g'}` }) : null
       ])
     ]),
@@ -137,7 +137,7 @@ function meterRows(totals) {
         h('span', { text: NUTRIENT_TITLE[key] }),
         h('span', {
           class: 'meter-value',
-          text: ratio >= 1 ? '今天已经吃满了' : `还剩 ${Math.round((limit.limit - used) * 10) / 10} ${limit.unit}`
+          text: totals.unknown[key] ? '有缺失记录，余量未知' : ratio >= 1 ? '今天已经吃满了' : `还剩 ${Math.round((limit.limit - used) * 10) / 10} ${limit.unit}`
         })
       ]),
       h('div', { class: 'meter-track' }, [
@@ -145,7 +145,7 @@ function meterRows(totals) {
       ]),
       h('p', {
         class: 'photo-meta',
-        text: `今天已经吃进 ${Math.round((totals[key] || 0) * 10) / 10} ${limit.unit}，一天的建议上限是 ${limit.limit} ${limit.unit}`
+        text: `今天已知记录 ${Math.round((totals[key] || 0) * 10) / 10} ${limit.unit}，参考上限 ${limit.limit} ${limit.unit}${totals.unknown[key] ? '；另有记录未标示此项' : ''}`
       })
     ]);
   });

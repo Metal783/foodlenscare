@@ -247,7 +247,7 @@ function buildBudgetLine(totals) {
         h('span', { text: `${limitLabel(key)}今天还能吃` }),
         h('span', {
           class: 'meter-value',
-          text: `还剩 ${Math.max(0, Math.round((limit.limit - used) * 10) / 10)} ${limit.unit}`
+          text: totals.unknown[key] ? '有缺失记录，余量未知' : `还剩 ${Math.max(0, Math.round((limit.limit - used) * 10) / 10)} ${limit.unit}`
         })
       ]),
       h('div', { class: 'meter-track' }, [

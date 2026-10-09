@@ -12,6 +12,7 @@
 export const CONFIG = {
   /** 默认启用本机中文 OCR，无需云端账号、密钥或图片上传。 */
   localOcr: { enabled: true },
+  paddleOcr: { enabled: true },
   /** 主通道：多模态大模型视觉接口 */
   vision: {
     /**

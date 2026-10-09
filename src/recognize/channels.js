@@ -10,6 +10,7 @@
  */
 
 export const CHANNELS = {
+  paddleOcr: {id:'paddleOcr',label:'本机中文区域识别',short:'中文区域 OCR',description:'按文字位置识别配料和营养表，数值核对后使用，照片不上传。',offline:true},
   localOcr: {
     id: 'localOcr', label: '本机照片文字识别', short: '本机 OCR',
     description: '中文与英文文字在浏览器内识别，照片不上传。', offline: true

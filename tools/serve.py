@@ -22,6 +22,7 @@ import http.server
 import socket
 import socketserver
 import sys
+import webbrowser
 from urllib.parse import unquote, urlsplit
 from pathlib import Path
 
@@ -90,6 +91,8 @@ class MobileHandler(Handler):
         '/assets/ocr/tesseract-core-lstm.wasm',
         '/assets/ocr/chi_sim.traineddata.gz'
     }
+    ALLOWED.update('/assets/paddle/' + str(p.relative_to(ROOT / 'assets' / 'paddle')).replace('\\', '/')
+                   for p in (ROOT / 'assets' / 'paddle').rglob('*') if p.is_file())
 
     def __init__(self, *args, **kwargs):
         http.server.SimpleHTTPRequestHandler.__init__(self, *args, directory=str(ROOT / 'docs'), **kwargs)
@@ -134,6 +137,7 @@ def main() -> int:
     parser.add_argument('--host', default='0.0.0.0', help='监听地址，默认 0.0.0.0（局域网可访问）')
     parser.add_argument('--no-qr', action='store_true', help='不打印二维码')
     parser.add_argument('--mobile', action='store_true', help='手机试用：仅提供 docs 运行页面与 OCR 资源，不公开项目目录')
+    parser.add_argument('--open', action='store_true', help='启动后自动在浏览器打开本机页面')
     args = parser.parse_args()
 
     ip = local_ip()
@@ -172,6 +176,9 @@ def main() -> int:
     if not args.no_qr:
         print_qr(lan_url)
         print()
+
+    if args.open:
+        webbrowser.open(local_url)
 
     try:
         httpd.serve_forever()

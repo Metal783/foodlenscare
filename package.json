@@ -1,0 +1,16 @@
+{
+  "name": "foodlenscare",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "食品标签识别与人工核对",
+  "scripts": {
+    "build:ocr": "node tools/build-paddle.mjs",
+    "build": "node tools/build-paddle.mjs && node tools/bundle-standalone.mjs && python -X utf8 tools/prepare-pages.py"
+  },
+  "devDependencies": {
+    "@paddleocr/paddleocr-js": "0.4.2",
+    "esbuild": "0.28.2",
+    "onnxruntime-web": "1.24.3"
+  }
+}

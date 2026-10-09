@@ -45,6 +45,11 @@
             id: 'shot-seed',
             at: new Date().toISOString(),
             productName: '（截图预设，非真实记录）',
+            origin: 'photo',
+            /* 必须带这一项：todayTotals() 只统计「已确认食用」的记录
+               （查看结果本身不再计入摄入）。漏了它，页面会静默退回
+               「今天还没看过东西」，另外三档就永远拍不到、也验不到。 */
+            consumptionConfirmed: true,
             nutrients: { ...amounts, fat: 0 }
           }]
         : [];

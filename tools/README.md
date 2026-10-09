@@ -5,6 +5,8 @@
 
 ## 一键检查
 
+加载性能回归：`node tools/check-ocr-performance.cjs <原图路径> --reuse`；双击版缓存回归：`node tools/check-paddle.cjs <原图路径> --file --local-assets --cache`。需要 Playwright，可通过 `FLC_PLAYWRIGHT_PATH` 指向安装目录；原图不复制进仓库。
+
 电脑可直接双击根目录的 `FoodLensCare-standalone.html` 使用新版 PaddleOCR（首次识别需要联网下载资源）；也可双击 `启动新版OCR.cmd` 使用本地资源，终端保持开启，浏览器自动打开。
 
 ```bash

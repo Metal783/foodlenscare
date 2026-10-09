@@ -10,7 +10,7 @@
  * 注意：单文件版的全部内容都在 index.html 里，所以这里只需要缓存它自己。
  */
 
-const VERSION = 'flc-pages-v8-paddle-only';
+const VERSION = 'flc-pages-v9-paddle-reuse';
 const SHELL = ['./', './index.html'];
 
 self.addEventListener('install', (event) => {

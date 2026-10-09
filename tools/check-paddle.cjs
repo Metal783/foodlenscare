@@ -26,6 +26,8 @@ const server=http.createServer((req,res)=>{
     await route.fulfill({path:asset,headers:{'content-type':type,'access-control-allow-origin':'*'}});
    });
    page.on('pageerror',e=>{errors.push(e.message);console.log('PAGE ERROR '+entry+': '+e.message);});
+   page.on('requestfailed',r=>console.log('REQUEST FAILED '+r.url()+': '+r.failure()?.errorText));
+   page.on('console',m=>{if(m.type()==='error'&&!m.text().includes('CleanUnusedInitializersAndNodeArgs'))console.log('BROWSER ERROR '+m.text());});
    page.on('request',r=>{if(/^https?:/.test(r.url())&&!r.url().startsWith('http://127.0.0.1:')){
     if(!(entry.startsWith('file:')&&r.url().startsWith('https://metal783.github.io/foodlenscare/assets/paddle/')&&r.method()==='GET'))external.push(r.url());
    }});
@@ -62,11 +64,29 @@ const server=http.createServer((req,res)=>{
    await page.evaluate(()=>window.FoodLensCare.ctx.navigate('home'));assert.match(await page.locator('#view').textContent(),/有缺失记录，余量未知/);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
    console.log('PASS '+entry+': 原图识别、五项候选、单位、人工核对、50ml记录、缺失字段不补零、重复记录保护，全程本机。');
+   if(entry.startsWith('file:')&&process.argv.includes('--cache')){
+    const cachedNames=['ocr-worker-classic.js','models/PP-OCRv5_mobile_det.tar','models/PP-OCRv5_mobile_rec.tar','ort-wasm-simd-threaded.jsep.wasm'];
+    const reDownloads=[];
+    await context.route('https://metal783.github.io/foodlenscare/assets/paddle/**',async route=>{
+     const name=new URL(route.request().url()).pathname.split('/assets/paddle/')[1];
+     if(cachedNames.includes(name)){reDownloads.push(name);return route.abort();}
+     await route.fallback();
+    });
+    await page.reload();await page.waitForFunction(()=>window.FoodLensCare);
+    await page.evaluate(()=>{window.FoodLensCare.state.result=null;window.FoodLensCare.state.profile.voiceOn=false;window.FoodLensCare.ctx.navigate('scan');});
+    const again=page.waitForEvent('filechooser');
+    await page.getByRole('button',{name:'从相册里选一张配料表照片'}).click();await(await again).setFiles(sample);
+    await page.getByRole('button',{name:/就用这张/}).click();
+    await page.waitForFunction(()=>window.FoodLensCare.state.result?.photo.label,null,{timeout:150000});
+    assert.equal(await page.evaluate(()=>window.FoodLensCare.state.result.photo.label.ingredientText),'配料表：水、葡萄浓缩汁。');
+    assert.deepEqual(reDownloads,[],'重新打开 HTML 应读取资源缓存');
+    console.log('PASS 双击版重新加载后，四个大型资源均从持久缓存读取，不再下载。');
+   }
    await context.close();
   }
   // 新引擎资源失败时报告错误，不再调用旧 OCR 或制造结果。
   const fallbackContext=await browser.newContext({serviceWorkers:'block'}),fallbackPage=await fallbackContext.newPage();
-  await fallbackPage.route('**/assets/paddle/paddle.mjs',route=>route.abort());
+  await fallbackPage.route('**/assets/paddle/paddle.mjs*',route=>route.abort());
   await fallbackPage.goto(`http://127.0.0.1:${server.address().port}/index.html#/scan`);
   await fallbackPage.waitForFunction(()=>window.FoodLensCare);
   await fallbackPage.evaluate(()=>window.FoodLensCare.state.profile.voiceOn=false);

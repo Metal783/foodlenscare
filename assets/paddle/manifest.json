@@ -3,8 +3,8 @@
   "onnxruntime": "1.24.3",
   "files": {
     "paddle.mjs": {
-      "bytes": 10893364,
-      "sha256": "26387a803d021f4ec719a50a2a50c8a18acab9f5d905a499fd3d086a9687c3a6"
+      "bytes": 61185,
+      "sha256": "1bfaf4d198e64d6f33b1c6eddd712613c238f84e13e907b69b4f269184063c2a"
     },
     "ocr-worker.mjs": {
       "bytes": 10872914,

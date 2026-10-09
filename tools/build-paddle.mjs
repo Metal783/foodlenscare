@@ -7,7 +7,24 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'assets/paddle');
 await mkdir(join(out, 'models'), { recursive: true });
-await build({ entryPoints: [join(root, 'node_modules/@paddleocr/paddleocr-js/dist/index.mjs')], outfile: join(out, 'paddle.mjs'), bundle: true, minify: true, format: 'esm', platform: 'browser', external: ['fs', 'path'], target: 'es2022', legalComments: 'eof' });
+// 只保留官方 SDK 的 Worker 入口；计算库已经在 Worker 中，不应在页面再下载一次。
+const sdkSource = await readFile(join(root, 'node_modules/@paddleocr/paddleocr-js/dist/index.mjs'), 'utf8');
+const classStart = sdkSource.indexOf('class PaddleOCR extends OcrPipelineRunner {');
+const exportStart = sdkSource.indexOf('\nexport {', classStart);
+if (classStart < 0 || exportStart < 0 || !sdkSource.includes('import cvModule from "@techstark/opencv-js";')) throw new Error('SDK 结构变化，请重新核对 Worker 构建。');
+const workerFacade = `class PaddleOCR {
+  static async create(options = {}) {
+    const workerOptions = resolveWorkerOptions(options.worker);
+    if (!workerOptions.enabled || options.fetch) throw new Error('本项目 SDK 仅支持 Worker 模式。');
+    const instance = createWorkerBackedPaddleOCR(resolvePaddleOCROptions(options), { createWorker: workerOptions.createWorker ?? undefined });
+    if (options.initialize !== false) await instance.initialize();
+    return instance;
+  }
+}`;
+const clientSource = (sdkSource.slice(0, classStart) + workerFacade + sdkSource.slice(exportStart))
+  .replace('import cvModule from "@techstark/opencv-js";', '')
+  .replace('import ClipperLib from "clipper-lib";', '');
+await build({ stdin: { contents: clientSource, resolveDir: root, sourcefile: 'paddle-worker-client.mjs' }, outfile: join(out, 'paddle.mjs'), bundle: true, minify: true, format: 'esm', platform: 'browser', external: ['fs', 'path'], target: 'es2022', legalComments: 'eof' });
 const sdkAssets = join(root, 'node_modules/@paddleocr/paddleocr-js/dist/assets');
 const workerName = (await readdir(sdkAssets)).find(n => /^worker-entry.*\.js$/.test(n));
 const worker = await transform(await readFile(join(sdkAssets, workerName), 'utf8'), { minify: true, format: 'esm', target: 'es2022', legalComments: 'eof' });
@@ -55,4 +72,5 @@ const clipper = await readFile(join(root, 'node_modules/clipper-lib/clipper.js')
 await writeFile(join(out, 'LICENSE-clipper.txt'), clipper.slice(0, clipper.indexOf('(function')));
 await copyFile(join(root, 'node_modules/@paddleocr/paddleocr-js/README.md'), join(out, 'README-sdk.md'));
 await writeFile(join(out, 'README.md'), '# 本机中文区域 OCR\n\nPaddleOCR.js 0.4.2，PP-OCRv5 mobile 检测/识别模型，来自 https://github.com/PaddlePaddle/PaddleOCR （Apache-2.0）。ONNX Runtime Web 1.24.3 来自 https://github.com/microsoft/onnxruntime （MIT）。其他依赖 js-yaml（MIT）、clipper-lib（BSL-1.0）、OpenCV.js（Apache-2.0）的许可证保留在打包资源中及 notices 文件。\n\n构建：npm ci 后运行 npm run build:ocr。运行时从同源加载资源；模型仅下载，不发送照片。manifest.json 记录版本、体积与 SHA-256。\n');
+await writeFile(join(out, 'README.md'), (await readFile(join(out, 'README.md'), 'utf8')) + '\nFoodLensCare 构建修改（2026-10-09）：页面 SDK 仅保留同版本官方 Worker 客户端和选项解析，移除未使用的页面计算依赖；Worker 与模型保持原版，计算仍在本机运行。升级 SDK 时构建会检查入口结构。\n');
 console.log(JSON.stringify(manifest, null, 2));

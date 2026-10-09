@@ -9,7 +9,7 @@
  *  - 不缓存任何用户照片，照片只在本机内存与 localStorage 记录里流转。
  */
 
-const VERSION = 'flc-v8-paddle-only';
+const VERSION = 'flc-v9-paddle-reuse';
 const SHELL = [
   './',
   './index.html',
@@ -39,6 +39,7 @@ const SHELL = [
   './src/recognize/http.js',
   './src/recognize/ocr-huawei.js',
   './src/recognize/ocr-paddle.js',
+  './src/recognize/paddle-assets.js',
   './src/recognize/parse-regions.js',
   './src/recognize/crypto-utils.js',
   './src/ui/dom.js',
@@ -84,7 +85,8 @@ self.addEventListener('fetch', (event) => {
     caches.match(request).then((cached) => {
       if (cached) {
         // 后台静默更新，下次打开就是新版本
-        event.waitUntil(refresh(request));
+        // 固定版本模型与计算库直接复用；不能每次读取缓存后又下载几十MB。
+        if (!url.pathname.includes('/assets/paddle/')) event.waitUntil(refresh(request));
         return cached;
       }
       return fetch(request)

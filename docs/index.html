@@ -21,10 +21,10 @@
   食护家 FoodLensCare · 食品标签初版 · 单文件版
   2026 年第十四届全国大学生数字媒体科技作品及创意竞赛 · 自主选题类 · 移动与网络应用开发
 
-  这是「双击就能打开」的独立版本：35 个源模块、约 252 KB 业务代码
+  这是「双击就能打开」的独立版本：36 个源模块、约 257 KB 业务代码
   全部内联在这一个文件里，不需要服务器、不需要联网、不需要安装任何环境。
 
-  生成时间：2026-10-09 12:56:30
+  生成时间：2026-10-09 13:21:54
   生成方式：node tools/bundle-standalone.mjs
   对应源码：index.html + src/（多文件开发版，二者页面结构与样式完全一致）
 
@@ -1035,7 +1035,7 @@ textarea.review-input { resize: vertical; }
 
 <script>
 /* 启动守卫：万一某个模块出错，不能让老人对着白屏——先给一句人话，再给一行诊断信息。 */
-window.__FLC_BOOT__ = { ok: false, at: "2026-10-09 12:56:30" };
+window.__FLC_BOOT__ = { ok: false, at: "2026-10-09 13:21:54" };
 window.addEventListener('error', function (event) {
   if (window.__FLC_BOOT__.ok) return;
   var view = document.getElementById('view');
@@ -3358,53 +3358,165 @@ window.addEventListener('error', function (event) {
     __exports.labelFromRegions = labelFromRegions;
     },
 
+    // ── src/recognize/paddle-assets.js
+    "src/recognize/paddle-assets.js": function (__exports, __require) {
+
+      const CACHE_VERSION = 'paddle-0.4.2-ort-1.24.3-v1';
+      const FILES = [
+        ['ocr-worker-classic.js',10873161],
+        ['models/PP-OCRv5_mobile_det.tar',4843520],
+        ['models/PP-OCRv5_mobile_rec.tar',16701440],
+        ['ort-wasm-simd-threaded.jsep.wasm',25014754]
+      ];
+      let database;
+      function openCache() {
+        if (database) return database;
+        database = new Promise(resolve => {
+          try {
+            const request = indexedDB.open('flc.ocr-assets.v1',1);
+            request.onupgradeneeded = () => request.result.createObjectStore('assets');
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = request.onblocked = () => resolve(null);
+          } catch { resolve(null); }
+        });
+        return database;
+      }
+      async function cacheEntry(key,blob) {
+        const db = await openCache();
+        if (!db) return null;
+        return new Promise(resolve => {
+          try {
+            const tx=db.transaction('assets',blob?'readwrite':'readonly'),store=tx.objectStore('assets');
+            const request=blob?store.put(blob,key):store.get(key);
+            let value;
+            request.onsuccess=()=>{value=request.result;};
+            tx.oncomplete=()=>resolve(blob?blob:value);
+            tx.onerror=tx.onabort=()=>resolve(null);
+          } catch {resolve(null);}
+        });
+      }
+      async function loadFileAssets({base,signal,onProgress}) {
+        const loaded=new Map(),total=FILES.reduce((sum,[,bytes])=>sum+bytes,0);
+        let lastUpdate=0;
+        const progress=(name,bytes,force=false)=>{
+          loaded.set(name,bytes);
+          const now=performance.now();
+          if(!force&&now-lastUpdate<200)return;
+          lastUpdate=now;
+          const amount=[...loaded.values()].reduce((sum,n)=>sum+n,0);
+          onProgress?.({text:`正在准备识别资源：${(amount/1048576).toFixed(1)} / ${(total/1048576).toFixed(1)} MB`,note:'已下载的资源会保存在此浏览器，之后优先读取缓存。照片不上传。'});
+        };
+        return Object.fromEntries(await Promise.all(FILES.map(async([name,bytes])=>{
+          const key=CACHE_VERSION+':'+base+name;
+          const cached=await cacheEntry(key);
+          if(signal.aborted)throw new DOMException('读取已取消','AbortError');
+          if(cached instanceof Blob&&cached.size===bytes){progress(name,bytes,true);return [name,cached];}
+          const response=await fetch(base+name,{signal});
+          if(!response.ok)throw new Error('识别资源下载失败：'+name);
+          const reader=response.body?.getReader();
+          let blob;
+          if(reader){
+            const chunks=[];let size=0;
+            for(;;){const {done,value}=await reader.read();if(done)break;chunks.push(value);size+=value.byteLength;progress(name,size);}
+            blob=new Blob(chunks);
+          }else blob=await response.blob();
+          if(blob.size!==bytes)throw new Error('识别资源不完整：'+name+'，请重试。');
+          await cacheEntry(key,blob);
+          progress(name,bytes,true);
+          return [name,blob];
+        })));
+      }
+
+    __exports.loadFileAssets = loadFileAssets;
+    },
+
     // ── src/recognize/ocr-paddle.js
     "src/recognize/ocr-paddle.js": function (__exports, __require) {
       /* import ./parse-regions.js */ const { labelFromRegions } = __require("src/recognize/parse-regions.js");
+      /* import ./paddle-assets.js */ const { loadFileAssets } = __require("src/recognize/paddle-assets.js");
+
+
+      let engine=null,idleTimer;
+      function release(session) {
+        if(!session)return;
+        if(engine===session)engine=null;
+        session.controller.abort();
+        session.worker?.terminate();
+        session.urls.forEach(url=>URL.revokeObjectURL(url));
+        session.urls=[];
+      }
+      if(typeof window!=='undefined')window.addEventListener('pagehide',()=>{clearTimeout(idleTimer);release(engine);});
+
+      async function initialize(session,onProgress) {
+        const remote=window.location.protocol==='file:';
+        const base=remote?'https://metal783.github.io/foodlenscare/assets/paddle/':new URL('assets/paddle/',document.baseURI).href;
+        onProgress?.({text:'正在加载中文识别模型……',note:'首次需要准备识别资源；已加载的模型可供连续拍照复用。'});
+        const [{PaddleOCR},assets]=await Promise.all([
+          import(base+'paddle.mjs?v=worker-client-1'),
+          remote?loadFileAssets({base,signal:session.controller.signal,onProgress}):null
+        ]);
+        if(session.controller.signal.aborted)throw new DOMException('读取已取消','AbortError');
+        const makeUrl=blob=>{const url=URL.createObjectURL(blob);session.urls.push(url);return url;};
+
+        const cachePrelude=`const flcAssets=new Map();const flcFetch=self.fetch.bind(self);
+          self.addEventListener('message',event=>{if(event.data?.type==='flc-asset-cache')for(const [url,blob] of event.data.entries)flcAssets.set(url,blob);});
+          self.fetch=(input,options)=>{const url=typeof input==='string'?input:input.url||String(input);const blob=flcAssets.get(url);
+            return blob?Promise.resolve(new Response(blob,{headers:{'Content-Type':url.endsWith('.wasm')?'application/wasm':'application/octet-stream'}})):flcFetch(input,options);};\n`;
+        const workerUrl=remote?makeUrl(new Blob([cachePrelude,assets['ocr-worker-classic.js']],{type:'text/javascript'})):base+'ocr-worker.mjs';
+        const modelUrl=name=>base+'models/'+name+'.tar';
+        onProgress?.({text:'资源已准备好，正在初始化中文模型……',note:'模型初始化完成后，同一页面再次读取无需重复初始化。'});
+        session.sdk=await PaddleOCR.create({
+          worker:{createWorker:()=>{
+            if(session.controller.signal.aborted)throw new DOMException('读取已取消','AbortError');
+            session.worker=new Worker(workerUrl,{type:remote?'classic':'module'});
+            if(remote)session.worker.postMessage({type:'flc-asset-cache',entries:Object.entries(assets).filter(([name])=>name!=='ocr-worker-classic.js').map(([name,blob])=>[base+name,blob])});
+            session.worker.addEventListener('error',e=>{if(session.stop)session.stop(new Error(e.message||'中文识别工作线程运行失败。'));else release(session);});
+            return session.worker;
+          }},
+          textDetectionModelName:'PP-OCRv5_mobile_det',textRecognitionModelName:'PP-OCRv5_mobile_rec',
+          textDetectionModelAsset:{url:modelUrl('PP-OCRv5_mobile_det')},textRecognitionModelAsset:{url:modelUrl('PP-OCRv5_mobile_rec')},
+          ortOptions:{backend:'wasm',numThreads:1,wasmPaths:base},
+          textDetLimitSideLen:1600,textDetLimitType:'max',textRecScoreThresh:0.3
+        });
+        session.ready=true;
+        return session.sdk;
+      }
+
       async function recognize({file,signal,onProgress}) {
-        if(signal?.aborted) throw new DOMException('读取已取消','AbortError');
-        let worker,sdk,workerUrl,cancelled=false;
+        if(signal?.aborted)throw new DOMException('读取已取消','AbortError');
+        if(engine?.busy)throw new Error('正在读取另一张照片，请等待或取消后再试。');
+        clearTimeout(idleTimer);
+        const reused=Boolean(engine?.ready);
+        const session=engine||{urls:[],controller:new AbortController(),ready:false};
+        engine=session;session.busy=true;
         let rejectStop;
         const stopped=new Promise((_,reject)=>{rejectStop=reject;});
-        const stop=e=>{cancelled=true;worker?.terminate();rejectStop(e);};
+        const stop=error=>{release(session);rejectStop(error);};
+        session.stop=stop;
         const abort=()=>stop(new DOMException('读取已取消','AbortError'));
         signal?.addEventListener('abort',abort,{once:true});
-
         let timer=setTimeout(()=>stop(new Error('中文模型加载超时，请检查网络后重试。')),300000);
         const run=async()=>{
-
-          const remote=window.location.protocol==='file:';
-          const base=remote?'https://metal783.github.io/foodlenscare/assets/paddle/':new URL('assets/paddle/',document.baseURI).href;
-          onProgress?.({text:'正在加载中文识别模型……',note:'首次下载引擎和模型可能较久，请保持页面打开。照片在本机处理。'});
-          const runtimeUrl=base+'paddle.mjs';
-          const {PaddleOCR}=await import(runtimeUrl);
-          if(cancelled) throw new DOMException('读取已取消','AbortError');
-          if(remote) {
-
-            const response=await fetch(base+'ocr-worker-classic.js',{signal});
-            if(!response.ok) throw new Error('中文识别工作线程下载失败，请检查网络后重试。');
-            const script=await response.text();
-            if(cancelled) throw new DOMException('读取已取消','AbortError');
-            workerUrl=URL.createObjectURL(new Blob([script],{type:'text/javascript'}));
-          }
-          sdk=await PaddleOCR.create({
-            worker:{createWorker:()=>{if(cancelled) throw new DOMException('读取已取消','AbortError');worker=new Worker(workerUrl||base+'ocr-worker.mjs',{type:remote?'classic':'module'});worker.addEventListener('error',e=>stop(new Error(e.message||'中文识别工作线程运行失败。')),{once:true});return worker;}},
-            textDetectionModelName:'PP-OCRv5_mobile_det',textRecognitionModelName:'PP-OCRv5_mobile_rec',
-            textDetectionModelAsset:{url:base+'models/PP-OCRv5_mobile_det.tar'},textRecognitionModelAsset:{url:base+'models/PP-OCRv5_mobile_rec.tar'},
-            ortOptions:{backend:'wasm',numThreads:1,wasmPaths:base},textDetLimitSideLen:1600,textDetLimitType:'max',textRecScoreThresh:0.3
-          });
-          if(cancelled) throw new DOMException('读取已取消','AbortError');
+          const sdk=session.sdk||await initialize(session,onProgress);
+          if(session.controller.signal.aborted)throw new DOMException('读取已取消','AbortError');
           clearTimeout(timer);
           timer=setTimeout(()=>stop(new Error('中文识别超时，请重试或缩小拍摄区域。')),120000);
+          if(reused)onProgress?.({text:'已复用中文模型，正在读取照片……',note:'无需重新下载引擎或模型。'});
           onProgress?.({text:'正在定位并读取配料和营养表……',note:'识别出的字段会先交给您对照包装核对。'});
+          if(session.controller.signal.aborted)throw new DOMException('读取已取消','AbortError');
           const [data]=await sdk.predict(file);
-          if(cancelled) throw new DOMException('读取已取消','AbortError');
+          if(session.controller.signal.aborted)throw new DOMException('读取已取消','AbortError');
           const label=labelFromRegions(data);
-          if(!label.rawText) throw new Error('没有找到文字，请靠近配料表重新拍摄。');
+          if(!label.rawText)throw new Error('没有找到文字，请靠近配料表重新拍摄。');
           return {label,channel:'paddleOcr'};
         };
-        try {return await Promise.race([run(),stopped]);}
-        finally {clearTimeout(timer);signal?.removeEventListener('abort',abort);if(sdk&&!cancelled){try{await sdk.dispose();}catch{}}worker?.terminate();if(workerUrl)URL.revokeObjectURL(workerUrl);}
+        try{return await Promise.race([run(),stopped]);}
+        catch(error){release(session);throw error;}
+        finally{
+          clearTimeout(timer);signal?.removeEventListener('abort',abort);
+          session.busy=false;session.stop=null;
+          if(engine===session)idleTimer=setTimeout(()=>release(session),600000);
+        }
       }
 
     __exports.recognize = recognize;

@@ -13,10 +13,10 @@
   食护家 FoodLensCare · 食品标签初版 · 单文件版
   2026 年第十四届全国大学生数字媒体科技作品及创意竞赛 · 自主选题类 · 移动与网络应用开发
 
-  这是「双击就能打开」的独立版本：36 个源模块、约 257 KB 业务代码
+  这是「双击就能打开」的独立版本：36 个源模块、约 258 KB 业务代码
   全部内联在这一个文件里，不需要服务器、不需要联网、不需要安装任何环境。
 
-  生成时间：2026-10-09 11:41:26
+  生成时间：2026-10-09 11:47:44
   生成方式：node tools/bundle-standalone.mjs
   对应源码：index.html + src/（多文件开发版，二者页面结构与样式完全一致）
 
@@ -1027,7 +1027,7 @@ textarea.review-input { resize: vertical; }
 
 <script>
 /* 启动守卫：万一某个模块出错，不能让老人对着白屏——先给一句人话，再给一行诊断信息。 */
-window.__FLC_BOOT__ = { ok: false, at: "2026-10-09 11:41:26" };
+window.__FLC_BOOT__ = { ok: false, at: "2026-10-09 11:47:44" };
 window.addEventListener('error', function (event) {
   if (window.__FLC_BOOT__.ok) return;
   var view = document.getElementById('view');
@@ -3481,10 +3481,11 @@ window.addEventListener('error', function (event) {
         const stop=e=>{cancelled=true;worker?.terminate();rejectStop(e);};
         const abort=()=>stop(new DOMException('读取已取消','AbortError'));
         signal?.addEventListener('abort',abort,{once:true});
-        const timer=setTimeout(()=>stop(new Error('中文识别超时，请重试或缩小拍摄区域。')),120000);
+
+        let timer=setTimeout(()=>stop(new Error('中文模型加载超时，请检查网络后重试。')),300000);
         const run=async()=>{
           const base=new URL('assets/paddle/',document.baseURI).href;
-          onProgress?.({text:'正在加载中文识别模型……',note:'首次下载模型需要稍等，照片在本机处理。'});
+          onProgress?.({text:'正在加载中文识别模型……',note:'首次下载引擎和模型可能较久，请保持页面打开。照片在本机处理。'});
           const runtimeUrl=base+'paddle.mjs';
           const {PaddleOCR}=await import(runtimeUrl);
           if(cancelled) throw new DOMException('读取已取消','AbortError');
@@ -3495,6 +3496,8 @@ window.addEventListener('error', function (event) {
             ortOptions:{backend:'wasm',numThreads:1,wasmPaths:base},textDetLimitSideLen:1600,textDetLimitType:'max',textRecScoreThresh:0.3
           });
           if(cancelled) throw new DOMException('读取已取消','AbortError');
+          clearTimeout(timer);
+          timer=setTimeout(()=>stop(new Error('中文识别超时，请重试或缩小拍摄区域。')),120000);
           onProgress?.({text:'正在定位并读取配料和营养表……',note:'识别出的字段会先交给您对照包装核对。'});
           const [data]=await sdk.predict(file);
           if(cancelled) throw new DOMException('读取已取消','AbortError');

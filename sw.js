@@ -9,7 +9,7 @@
  *  - 不缓存任何用户照片，照片只在本机内存与 localStorage 记录里流转。
  */
 
-const VERSION = 'flc-v6-region-ocr-entry';
+const VERSION = 'flc-v7-region-ocr-loading';
 const SHELL = [
   './',
   './index.html',

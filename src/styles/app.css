@@ -203,8 +203,9 @@ body {
 }
 .shutter {
   width: 100%;
-  /* 用视口高度限制，避免在大字号下把按钮撑出屏幕 */
-  min-height: clamp(150px, 26vh, 230px);
+  /* 2026-10-09：取景框并进这张卡之后，视觉重心落在那块框上，
+     主按钮不再需要原来那么高。390×844 下 18vh ≈ 152px，仍远高于 96px 下限。 */
+  min-height: clamp(124px, 18vh, 176px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -222,8 +223,143 @@ body {
   cursor: pointer;
 }
 .shutter .shutter-icon { font-size: 3.2em; line-height: 1; }
+.shutter .shutter-label { line-height: 1.25; }
 .shutter .shutter-hint { font-size: calc(0.85 * var(--fs-scale) * 1rem); font-weight: 500; opacity: 0.95; }
 .shutter:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* ---------- 首页取景框（对齐 stitch出稿/01-首页-v3.html） ----------
+   四角标与中间的相机圆标都是纯装饰，「框」本身不可点——真正可点的只有下面的
+   大按钮。别把它做成 button，否则会出现两个「主动作」，也违背自检项「一次一个动作」。
+   尺寸统一写成 calc(<标准档原始 px> * var(--zoom))：圆标里有图标，
+   只写死 px 会让图标在大字号档顶出圆框（同一个坑见 tokens.css 里 --zoom 的注释）。 */
+.viewfinder {
+  position: relative;
+  height: calc(148px * var(--zoom));
+  border-radius: var(--radius-l);
+  background: var(--c-surface-3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.vf-corner {
+  position: absolute;
+  width: calc(22px * var(--zoom));
+  height: calc(22px * var(--zoom));
+  border: 3px solid var(--c-brand);
+}
+.vf-corner.tl { top: 10px; left: 10px; border-right: 0; border-bottom: 0; border-top-left-radius: var(--radius-s); }
+.vf-corner.tr { top: 10px; right: 10px; border-left: 0; border-bottom: 0; border-top-right-radius: var(--radius-s); }
+.vf-corner.bl { bottom: 10px; left: 10px; border-right: 0; border-top: 0; border-bottom-left-radius: var(--radius-s); }
+.vf-corner.br { bottom: 10px; right: 10px; border-left: 0; border-top: 0; border-bottom-right-radius: var(--radius-s); }
+.vf-icon {
+  width: calc(64px * var(--zoom));
+  height: calc(64px * var(--zoom));
+  border-radius: 50%;
+  background: var(--c-brand-soft);
+  color: var(--c-brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* .icon 是 1.25em，所以 29 × 1.25 ≈ 36px */
+  font-size: calc(29px * var(--zoom));
+}
+.vf-text {
+  font-size: calc(1 * var(--fs-scale) * 1rem);
+  font-weight: 500;
+  color: var(--c-ink-2);
+}
+
+/* ---------- 卡片标题行（v3）：图标 + 标题 + 右侧链接 ---------- */
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.card-head .head-icon {
+  flex: 0 0 auto;
+  color: var(--c-brand);
+  font-size: calc(22px * var(--zoom));
+}
+.card-head .card-title { flex: 1 1 auto; min-width: 0; }
+.card-link {
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  /* 链接也是可点目标，别让它比 60px 小 */
+  min-height: var(--tap-min);
+  font-size: calc(0.9 * var(--fs-scale) * 1rem);
+  font-weight: 700;
+  color: var(--c-brand);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.card-link .icon-link {
+  width: 1.1em;
+  height: 1.1em;
+  display: inline-flex;
+}
+.card-link .icon-link .icon { vertical-align: middle; }
+.card-link:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-s); }
+
+/* ---------- 一句话预警行（v3） ----------
+   老人不用去读三条进度条，一眼就知道「今天还行不行」。
+   四个档位都用「颜色 + 文字 + 图标 + 标签」四重编码，颜色不是唯一载体。
+
+   配色只用风险五级里的绿 / 黄 / 橙 + 一个中性档，**没有红**：
+   红色在全站只有一个含义——过敏命中「别吃」（见 色板/色板定义-绿色主色.md 的铁律）。
+   橙色只表「要当心 / 超标」，所以「正常」用的是「可以吃」那一级的绿，不是品牌绿。 */
+.alert-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: var(--space-2);
+  border: 2px solid transparent;
+  border-radius: var(--radius-m);
+}
+.alert-row .alert-icon { flex: 0 0 auto; font-size: calc(22px * var(--zoom)); }
+.alert-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.alert-title { font-size: calc(1 * var(--fs-scale) * 1rem); font-weight: 700; }
+.alert-sub { font-size: calc(0.85 * var(--fs-scale) * 1rem); font-weight: 500; }
+.alert-tag {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: calc(0.85 * var(--fs-scale) * 1rem);
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+}
+
+/* 还没看过东西：中性档，不占用任何风险色 */
+.alert-row[data-tone='quiet'] { background: var(--c-surface-3); border-color: var(--c-line-soft); }
+.alert-row[data-tone='quiet'] .alert-icon { color: var(--c-brand); }
+.alert-row[data-tone='quiet'] .alert-title { color: var(--c-ink); }
+.alert-row[data-tone='quiet'] .alert-sub { color: var(--c-ink-2); }
+
+/* 绿 · 可以吃（三样都还有余量） */
+.alert-row[data-tone='ok'] { background: var(--c-risk-green-soft); border-color: var(--c-risk-green); }
+.alert-row[data-tone='ok'] .alert-icon,
+.alert-row[data-tone='ok'] .alert-title,
+.alert-row[data-tone='ok'] .alert-sub { color: var(--c-risk-green); }
+.alert-row[data-tone='ok'] .alert-tag { background: var(--c-risk-green); }
+
+/* 黄 · 留意一下（快吃到上限） */
+.alert-row[data-tone='watch'] { background: var(--c-risk-yellow-soft); border-color: var(--c-risk-yellow); }
+.alert-row[data-tone='watch'] .alert-icon,
+.alert-row[data-tone='watch'] .alert-title,
+.alert-row[data-tone='watch'] .alert-sub { color: var(--c-risk-yellow); }
+.alert-row[data-tone='watch'] .alert-tag { background: var(--c-risk-yellow); }
+
+/* 橙 · 要当心（到上限了） */
+.alert-row[data-tone='over'] { background: var(--c-risk-orange-soft); border-color: var(--c-risk-orange); }
+.alert-row[data-tone='over'] .alert-icon,
+.alert-row[data-tone='over'] .alert-title,
+.alert-row[data-tone='over'] .alert-sub { color: var(--c-risk-orange); }
+.alert-row[data-tone='over'] .alert-tag { background: var(--c-risk-orange); }
 
 /* ---------- 逐屏单问题（画像设置） ---------- */
 .step-dots {
@@ -436,6 +572,12 @@ body {
 .risk-banner[data-level='green'] .risk-level-label  { background: var(--c-risk-green); }
 .risk-banner[data-level='gray'] .risk-level-label   { background: var(--c-risk-gray); }
 
+/* ---------- 额度条 ---------- */
+.meters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
 .meter {
   display: flex;
   flex-direction: column;
@@ -443,12 +585,25 @@ body {
 }
 .meter-head {
   display: flex; justify-content: space-between; align-items: baseline; gap: 8px 12px;
-  font-size: calc(0.95 * var(--fs-scale) * 1rem); font-weight: 600;
+  font-size: calc(1 * var(--fs-scale) * 1rem);
   flex-wrap: wrap;
 }
 /* 两段文字各自不折断，窄屏上整体换行即可，避免「已吃 0 / mg」这种割裂 */
 .meter-head > span { white-space: nowrap; }
-.meter-value { font-variant-numeric: tabular-nums; }
+.meter-name { font-weight: 600; color: var(--c-ink); }
+.meter-value { font-variant-numeric: tabular-nums; font-weight: 700; }
+/* 「还剩多少」的配色跟着紧张度走（v3）。没有 data-tone 的调用保持默认色 */
+.meter-value[data-tone='ok'] { color: var(--c-brand); }
+.meter-value[data-tone='watch'] { color: var(--c-risk-yellow); }
+.meter-value[data-tone='over'] { color: var(--c-risk-orange); }
+/* 单指标结论：这一份自己算什么档次（规则层已算好 grade，这里只做短措辞）。
+   与右上角「还剩多少」（累计口径）不是一回事，所以每句都以「这一份」开头。
+   只有出问题才上风险色，正常状态用中性色，避免整张卡花掉。 */
+.meter-verdict { margin: 0; font-size: calc(0.9 * var(--fs-scale) * 1rem); font-weight: 700; color: var(--c-ink-2); }
+.meter-verdict[data-tone='watch'] { color: var(--c-risk-yellow); }
+.meter-verdict[data-tone='over'] { color: var(--c-risk-orange); }
+/* 「今天已吃 X，上限 Y」——比进度条上的读数更能解释「还剩多少」是怎么来的 */
+.meter-sub { margin: 0; font-size: calc(0.85 * var(--fs-scale) * 1rem); color: var(--c-ink-2); }
 .meter-track {
   height: 18px;
   border-radius: 999px;
@@ -456,9 +611,13 @@ body {
   border: 2px solid var(--c-line-soft);
   overflow: hidden;
 }
+/* 进度条只在「出问题」时才上风险色：正常用品牌绿，将满用黄，吃满用橙。
+   红色不参与 —— 它属于过敏「别吃」那一级。
+   2026-10-09：原来 [data-tone='high'] 配的是 --c-risk-red，违反这条铁律，已改掉；
+   首页 / 结果页 / 记录页现在统一发 ok / watch / over 三个档。 */
 .meter-fill { height: 100%; background: var(--c-brand); }
+.meter-fill[data-tone='watch'] { background: var(--c-risk-yellow); }
 .meter-fill[data-tone='over'] { background: var(--c-risk-orange); }
-.meter-fill[data-tone='high'] { background: var(--c-risk-red); }
 
 /* 依据展开：每条结论都可追溯 */
 details.basis {

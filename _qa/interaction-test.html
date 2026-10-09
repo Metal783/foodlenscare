@@ -525,11 +525,11 @@
         for (let y = 40; y < 940; y += 40) paint.fillText('配料：小麦粉、水、食用盐。营养成分表', 20, y);
         const imageBlob = await new Promise((resolve) => canvas.toBlob(resolve));
         const { CONFIG } = await import('/src/recognize/config.js');
-        const localWasEnabled = CONFIG.localOcr.enabled;
-        CONFIG.localOcr.enabled = false;
+        const paddleWasEnabled = CONFIG.paddleOcr.enabled;
+        CONFIG.paddleOcr.enabled = false;
         let empty;
         try { empty = await recognizePhoto({ file: imageBlob }); }
-        finally { CONFIG.localOcr.enabled = localWasEnabled; }
+        finally { CONFIG.paddleOcr.enabled = paddleWasEnabled; }
         if (!empty.quality.blurry && empty.channelId === 'unavailable' &&
             !empty.label.ingredientText && Object.values(empty.label.nutritionPer100g).every((v) => v === null) &&
             empty.fallbackReason.includes('尚未连接')) ok('清晰照片未接接口时明确提示未连接，所有字段为空');

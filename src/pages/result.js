@@ -107,7 +107,7 @@ export function renderResult(view, params, ctx) {
     /* ---------- 看见的照片与识别通道 ---------- */
     photoCard(photo, label),
 
-    ['localOcr','paddleOcr'].includes(label.channel) && !result.consumptionRecordId ? reviewCard(result, ctx) : null,
+    label.channel === 'paddleOcr' && !result.consumptionRecordId ? reviewCard(result, ctx) : null,
     !label.readingOnly && (assessment.level !== 'gray' || label.nutritionConfirmed) ? consumptionCard(result, ctx) : null,
 
     /* ---------- 依据在哪 ---------- */

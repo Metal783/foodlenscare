@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { labelFromOcr } from '../src/recognize/ocr-local.js';
+import { labelFromRegions } from '../src/recognize/parse-regions.js';
 import { reviewLabel } from '../src/core/label-review.js';
 import { evaluate } from '../src/core/rules.js';
 import { missingMandatoryFields } from '../src/recognize/parse-label.js';
@@ -11,6 +11,8 @@ const storage = new Map();
 globalThis.window = { localStorage: { getItem: (k) => storage.get(k), setItem: (k, v) => storage.set(k, v) } };
 const profile = { allergens: ['peanut'], concerns: [], conditions: [], voiceOn: false };
 const assess = (label) => evaluate({ label, profile, servingGrams: label.servingGrams || 100, consumedToday: {} });
+// 构造新引擎文字框，回归配料核对规则，不调用任何图片识别模型。
+const labelFromOcr = data => labelFromRegions({items:data.text.split('\n').map((text,i)=>({text,score:data.confidence/100,poly:[[0,i*30],[600,i*30],[600,i*30+20],[0,i*30+20]]}))});
 let passed = 0;
 function test(name, fn) { fn(); passed++; console.log('PASS ' + name); }
 const ocr = labelFromOcr({ text: '配料：花生、小麦粉。', confidence: 95 });

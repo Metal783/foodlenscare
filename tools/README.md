@@ -5,7 +5,7 @@
 
 ## 一键检查
 
-电脑体验新版 OCR 可直接双击根目录的 `启动新版OCR.cmd`；终端保持开启，浏览器自动打开。双击 HTML 使用基础识别，页面会明确提示启动方式。
+电脑可直接双击根目录的 `FoodLensCare-standalone.html` 使用新版 PaddleOCR（首次识别需要联网下载资源）；也可双击 `启动新版OCR.cmd` 使用本地资源，终端保持开启，浏览器自动打开。
 
 ```bash
 node tools/regions-selftest.mjs        # 区域识别与未知字段回归
@@ -26,6 +26,8 @@ python tools/capture-screenshots.py
 ```
 
 新版区域 OCR 原图回归：`node tools/check-paddle.cjs "原图.jpg"`（需 Playwright 和 Edge，可设置 `FLC_PLAYWRIGHT_PATH`）。原图由本机路径提供，不复制到仓库。OCR 依赖固定版本及构建步骤见根目录 README 和 `assets/paddle/README.md`。
+
+双击文件回归：加 `--file`。如需隔离网络波动，可再加 `--local-assets`，测试会用仓库中同一真实 SDK 和模型响应固定线上资源 URL，仍在 `file://` 下执行完整识别，不伪造 OCR 输出。
 
 | 脚本 | 作用 | 什么时候跑 |
 | --- | --- | --- |

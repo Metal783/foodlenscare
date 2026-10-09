@@ -6,13 +6,12 @@
 <script type="module">
 import { processPhoto } from '../src/core/flow.js';
 import { recognizePhoto } from '../src/recognize/index.js';
-import { labelFromOcr } from '../src/recognize/ocr-local.js';
+import { parseLabelText } from '../src/recognize/parse-label.js';
 import { renderResult } from '../src/pages/result.js';
 import { emptyProfile } from '../src/core/store.js';
 import { CONFIG } from '../src/recognize/config.js';
 const DEFAULT_PROFILE = emptyProfile();
-// 此文件专门检查基础 Tesseract 通道；区域模型另有真实包装回归。
-CONFIG.paddleOcr.enabled = false;
+// 与真实包装回归使用同一新引擎，不再运行旧识别通道。
 const passes = [];
 function check(ok, message) { if (!ok) throw new Error(message); passes.push(message); }
 try {
@@ -28,40 +27,40 @@ try {
   const progress = [];
   const result = await processPhoto(file, 'album', { ...DEFAULT_PROFILE, voiceOn: false }, { onProgress: p => progress.push(p.text) });
   window.ocrResult = result;
-  check(result.photo.label.channel === 'localOcr', '调用真实本机 OCR 引擎');
+  check(result.photo.label.channel === 'paddleOcr', '调用新版 PaddleOCR 引擎');
   check(result.photo.label.rawText.length > 0, '白底标签不被亮度阈值误拦截');
   check(result.photo.label.rawText.includes('小麦') && result.photo.label.rawText.includes('花生'), '从实际图片像素读取中文小麦和花生');
   check(result.photo.label.ingredientText.includes('小麦') && result.photo.label.ingredientText.includes('花生'), '从 OCR 文字中提取配料区段');
   check(result.photo.label.productName === '花生饼干', '商品名不与下一行配料合并');
-  check(progress.some(p => p.includes('%')), '进度由 OCR 实际处理事件驱动');
+  check(progress.some(p => p.includes('定位并读取')), '进度由新引擎加载和识别事件驱动');
   check(Object.values(result.photo.label.nutritionPer100g).every(v => v === null), '不猜测图片未提供的营养数值');
   check(result.assessment.level === 'gray' && result.assessment.headline.includes('已读取配料表'), '文字读取成功与营养风险评估区分展示');
   result.recorded = true;
   renderResult(document.getElementById('view'), {}, { state: { result, profile: { ...DEFAULT_PROFILE, voiceOn: false } }, navigate() {} });
   check(document.getElementById('view').textContent.includes('照片识别全文') && document.getElementById('view').textContent.includes('朗读照片上的文字'), '真实结果页面展示全文与朗读按钮');
   const controller = new AbortController();
-  const canceled = recognizePhoto({ file, signal: controller.signal, onProgress: p => { if (p.text.includes('%')) controller.abort(); } });
+  const canceled = recognizePhoto({ file, signal: controller.signal, onProgress: p => { if (p.text.includes('定位并读取')) controller.abort(); } });
   let aborted = false;
   try { await canceled; } catch (error) { aborted = error.name === 'AbortError'; }
   check(aborted, '取消真实识别返回 AbortError');
-  const unknown = labelFromOcr({ text: '生产日期 2026年10月', confidence: 80 });
-  check(!unknown.ingredientText && unknown.rawText.includes('生产日期'), '无配料标题不把其他文字冒充配料');
-  const spaced = labelFromOcr({ text: '配 料 ： 小 麦 粉 、 花 生\n营 养 成 分 表', confidence: 90 });
+  const unknown = parseLabelText('生产日期 2026年10月');
+  check(!unknown.ingredientText, '无配料标题不把其他文字冒充配料');
+  const spaced = parseLabelText('配 料 ： 小 麦 粉 、 花 生\n营 养 成 分 表');
   check(spaced.ingredientText.includes('小麦粉') && !spaced.ingredientText.includes('营养'), '处理中文字符间空格并正确截断配料');
   const settings = { vision: { ...CONFIG.vision }, huaweiOcr: { ...CONFIG.huaweiOcr }, retry: CONFIG.fallback.retry };
   try {
     CONFIG.vision.endpoint = '/_qa/nonexistent-vision';
     CONFIG.fallback.retry = 0;
     let fallback = await recognizePhoto({ file });
-    check(fallback.channelId === 'localOcr' && fallback.label.rawText.includes('花生'), '云视觉失败后继续本机 OCR');
+    check(fallback.channelId === 'paddleOcr' && fallback.label.rawText.includes('花生'), '云视觉失败后继续新版本机 OCR');
     CONFIG.fallback.retry = 1;
     fallback = await recognizePhoto({ file });
-    check(fallback.channelId === 'localOcr', '云视觉重试失败后继续本机 OCR');
+    check(fallback.channelId === 'paddleOcr', '云视觉重试失败后继续新版本机 OCR');
     CONFIG.huaweiOcr.endpoint = location.origin;
     CONFIG.huaweiOcr.ak = 'test'; CONFIG.huaweiOcr.sk = 'test'; CONFIG.huaweiOcr.projectId = 'test';
     CONFIG.huaweiOcr.uploadProxy = '/_qa/nonexistent-upload';
     fallback = await recognizePhoto({ file });
-    check(fallback.channelId === 'localOcr', '云视觉和华为上传均失败后继续本机 OCR');
+    check(fallback.channelId === 'paddleOcr', '云视觉和华为上传均失败后继续新版本机 OCR');
     check(fallback.fallbackReason.includes('已改用本机'), '降级来源向用户说明');
   } finally {
     Object.assign(CONFIG.vision, settings.vision); Object.assign(CONFIG.huaweiOcr, settings.huaweiOcr); CONFIG.fallback.retry = settings.retry;

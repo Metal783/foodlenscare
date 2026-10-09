@@ -13,10 +13,10 @@
   食护家 FoodLensCare · 食品标签初版 · 单文件版
   2026 年第十四届全国大学生数字媒体科技作品及创意竞赛 · 自主选题类 · 移动与网络应用开发
 
-  这是「双击就能打开」的独立版本：36 个源模块、约 258 KB 业务代码
+  这是「双击就能打开」的独立版本：35 个源模块、约 252 KB 业务代码
   全部内联在这一个文件里，不需要服务器、不需要联网、不需要安装任何环境。
 
-  生成时间：2026-10-09 11:47:44
+  生成时间：2026-10-09 12:56:30
   生成方式：node tools/bundle-standalone.mjs
   对应源码：index.html + src/（多文件开发版，二者页面结构与样式完全一致）
 
@@ -1027,7 +1027,7 @@ textarea.review-input { resize: vertical; }
 
 <script>
 /* 启动守卫：万一某个模块出错，不能让老人对着白屏——先给一句人话，再给一行诊断信息。 */
-window.__FLC_BOOT__ = { ok: false, at: "2026-10-09 11:47:44" };
+window.__FLC_BOOT__ = { ok: false, at: "2026-10-09 12:56:30" };
 window.addEventListener('error', function (event) {
   if (window.__FLC_BOOT__.ok) return;
   var view = document.getElementById('view');
@@ -1586,7 +1586,6 @@ window.addEventListener('error', function (event) {
 
       const CONFIG = {
 
-        localOcr: { enabled: true },
         paddleOcr: { enabled: true },
 
         vision: {
@@ -3276,125 +3275,6 @@ window.addEventListener('error', function (event) {
     __exports.uploadToObs = uploadToObs;
     },
 
-    // ── src/recognize/ocr-local.js
-    "src/recognize/ocr-local.js": function (__exports, __require) {
-
-      /* import ./parse-label.js */ const { parseLabelText, splitIngredientLines, findIngredientHeading } = __require("src/recognize/parse-label.js");
-      /* import ../data/nutrition.js */ const { NUTRIENT_FIELDS } = __require("src/data/nutrition.js");
-
-      let enginePromise;
-      const CDN = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/';
-
-      function abortError() { return new DOMException('读取已取消', 'AbortError'); }
-
-      function loadEngine() {
-        if (window.Tesseract) return Promise.resolve(window.Tesseract);
-        if (enginePromise) return enginePromise;
-        enginePromise = new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          const remote = window.location.protocol === 'file:';
-          script.src = remote ? `${CDN}tesseract.min.js` : new URL('assets/ocr/tesseract.min.js', document.baseURI).href;
-          const timer = setTimeout(() => finish(new Error('文字识别引擎加载超时，请检查网络后重试。')), 30000);
-          const finish = (error) => {
-            clearTimeout(timer);
-            script.onload = script.onerror = null;
-            if (error) { script.remove(); reject(error); }
-            else resolve(window.Tesseract);
-          };
-          script.onload = () => finish(window.Tesseract ? null : new Error('文字识别引擎加载失败。'));
-          script.onerror = () => finish(new Error('文字识别引擎无法加载。双击版首次读取需要联网；也可以通过本地服务打开。'));
-          document.head.appendChild(script);
-        }).catch((error) => { enginePromise = null; throw error; });
-        return enginePromise;
-      }
-
-
-      function labelFromOcr(data) {
-        const rawText = String(data?.text || '').replace(/\r/g, '').trim();
-
-        const normalized = rawText.replace(/([\u3400-\u9fff])[ \t\u3000]+(?=[\u3400-\u9fff])/g, '$1');
-        const score = Math.max(0, Math.min(1, Number(data?.confidence || 0) / 100));
-        const label = parseLabelText(normalized, { channelLabel: '本机照片文字识别' });
-
-
-
-        const heading = findIngredientHeading(normalized);
-        if (!heading) {
-          label.ingredientText = '';
-          label.ingredientLines = [];
-        } else {
-          label.ingredientLines = splitIngredientLines(label.ingredientText);
-
-          label.ingredientHeadingSuspect = !/^(?:配料表|配料|原料与辅料|原料|原辅料)/.test(heading.heading);
-        }
-
-        for (const field of NUTRIENT_FIELDS) {
-
-          label.nutritionPer100g[field.key] = null;
-          label.confidence[field.key] = 0;
-        }
-        label.rawText = rawText;
-        label.ocrConfidence = label.ingredientHeadingSuspect ? score * 0.7 : score;
-        label.channel = 'localOcr';
-
-        label.readingOnly = true;
-        label.productName = /(?:产品名称|品名|名称)\s*[:：]/.test(normalized) ? label.productName : '';
-        return label;
-      }
-
-      async function recognize({ file, signal, onProgress }) {
-        if (signal?.aborted) throw abortError();
-        let worker;
-        let stopped = false;
-        let rejectStop;
-        const stopPromise = new Promise((_, reject) => { rejectStop = reject; });
-        const stop = (error) => {
-          stopped = true;
-          if (worker) void worker.terminate().catch(() => {});
-          rejectStop(error);
-        };
-        const cancel = () => stop(abortError());
-        signal?.addEventListener('abort', cancel, { once: true });
-        const timer = setTimeout(() => stop(new Error('读取时间较长，请把配料表拍近一些再试。')), 120000);
-        const run = async () => {
-          onProgress?.({ text: '正在准备文字识别……', note: '首次使用需要稍等，照片留在本机。' });
-          const engine = await loadEngine();
-          if (stopped) throw abortError();
-          const remote = window.location.protocol === 'file:';
-          const base = new URL('assets/ocr/', document.baseURI).href;
-
-          worker = await engine.createWorker('chi_sim', 1, {
-            workerPath: remote ? `${CDN}worker.min.js` : `${base}worker.min.js`,
-            corePath: remote ? 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1/tesseract-core-lstm.wasm.js' : `${base}tesseract-core-lstm.wasm.js`,
-            langPath: remote ? 'https://tessdata.projectnaptha.com/4.0.0_fast' : base.replace(/\/$/, ''),
-            logger: (message) => {
-              if (stopped) return;
-              const reading = message.status === 'recognizing text';
-              onProgress?.({ text: reading ? `正在读取照片上的字……${Math.round((message.progress || 0) * 100)}%` : '正在准备中文识别……', note: '可以随时取消读取，照片不会上传。' });
-            },
-            errorHandler: (error) => stop(new Error(`文字识别失败：${String(error?.message || error).slice(0, 100)}`))
-          });
-          if (stopped) { await worker.terminate(); throw abortError(); }
-          await worker.setParameters({ tessedit_pageseg_mode: '3', preserve_interword_spaces: '1' });
-          const { data } = await worker.recognize(file);
-          if (stopped) throw abortError();
-          const label = labelFromOcr(data);
-          if (!label.rawText) throw new Error('没有读到文字，请对准配料表靠近拍摄，避开反光。');
-          return { label, channel: 'localOcr' };
-        };
-        try { return await Promise.race([run(), stopPromise]); }
-        finally {
-          stopped = true;
-          clearTimeout(timer);
-          signal?.removeEventListener('abort', cancel);
-          if (worker) await worker.terminate().catch(() => {});
-        }
-      }
-
-    __exports.labelFromOcr = labelFromOcr;
-    __exports.recognize = recognize;
-    },
-
     // ── src/recognize/parse-regions.js
     "src/recognize/parse-regions.js": function (__exports, __require) {
 
@@ -3433,7 +3313,7 @@ window.addEventListener('error', function (event) {
       }
       function labelFromRegions(result) {
         const rows=groupOcrRows(result.items),rawText=rows.map(r=>r.text).join('\n');
-        const label=parseLabelText(rawText,{channelLabel:'本机中文区域识别'});
+        const label=parseLabelText(rawText,{channelLabel:'PaddleOCR · 本机中文识别'});
         const candidates={},per100g={},confidence={};
         for(const f of NUTRIENT_FIELDS) {per100g[f.key]=null;confidence[f.key]=0;}
         let start=rows.findIndex(r=>/营养成分表|营养标签/.test(r.text));
@@ -3475,7 +3355,7 @@ window.addEventListener('error', function (event) {
       /* import ./parse-regions.js */ const { labelFromRegions } = __require("src/recognize/parse-regions.js");
       async function recognize({file,signal,onProgress}) {
         if(signal?.aborted) throw new DOMException('读取已取消','AbortError');
-        let worker,sdk,cancelled=false;
+        let worker,sdk,workerUrl,cancelled=false;
         let rejectStop;
         const stopped=new Promise((_,reject)=>{rejectStop=reject;});
         const stop=e=>{cancelled=true;worker?.terminate();rejectStop(e);};
@@ -3484,13 +3364,23 @@ window.addEventListener('error', function (event) {
 
         let timer=setTimeout(()=>stop(new Error('中文模型加载超时，请检查网络后重试。')),300000);
         const run=async()=>{
-          const base=new URL('assets/paddle/',document.baseURI).href;
+
+          const remote=window.location.protocol==='file:';
+          const base=remote?'https://metal783.github.io/foodlenscare/assets/paddle/':new URL('assets/paddle/',document.baseURI).href;
           onProgress?.({text:'正在加载中文识别模型……',note:'首次下载引擎和模型可能较久，请保持页面打开。照片在本机处理。'});
           const runtimeUrl=base+'paddle.mjs';
           const {PaddleOCR}=await import(runtimeUrl);
           if(cancelled) throw new DOMException('读取已取消','AbortError');
+          if(remote) {
+
+            const response=await fetch(base+'ocr-worker-classic.js',{signal});
+            if(!response.ok) throw new Error('中文识别工作线程下载失败，请检查网络后重试。');
+            const script=await response.text();
+            if(cancelled) throw new DOMException('读取已取消','AbortError');
+            workerUrl=URL.createObjectURL(new Blob([script],{type:'text/javascript'}));
+          }
           sdk=await PaddleOCR.create({
-            worker:{createWorker:()=>{if(cancelled) throw new DOMException('读取已取消','AbortError');worker=new Worker(base+'ocr-worker.mjs',{type:'module'});return worker;}},
+            worker:{createWorker:()=>{if(cancelled) throw new DOMException('读取已取消','AbortError');worker=new Worker(workerUrl||base+'ocr-worker.mjs',{type:remote?'classic':'module'});worker.addEventListener('error',e=>stop(new Error(e.message||'中文识别工作线程运行失败。')),{once:true});return worker;}},
             textDetectionModelName:'PP-OCRv5_mobile_det',textRecognitionModelName:'PP-OCRv5_mobile_rec',
             textDetectionModelAsset:{url:base+'models/PP-OCRv5_mobile_det.tar'},textRecognitionModelAsset:{url:base+'models/PP-OCRv5_mobile_rec.tar'},
             ortOptions:{backend:'wasm',numThreads:1,wasmPaths:base},textDetLimitSideLen:1600,textDetLimitType:'max',textRecScoreThresh:0.3
@@ -3506,7 +3396,7 @@ window.addEventListener('error', function (event) {
           return {label,channel:'paddleOcr'};
         };
         try {return await Promise.race([run(),stopped]);}
-        finally {clearTimeout(timer);signal?.removeEventListener('abort',abort);if(sdk&&!cancelled){try{await sdk.dispose();}catch{}}worker?.terminate();}
+        finally {clearTimeout(timer);signal?.removeEventListener('abort',abort);if(sdk&&!cancelled){try{await sdk.dispose();}catch{}}worker?.terminate();if(workerUrl)URL.revokeObjectURL(workerUrl);}
       }
 
     __exports.recognize = recognize;
@@ -3526,11 +3416,7 @@ window.addEventListener('error', function (event) {
 
 
       const CHANNELS = {
-        paddleOcr: {id:'paddleOcr',label:'本机中文区域识别',short:'中文区域 OCR',description:'按文字位置识别配料和营养表，数值核对后使用，照片不上传。',offline:true},
-        localOcr: {
-          id: 'localOcr', label: '本机照片文字识别', short: '本机 OCR',
-          description: '中文与英文文字在浏览器内识别，照片不上传。', offline: true
-        },
+        paddleOcr: {id:'paddleOcr',label:'PaddleOCR · 本机中文识别',short:'PaddleOCR',description:'按文字位置识别配料和营养表，数值核对后使用，照片不上传。',offline:true},
         demo: {
           id: 'demo',
           label: '内置演示用例',
@@ -3589,7 +3475,6 @@ window.addEventListener('error', function (event) {
       /* import ./mock.js */ const mockChannel = __require("src/recognize/mock.js");
       /* import ./demo.js */ const demoChannel = __require("src/recognize/demo.js");
       /* import ./ocr-huawei.js */ const ocrChannel = __require("src/recognize/ocr-huawei.js");
-      /* import ./ocr-local.js */ const localOcr = __require("src/recognize/ocr-local.js");
       /* import ./ocr-paddle.js */ const paddleOcr = __require("src/recognize/ocr-paddle.js");
       /* import ./channels.js */ const { CHANNELS, CROSS_CHECK_TOLERANCE } = __require("src/recognize/channels.js");
       /* import ../data/nutrition.js */ const { NUTRIENT_FIELDS } = __require("src/data/nutrition.js");
@@ -3651,7 +3536,7 @@ window.addEventListener('error', function (event) {
 
         if (prefer === 'mock') return fallbackToMock({ file, quality, mockMode, started, reason: '模拟识别：以下内容为演示数据。' });
 
-        if (!image || (hardBad && !CONFIG.localOcr.enabled && !CONFIG.paddleOcr.enabled)) return unreadOutcome(quality, started, '照片不够清楚，请调整光线并重新拍摄。');
+        if (!image || (hardBad && !CONFIG.paddleOcr.enabled)) return unreadOutcome(quality, started, '照片不够清楚，请调整光线并重新拍摄。');
 
 
         if (prefer !== 'ocr' && httpChannel.isConfigured()) {
@@ -3707,7 +3592,7 @@ window.addEventListener('error', function (event) {
 
 
         let paddleFailure = null;
-        if (CONFIG.paddleOcr.enabled && window.location.protocol !== 'file:') {
+        if (CONFIG.paddleOcr.enabled) {
           try {
             const result = await paddleOcr.recognize({ file, signal, onProgress });
             checkAbort(signal);
@@ -3715,18 +3600,7 @@ window.addEventListener('error', function (event) {
           } catch (error) { checkAbort(signal); paddleFailure = error.message; }
         }
 
-        if (CONFIG.localOcr.enabled) {
-          try {
-            const result = await localOcr.recognize({ file, signal, onProgress });
-            checkAbort(signal);
-            return finalize(result, quality, window.location.protocol === 'file:'
-              ? '当前通过双击 HTML 打开，使用基础文字识别。新版中文识别请双击同目录的“启动新版OCR.cmd”，打开后重新选择照片。'
-              : paddleFailure ? `中文区域识别未能运行，已改用基础文字识别：${paddleFailure}` : failedService ? '云端服务暂时不可用，本次已改用本机文字识别。' : null, started);
-          } catch (error) {
-            checkAbort(signal);
-            return unreadOutcome(quality, started, error.message || '照片文字读取失败，请重新拍摄。');
-          }
-        }
+        if (paddleFailure) return unreadOutcome(quality, started, `新版中文 OCR 读取失败：${paddleFailure}`);
 
         return unreadOutcome(quality, started, failedService ? '读取服务暂时不可用，请稍后重试。' : '尚未连接食品标签读取服务。这张照片已选好，但还不能读取真实配料。您可以返回重拍，或到首页体验演示用例。');
       }
@@ -6523,7 +6397,7 @@ window.addEventListener('error', function (event) {
 
           photoCard(photo, label),
 
-          ['localOcr','paddleOcr'].includes(label.channel) && !result.consumptionRecordId ? reviewCard(result, ctx) : null,
+          label.channel === 'paddleOcr' && !result.consumptionRecordId ? reviewCard(result, ctx) : null,
           !label.readingOnly && (assessment.level !== 'gray' || label.nutritionConfirmed) ? consumptionCard(result, ctx) : null,
 
 
@@ -7698,7 +7572,7 @@ window.addEventListener('error', function (event) {
 
           albumButton,
           status,
-          CONFIG.localOcr.enabled
+          CONFIG.paddleOcr.enabled
             ? h('p', { class: 'footnote', text: '支持真实中文文字读取，照片在本机处理。识别后请对照照片核对；反光、小字或弯曲包装可能读错。' })
             : !CONFIG.vision.endpoint && !CONFIG.huaweiOcr.endpoint
             ? h('p', { class: 'error-box', text: '配料表读取服务尚未连接。您可以先拍照、预览和重拍；连接服务后才能读取照片上的真实文字。' })
@@ -7952,8 +7826,8 @@ window.addEventListener('error', function (event) {
         setView(document.getElementById('view'));
         if (window.location.protocol === 'file:') {
           document.getElementById('app').prepend(h('aside', { class: 'card', role: 'status' }, [
-            h('h2', { class: 'card-title', text: '新版 OCR 请从启动文件打开' }),
-            h('p', { text: '当前是双击 HTML 模式，使用基础文字识别。请双击同目录的“启动新版OCR.cmd”，浏览器会自动打开新版；打开后重新选择照片。' })
+            h('h2', { class: 'card-title', text: '新版中文 OCR · PaddleOCR' }),
+            h('p', { text: '此文件已使用新识别引擎。首次读取需要联网下载引擎和模型，照片仍在本机处理。无需切换入口，可直接选择照片识别。' })
           ]));
         }
 

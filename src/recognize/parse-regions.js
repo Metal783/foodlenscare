@@ -34,7 +34,7 @@ function readValue(text,key) {
 }
 export function labelFromRegions(result) {
   const rows=groupOcrRows(result.items),rawText=rows.map(r=>r.text).join('\n');
-  const label=parseLabelText(rawText,{channelLabel:'本机中文区域识别'});
+  const label=parseLabelText(rawText,{channelLabel:'PaddleOCR · 本机中文识别'});
   const candidates={},per100g={},confidence={};
   for(const f of NUTRIENT_FIELDS) {per100g[f.key]=null;confidence[f.key]=0;}
   let start=rows.findIndex(r=>/营养成分表|营养标签/.test(r.text));

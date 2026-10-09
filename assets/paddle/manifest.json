@@ -10,6 +10,10 @@
       "bytes": 10872914,
       "sha256": "13af5bc4e3128c3d7061e08c0228ac525e755d3527b7a7cb75f60f04209b479d"
     },
+    "ocr-worker-classic.js": {
+      "bytes": 10873161,
+      "sha256": "944f3cb8081bc72196f44566dd13de2485642460c415e58defd01a120d423990"
+    },
     "ort-wasm-simd-threaded.mjs": {
       "bytes": 24274,
       "sha256": "5687566b1bc1c8cf628d76c2ddb16b2a3b81a7997273d4666564880495088e57"

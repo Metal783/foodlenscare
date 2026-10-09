@@ -12,6 +12,12 @@ const sdkAssets = join(root, 'node_modules/@paddleocr/paddleocr-js/dist/assets')
 const workerName = (await readdir(sdkAssets)).find(n => /^worker-entry.*\.js$/.test(n));
 const worker = await transform(await readFile(join(sdkAssets, workerName), 'utf8'), { minify: true, format: 'esm', target: 'es2022', legalComments: 'eof' });
 await writeFile(join(out, 'ocr-worker.mjs'), worker.code);
+// file:// 不允许模块 Worker；生成同一 SDK 的普通 Worker，显式提供脚本基址。
+const classicWorker = await transform(await readFile(join(sdkAssets, workerName), 'utf8'), {
+  minify: true, format: 'iife', target: 'es2022', legalComments: 'eof',
+  define: { 'import.meta.url': JSON.stringify('https://metal783.github.io/foodlenscare/assets/paddle/ocr-worker-classic.js') }
+});
+await writeFile(join(out, 'ocr-worker-classic.js'), classicWorker.code);
 const ort = join(root, 'node_modules/onnxruntime-web/dist');
 const runtimeFiles = ['ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm', 'ort-wasm-simd-threaded.jsep.mjs', 'ort-wasm-simd-threaded.jsep.wasm'];
 for (const name of runtimeFiles) await copyFile(join(ort, name), join(out, name));
@@ -27,7 +33,7 @@ for (const kind of ['det', 'rec']) {
   }
 }
 const manifest = { sdk: '0.4.2', onnxruntime: '1.24.3', files: {} };
-for (const name of ['paddle.mjs', 'ocr-worker.mjs', ...runtimeFiles, 'models/PP-OCRv5_mobile_det.tar', 'models/PP-OCRv5_mobile_rec.tar']) {
+for (const name of ['paddle.mjs', 'ocr-worker.mjs', 'ocr-worker-classic.js', ...runtimeFiles, 'models/PP-OCRv5_mobile_det.tar', 'models/PP-OCRv5_mobile_rec.tar']) {
   const data = await readFile(join(out, name));
   manifest.files[name] = { bytes: data.length, sha256: createHash('sha256').update(data).digest('hex') };
 }

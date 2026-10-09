@@ -90,7 +90,7 @@ export function renderScan(view, _params, ctx) {
 
     albumButton,
     status,
-    CONFIG.localOcr.enabled
+    CONFIG.paddleOcr.enabled
       ? h('p', { class: 'footnote', text: '支持真实中文文字读取，照片在本机处理。识别后请对照照片核对；反光、小字或弯曲包装可能读错。' })
       : !CONFIG.vision.endpoint && !CONFIG.huaweiOcr.endpoint
       ? h('p', { class: 'error-box', text: '配料表读取服务尚未连接。您可以先拍照、预览和重拍；连接服务后才能读取照片上的真实文字。' })

@@ -26,7 +26,7 @@ python tools/prepare-pages.py                        # 再同步到 docs/index.h
 - `docs/index.html`：生成产物，请勿手动编辑
 - `docs/sw.js`：Pages 版的离线缓存，手写文件，不受上面的命令影响
 - `docs/assets/paddle/`：新版中文区域 OCR 的固定引擎、模型和许可证，由同步脚本复制；大资源在识别时按需缓存
-- `docs/assets/ocr/`：基础文字 OCR 的降级资源
+- 旧 `docs/assets/ocr/`：历史资源，不再用于识别或预缓存
 
 首次构建或修改 OCR 依赖时，在根目录执行 `npm ci`、`npm run build`。GitHub 更新后由 Pages 部署，实际生效版本以部署状态为准。电脑本地体验双击根目录的 `启动新版OCR.cmd`；完整操作及原图复测见根目录更新日志。
 

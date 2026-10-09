@@ -11,7 +11,7 @@
     node tools/bundle-standalone.mjs     # 重新打包单文件版
     python tools/prepare-pages.py        # 同步到 docs/index.html
 
-写入范围：docs/index.html、docs/assets/ocr 与 docs/assets/paddle（本机识别资源）。
+写入范围：docs/index.html 与 docs/assets/paddle（新版识别资源）。
 """
 
 from __future__ import annotations
@@ -59,7 +59,6 @@ def main() -> int:
     TARGET.parent.mkdir(parents=True, exist_ok=True)
     TARGET.write_text(html, encoding='utf-8')
     # 在线版与源码版共用固定版本 OCR 引擎和语言模型。
-    shutil.copytree(ROOT / 'assets' / 'ocr', TARGET.parent / 'assets' / 'ocr', dirs_exist_ok=True)
     shutil.copytree(ROOT / 'assets' / 'paddle', TARGET.parent / 'assets' / 'paddle', dirs_exist_ok=True)
 
     same = html.endswith('</html>\n') or html.rstrip().endswith('</html>')

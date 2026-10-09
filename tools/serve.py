@@ -86,10 +86,6 @@ class MobileHandler(Handler):
     """手机试用仅公开运行页面与固定 OCR 资源，不公开项目目录。"""
     ALLOWED = {
         '/', '/index.html', '/sw.js',
-        '/assets/ocr/tesseract.min.js', '/assets/ocr/worker.min.js',
-        '/assets/ocr/tesseract-core-lstm.wasm.js',
-        '/assets/ocr/tesseract-core-lstm.wasm',
-        '/assets/ocr/chi_sim.traineddata.gz'
     }
     ALLOWED.update('/assets/paddle/' + str(p.relative_to(ROOT / 'assets' / 'paddle')).replace('\\', '/')
                    for p in (ROOT / 'assets' / 'paddle').rglob('*') if p.is_file())

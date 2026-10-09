@@ -58,6 +58,8 @@ def run_harness(browser: Path, url: str, workdir: Path) -> tuple[str, str]:
         '--no-first-run',
         '--no-default-browser-check',
         '--hide-scrollbars',
+        # 显式标记自动化环境。
+        '--enable-automation',
         f'--user-data-dir={workdir / "profile"}',
         '--window-size=520,900',
         '--virtual-time-budget=90000',
@@ -83,7 +85,11 @@ def main() -> int:
     if '--verify-guards' in sys.argv:
         return verify_guards(browser)
 
-    with socketserver.TCPServer(('127.0.0.1', 0), _QuietHandler) as httpd:
+    # 必须用 ThreadingTCPServer：浏览器会并发拉取 ES Module，单线程 server
+    # 一旦某个连接挂起（keep-alive 等），后续模块全部排队等不到，表现为
+    # 页面加载到一半、probe 一直 pending。
+    _QuietHandler.daemon_threads = True
+    with socketserver.ThreadingTCPServer(('127.0.0.1', 0), _QuietHandler) as httpd:
         port = httpd.server_address[1]
         threading.Thread(target=httpd.serve_forever, daemon=True).start()
         try:

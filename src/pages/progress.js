@@ -8,14 +8,8 @@
 import { h, topbar, button, fill } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { processPhoto, reportFailure } from '../core/flow.js';
+import { current } from '../core/router.js';
 
-/** 进度文案按时间推进，让等待有节奏感 */
-const STAGES = [
-  { at: 0, text: '正在看标签……', note: '把照片上的字读出来' },
-  { at: 700, text: '正在念配料表……', note: '找出里面有哪些东西' },
-  { at: 1500, text: '正在比您的身体情况……', note: '看看和您有没有冲突' },
-  { at: 2400, text: '马上就出结果了', note: '给您一句听得懂的话' }
-];
 
 /**
  * @param {HTMLElement} view
@@ -28,9 +22,19 @@ export function renderProgress(view, _params, ctx) {
     ctx.navigate('home', {}, { replace: true });
     return;
   }
+  const controller = new AbortController();
+  let waitingResult = null;
+  const started = performance.now();
+  const active = () => !controller.signal.aborted && ctx.state.progressPhoto === pending && current().split('?')[0] === 'progress';
+  const leave = () => {
+    controller.abort();
+    timers.forEach(clearTimeout);
+    ctx.setState({ progressPhoto: null });
+    ctx.navigate(pending.returnTo || 'home', {}, { replace: true });
+  };
 
-  const textEl = h('p', { class: 'progress-text', text: STAGES[0].text });
-  const noteEl = h('p', { class: 'progress-note', text: STAGES[0].note });
+  const textEl = h('p', { class: 'progress-text', text: '正在看标签……' });
+  const noteEl = h('p', { class: 'progress-note', text: '把照片上的字读出来' });
 
   fill(view, [
     topbar({ title: '正在看标签' }),
@@ -45,35 +49,48 @@ export function renderProgress(view, _params, ctx) {
         : null
     ]),
     button({
-      label: '取消，回首页',
+      label: '取消读取，返回',
       variant: 'ghost',
       block: true,
-      onClick: () => ctx.navigate('home', {}, { replace: true })
+      onClick: leave
     })
   ]);
 
-  const timers = STAGES.slice(1).map((stage) =>
-    setTimeout(() => {
-      textEl.textContent = stage.text;
-      noteEl.textContent = stage.note;
-    }, stage.at)
-  );
+  const timers = [];
 
-  processPhoto(pending.file, pending.origin, ctx.state.profile)
+  processPhoto(pending.file, pending.origin, ctx.state.profile, {
+    signal: controller.signal,
+    onProgress: (progress) => {
+      if (!active()) return;
+      textEl.textContent = progress.text;
+      noteEl.textContent = progress.note;
+    }
+  })
     .then((result) => {
       timers.forEach(clearTimeout);
+      if (!active()) {
+        if (result.photo.previewUrl) URL.revokeObjectURL(result.photo.previewUrl);
+        return;
+      }
       // 保证「正在看标签」至少显示 1.2 秒，避免闪一下就过去，老人来不及看清
-      const wait = Math.max(0, 1200 - (result.photo.elapsedMs || 0));
-      setTimeout(() => {
+      const wait = Math.max(0, 1200 - (performance.now() - started));
+      waitingResult = result;
+      timers.push(setTimeout(() => {
+        if (!active()) {
+          if (result.photo.previewUrl) URL.revokeObjectURL(result.photo.previewUrl);
+          return;
+        }
         ctx.setState({ result, progressPhoto: null, pendingFile: null });
+        waitingResult = null;
         ctx.navigate('result', {}, { replace: true });
-      }, wait);
+      }, wait));
     })
     .catch((error) => {
       timers.forEach(clearTimeout);
+      if (!active()) return;
       const message = reportFailure(error);
       fill(view, [
-        topbar({ title: '没看成', onBack: () => ctx.navigate('home', {}, { replace: true }) }),
+        topbar({ title: '没看成', onBack: leave }),
         h('section', { class: 'card' }, [
           h('h2', { class: 'card-title', text: '这张照片没处理好' }),
           h('p', { class: 'error-box', text: message }),
@@ -84,8 +101,15 @@ export function renderProgress(view, _params, ctx) {
           iconHtml: icon('camera'),
           block: true,
           huge: true,
-          onClick: () => ctx.navigate('home', {}, { replace: true })
+          onClick: leave
         })
       ]);
     });
+  return () => {
+    controller.abort();
+    timers.forEach(clearTimeout);
+    if (waitingResult?.photo.previewUrl) URL.revokeObjectURL(waitingResult.photo.previewUrl);
+    if (pending.previewUrl) URL.revokeObjectURL(pending.previewUrl);
+    if (ctx.state.progressPhoto === pending) ctx.setState({ progressPhoto: null });
+  };
 }

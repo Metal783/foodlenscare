@@ -20,6 +20,7 @@ import { measureImage, loadImage } from '../recognize/quality.js';
 export function renderConfirm(view, _params, ctx) {
   const file = ctx.state.pendingFile;
   const origin = ctx.state.pendingOrigin || 'camera';
+  const returnTo = ctx.state.pendingReturn || 'home';
 
   if (!file) {
     ctx.navigate('home', {}, { replace: true });
@@ -38,24 +39,30 @@ export function renderConfirm(view, _params, ctx) {
   const go = async () => {
     if (busy) return;
     busy = true;
-    ctx.setState({ progressStage: 0, progressPhoto: { file, origin, previewUrl } });
+    ctx.setState({ progressStage: 0, progressPhoto: { file, origin, previewUrl, returnTo } });
     ctx.navigate('progress');
   };
 
   const retake = async () => {
+    if (busy) return;
+    busy = true;
     try {
       const next = await pickPhoto(origin);
       if (next) {
         ctx.setState({ pendingFile: next, pendingOrigin: origin });
         ctx.navigate('confirm', {}, { replace: true, force: true });
+      } else {
+        // 保留当前照片，取消重拍后仍可继续读取。
+        busy = false;
       }
     } catch (error) {
+      busy = false;
       reportFailure(error);
     }
   };
 
   fill(view, [
-    topbar({ title: '这张拍得清楚吗？', onBack: () => ctx.navigate('home', {}, { replace: true }) }),
+    topbar({ title: '这张拍得清楚吗？', onBack: () => ctx.navigate(returnTo, {}, { replace: true }) }),
     h('section', { class: 'photo-frame' }, [image]),
     qualityBox,
     button({
@@ -90,7 +97,7 @@ export function renderConfirm(view, _params, ctx) {
         ),
         h('p', {
           class: 'photo-meta',
-          text: `清晰度 ${quality.sharpness}，亮度 ${quality.brightness}，分辨率 ${quality.width}×${quality.height}`
+          text: '请确认照片里能看到完整配料表，文字没有被反光或手指挡住。'
         }),
         h('p', {
           class: 'footnote',
@@ -101,4 +108,5 @@ export function renderConfirm(view, _params, ctx) {
     .catch(() => {
       qualityBox.replaceChildren(h('p', { class: 'photo-meta', text: '这张图片读不出内容，请重拍一张。' }));
     });
+  return () => { if (ctx.state.progressPhoto?.previewUrl !== previewUrl) URL.revokeObjectURL(previewUrl); };
 }

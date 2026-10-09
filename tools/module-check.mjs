@@ -120,7 +120,8 @@ const REQUIRED_EXPORTS = {
   'src/pages/result.js': ['renderResult'],
   'src/pages/records.js': ['renderRecords'],
   'src/pages/settings.js': ['renderSettings', 'applyTextSize'],
-  'src/pages/help.js': ['renderHelp']
+  'src/pages/help.js': ['renderHelp'],
+  'src/pages/scan.js': ['renderScan']
 };
 
 /**
@@ -144,7 +145,7 @@ const KNOWN_GLOBALS = new Set([
   'FileReader', 'Image', 'ImageBitmap', 'createImageBitmap', 'HTMLImageElement', 'Element', 'Node',
   'HTMLElement', 'Event', 'CustomEvent', 'AbortController', 'AbortSignal', 'TextEncoder', 'TextDecoder',
   'crypto', 'performance', 'speechSynthesis', 'SpeechSynthesisUtterance', 'WebSocket', 'Worker',
-  'DataTransfer', 'PointerEvent', 'MouseEvent', 'KeyboardEvent', 'NodeFilter', 'MutationObserver',
+  'DataTransfer', 'PointerEvent', 'MouseEvent', 'KeyboardEvent', 'DOMException', 'NodeFilter', 'MutationObserver',
   'IntersectionObserver', 'ResizeObserver', 'getComputedStyle', 'alert', 'confirm', 'prompt',
   'MediaStream', 'AudioContext', 'CanvasRenderingContext2D', 'OffscreenCanvas', 'self', 'caches',
   'clients', 'importScripts', 'Notification', 'DOMParser', 'XMLSerializer', 'CSS', 'customElements',
@@ -168,6 +169,8 @@ function undeclaredCheck() {
 
   for (const file of files) {
     const rel = relative(ROOT, file).split(sep).join('/');
+    // vendor/ 是第三方打包代码（自带 webpack 模块作用域），不做未声明标识符检查
+    if (rel.includes('/vendor/')) continue;
     const source = stripCommentsForCheck(readFileSync(file, 'utf8'));
 
     /* 收集本文件里出现过的所有名字 */

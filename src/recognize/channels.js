@@ -10,6 +10,10 @@
  */
 
 export const CHANNELS = {
+  localOcr: {
+    id: 'localOcr', label: '本机照片文字识别', short: '本机 OCR',
+    description: '中文与英文文字在浏览器内识别，照片不上传。', offline: true
+  },
   demo: {
     id: 'demo',
     label: '内置演示用例',

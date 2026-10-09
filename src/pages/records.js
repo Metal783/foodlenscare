@@ -38,12 +38,12 @@ export function renderRecords(view, _params, ctx) {
       h('section', { class: 'card' }, [
         h('h3', {
           class: 'card-title',
-          text: list.length ? `今天一共看了 ${list.length} 件` : '今天还没有记录'
+          text: list.length ? `今天有 ${list.length} 条记录` : '今天还没有记录'
         }),
         ...meterRows(todayTotals(fresh)),
         h('p', {
           class: 'footnote',
-          text: '额度按 60 岁以上人群的建议上限自动扣减，只做提醒，不是医嘱。'
+          text: '仅统计确认食用的记录。旧版自动扫描记录和演示记录保留供查看，不扣减额度；未记录的食物不在统计中。'
         })
       ]),
 
@@ -51,7 +51,7 @@ export function renderRecords(view, _params, ctx) {
         ? h('ul', { class: 'record-list' }, list.map((record) => recordItem(record, ctx, draw)))
         : h('section', { class: 'card empty-state' }, [
             h('span', { class: 'empty-icon', html: icon('clipboard') }),
-            h('p', { text: '今天还没看过食品。回首页拍一张照片，看完会自动记在这里。' })
+            h('p', { text: '今天还没有食用记录。查看食品后，填写实际吃了多少，再确认记入今天。' })
           ]),
 
       button({
@@ -94,7 +94,7 @@ function recordItem(record, ctx, onChanged) {
       h('p', { class: 'record-line', text: record.headline }),
       h('p', { class: 'record-line record-time' }, [
         h('span', { text: `${meta.label} · ${meta.text}　${time}` }),
-        record.servingGrams ? h('span', { text: `　一份约 ${record.servingGrams} g` }) : null
+        record.servingGrams ? h('span', { text: `　${record.consumptionConfirmed ? '已食用' : '旧版查看记录'} ${record.servingGrams} ${record.servingUnit || 'g'}` }) : null
       ])
     ]),
     h('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.4rem' } }, [

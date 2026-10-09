@@ -1,7 +1,7 @@
 /**
  * 接口配置
  *
- * 默认全部留空 → 演示模式（mock + 内置用例），零配置即可跑通完整闭环。
+ * 云接口默认留空 → 使用真实本机中文 OCR；首页内置用例可独立演示。
  * 拿到真实密钥后，只需填写本文件（或只改这一处），无需改动任何业务代码。
  *
  * ⚠️ 合规提醒：本文件会随前端一起下发到浏览器，任何填入的密钥都等于公开。
@@ -10,10 +10,12 @@
  */
 
 export const CONFIG = {
+  /** 默认启用本机中文 OCR，无需云端账号、密钥或图片上传。 */
+  localOcr: { enabled: true },
   /** 主通道：多模态大模型视觉接口 */
   vision: {
     /**
-     * 留空 = 使用模拟识别。
+     * 留空 = 尚未连接服务，不使用演示商品替代真实照片。
      * 可填任意兼容 OpenAI Chat Completions 的服务地址，例如：
      *   https://your-gateway.example.com/v1/chat/completions
      *   https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
@@ -46,8 +48,6 @@ export const CONFIG = {
 
   /** 接口不可用时的降级策略 */
   fallback: {
-    /** 识别失败后是否自动改用内置演示用例，保证闭环不断 */
-    autoDemoOnFailure: true,
     /** 自动补拍的兜底：失败重试次数 */
     retry: 1
   }

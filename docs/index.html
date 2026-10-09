@@ -21,10 +21,10 @@
   食护家 FoodLensCare · 食品标签初版 · 单文件版
   2026 年第十四届全国大学生数字媒体科技作品及创意竞赛 · 自主选题类 · 移动与网络应用开发
 
-  这是「双击就能打开」的独立版本：31 个源模块、约 201 KB 业务代码
+  这是「双击就能打开」的独立版本：34 个源模块、约 229 KB 业务代码
   全部内联在这一个文件里，不需要服务器、不需要联网、不需要安装任何环境。
 
-  生成时间：2026-10-08 09:15:04
+  生成时间：2026-10-09 07:06:07
   生成方式：node tools/bundle-standalone.mjs
   对应源码：index.html + src/（多文件开发版，二者页面结构与样式完全一致）
 
@@ -672,6 +672,14 @@ details.basis[open] > summary::after { content: '▴'; }
 
 .divider { height: 2px; background: var(--c-line-soft); border: 0; margin: var(--space-2) 0; }
 
+.review-form { padding: var(--space-2); display: grid; gap: var(--space-2); }
+.review-field { display: grid; gap: 0.5rem; margin: 0.5rem 0; }
+.review-input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 3rem; padding: 0.6rem; font: inherit; color: var(--c-ink); background: var(--c-surface); border: 2px solid var(--c-ink-3); border-radius: var(--radius-m); }
+textarea.review-input { resize: vertical; }
+.review-check { display: flex; align-items: flex-start; gap: 0.6rem; }
+.review-check input { flex-shrink: 0; width: 1.5rem; height: 1.5rem; margin-top: 0.2rem; }
+.error-box[hidden] { display: none; }
+
 @media (min-width: 512px) {
   .app-shell { box-shadow: 0 0 0 2px var(--c-line-soft); }
 }
@@ -709,7 +717,7 @@ details.basis[open] > summary::after { content: '▴'; }
 
 <script>
 /* 启动守卫：万一某个模块出错，不能让老人对着白屏——先给一句人话，再给一行诊断信息。 */
-window.__FLC_BOOT__ = { ok: false, at: "2026-10-08 09:15:04" };
+window.__FLC_BOOT__ = { ok: false, at: "2026-10-09 07:06:07" };
 window.addEventListener('error', function (event) {
   if (window.__FLC_BOOT__.ok) return;
   var view = document.getElementById('view');
@@ -731,31 +739,33 @@ window.addEventListener('error', function (event) {
   var __registry = {
     // ── src/core/router.js
     "src/core/router.js": function (__exports, __require) {
-   
-         
-  
-                                   
-                                          
-                     
-   
 
-   
-                                 
-                                                                                                         
-                                 
-                                              
-                                                           
-                                  
-                           
-   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
       const routes = new Map();
       let viewEl = null;
       let notFound = null;
-                                
+
       let stack = [];
       let currentPath = '';
       let context = null;
+      let cleanup = null;
+      let renderRevision = 0;
 
       function define(name, render) {
         routes.set(name, render);
@@ -801,12 +811,12 @@ window.addEventListener('error', function (event) {
         return `${name}?${new URLSearchParams(usable).toString()}`;
       }
 
-   
-      
-                       
-                           
-                                        
-   
+
+
+
+
+
+
       function navigate(name, params = {}, options = {}) {
         const path = buildPath(name, params);
         if (path === currentPath && !options.force) {
@@ -823,11 +833,11 @@ window.addEventListener('error', function (event) {
         stack.push(currentPath);
         currentPath = path;
         window.location.hash = `#/${path}`;
-                                           
+
         render(name, params);
       }
 
-                              
+
       function back() {
         const prev = stack.pop();
         if (!prev) return false;
@@ -862,12 +872,20 @@ window.addEventListener('error', function (event) {
       function render(name, params) {
         const renderFn = routes.get(name) || notFound;
         if (!viewEl || !renderFn) return;
+        const revision = ++renderRevision;
+        const previousCleanup = cleanup;
+        cleanup = null;
+        previousCleanup?.();
 
         const previous = document.activeElement;
         window.scrollTo({ top: 0, behavior: 'auto' });
 
         try {
-          renderFn(viewEl, params, context);
+          const dispose = renderFn(viewEl, params, context);
+          if (typeof dispose === 'function') {
+            if (renderRevision === revision) cleanup = dispose;
+            else dispose();
+          }
         } catch (error) {
           console.error('[FoodLensCare] 页面渲染失败：', error);
           // 出问题时把页面名和具体错误一起写出来：只写「出了点问题」会让人无从下手，
@@ -898,31 +916,31 @@ window.addEventListener('error', function (event) {
 
     // ── src/core/store.js
     "src/core/store.js": function (__exports, __require) {
-   
-            
-  
-                               
-                                
-                              
-   
+
+
+
+
+
+
+
 
       const KEY_PROFILE = 'flc.profile.v1';
       const KEY_RECORDS = 'flc.records.v1';
       const KEY_PREFS = 'flc.prefs.v1';
       const KEY_RECOGNIZER = 'flc.recognizer.v1';
 
-                                                    
 
-                             
-                                
-                                       
-                                                         
-                                                    
-                                                    
-                              
-   
 
-                         
+
+
+
+
+
+
+
+
+
+
       function emptyProfile() {
         return {
           completed: false,
@@ -961,7 +979,7 @@ window.addEventListener('error', function (event) {
         }
       }
 
-                                                                           
+
 
       function loadProfile() {
         const saved = read(KEY_PROFILE, null);
@@ -977,12 +995,12 @@ window.addEventListener('error', function (event) {
         try {
           window.localStorage.removeItem(KEY_PROFILE);
         } catch {
-                     
+
         }
         return emptyProfile();
       }
 
-                                                                           
+
 
       function loadPrefs() {
         return { textSize: 'large', showAdvanced: false, ...read(KEY_PREFS, {}) };
@@ -992,7 +1010,7 @@ window.addEventListener('error', function (event) {
         return write(KEY_PREFS, prefs);
       }
 
-                                                                         
+
 
       function loadRecognizerChoice() {
         const saved = read(KEY_RECOGNIZER, null);
@@ -1003,9 +1021,9 @@ window.addEventListener('error', function (event) {
         return write(KEY_RECOGNIZER, id);
       }
 
-                                                                         
 
-                                           
+
+
       function localDateKey(date = new Date()) {
         const pad = (n) => String(n).padStart(2, '0');
         return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
@@ -1020,7 +1038,7 @@ window.addEventListener('error', function (event) {
         return write(KEY_RECORDS, records);
       }
 
-                               
+
       function pruneRecords(records) {
         const keep = 60 * 24 * 60 * 60 * 1000;
         const now = Date.now();
@@ -1035,7 +1053,7 @@ window.addEventListener('error', function (event) {
           ...record
         };
         records.push(item);
-        saveRecords(records);
+        if (!saveRecords(records)) throw new Error('记录无法保存，请检查浏览器的本地存储权限。');
         return item;
       }
 
@@ -1045,15 +1063,15 @@ window.addEventListener('error', function (event) {
         return records;
       }
 
-   
-          
-  
-        
-                                    
-                                          
-                                  
-                              
-   
+
+
+
+
+
+
+
+
+
       function clearRecords() {
         saveRecords([]);
         return [];
@@ -1064,14 +1082,16 @@ window.addEventListener('error', function (event) {
         return records.filter((r) => localDateKey(new Date(r.at)) === today);
       }
 
-   
-                         
-                                                    
-                                                                                          
-   
+
+
+
+
+
       function todayTotals(records = loadRecords()) {
         const totals = { sodium: 0, sugar: 0, saturatedFat: 0, fat: 0, count: 0 };
         for (const r of recordsOfToday(records)) {
+
+          if (r.consumptionConfirmed !== true || r.origin === 'demo') continue;
           if (!r.nutrients) continue;
           totals.count += 1;
           for (const key of ['sodium', 'sugar', 'saturatedFat', 'fat']) {
@@ -1082,13 +1102,13 @@ window.addEventListener('error', function (event) {
         return totals;
       }
 
-                                      
+
       function scaleNutrients(per100g, grams) {
         const g = Number(grams);
         if (!Number.isFinite(g) || g <= 0) return null;
         const out = {};
         for (const [key, value] of Object.entries(per100g || {})) {
-          const v = Number(value);
+          const v = value == null || String(value).trim() === '' ? NaN : Number(value);
           out[key] = Number.isFinite(v) ? Math.round(v * g) / 100 : null;  }
         return out;
       }
@@ -1115,17 +1135,17 @@ window.addEventListener('error', function (event) {
 
     // ── src/core/speech.js
     "src/core/speech.js": function (__exports, __require) {
-   
-       
-  
-                 
-                               
-                                             
-                                        
-  
-                                            
-                   
-   
+
+
+
+
+
+
+
+
+
+
+
 
       let cachedVoice = null;
       let unlocked = false;
@@ -1134,7 +1154,7 @@ window.addEventListener('error', function (event) {
         return typeof window !== 'undefined' && 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
       }
 
-                                     
+
       function pickVoice() {
         if (!isSupported()) return null;
         if (cachedVoice) return cachedVoice;
@@ -1149,19 +1169,19 @@ window.addEventListener('error', function (event) {
       }
 
       if (isSupported()) {
-                      
+
         window.speechSynthesis.onvoiceschanged = () => {
           cachedVoice = null;
           pickVoice();
         };
       }
 
-   
-          
-                       
-                                                     
-                              
-   
+
+
+
+
+
+
       function speak(text, options = {}) {
         if (!isSupported() || !text) return false;
         try {
@@ -1170,7 +1190,7 @@ window.addEventListener('error', function (event) {
           const voice = pickVoice();
           if (voice) utterance.voice = voice;
           utterance.lang = 'zh-CN';
-                                  
+
           utterance.rate = options.rate ?? 0.85;
           utterance.pitch = 1;
           utterance.volume = 1;
@@ -1191,7 +1211,7 @@ window.addEventListener('error', function (event) {
         try {
           window.speechSynthesis.cancel();
         } catch {
-            
+
         }
       }
 
@@ -1204,10 +1224,10 @@ window.addEventListener('error', function (event) {
         }
       }
 
-   
-                           
-                             
-   
+
+
+
+
       function unlock() {
         if (!isSupported() || unlocked) return;
         try {
@@ -1217,15 +1237,15 @@ window.addEventListener('error', function (event) {
           window.speechSynthesis.speak(u);
           unlocked = true;
         } catch {
-            
+
         }
       }
 
-   
-                              
-                                
-                                                                     
-   
+
+
+
+
+
       function buildSpeechText(assessment) {
         const parts = [assessment.headline, assessment.advice].filter(Boolean);
         return parts.join(' ');
@@ -1241,62 +1261,62 @@ window.addEventListener('error', function (event) {
 
     // ── src/recognize/config.js
     "src/recognize/config.js": function (__exports, __require) {
-   
-       
-  
-                                          
-                                      
-  
-                                        
-                                                  
-                                                
-   
+
+
+
+
+
+
+
+
+
+
 
       const CONFIG = {
-                       
+
+        localOcr: { enabled: true },
+
         vision: {
-       
-                   
-                                               
-                                                             
-                                                                           
-       
+
+
+
+
+
+
           endpoint: '',
-                                                
+
           authorization: '',
           model: 'qwen-vl-max-latest',
-                     
+
           timeoutMs: 30000,
-                           
+
           jsonMode: true
         },
 
-                                      
+
         huaweiOcr: {
           endpoint: '',
           ak: '',
           sk: '',
           projectId: '',
-                                                           
+
           api: 'general-table',
           timeoutMs: 30000,
-       
-                                                
-                                     
-       
+
+
+
+
           uploadProxy: ''
         },
 
-                    
+
         fallback: {
-                                   
-          autoDemoOnFailure: true,
-                         
+
           retry: 1
         }
       };
 
-                                               
+
       const VISION_PROMPT = `你是食品包装标签识别助手。请只根据图片内容提取信息，不要推测、不要补全任何未印在包装上的内容。
 
       请严格输出一个 JSON 对象，字段如下：
@@ -1334,47 +1354,47 @@ window.addEventListener('error', function (event) {
 
     // ── src/recognize/quality.js
     "src/recognize/quality.js": function (__exports, __require) {
-   
-                                    
-  
-                                 
-                                  
-                                
-  
-                                         
-                           
-   
+
+
+
+
+
+
+
+
+
+
 
       const THUMB_WIDTH = 320;
 
-                          
+
       const BLUR_THRESHOLD = 60;
-                   
+
       const DARK_THRESHOLD = 55;
-                     
+
       const DARK_RATIO_THRESHOLD = 0.45;
-                         
+
       const BRIGHT_RATIO_THRESHOLD = 0.22;
 
-   
-                                 
-                             
-                              
-                                
-                                     
-                                      
-                                           
-                           
-                            
-                                
-                                           
-   
 
-   
-          
-                                              
-                          
-   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
       function measureImage(image) {
         const width = image.naturalWidth || image.width || 0;
         const height = image.naturalHeight || image.height || 0;
@@ -1406,7 +1426,7 @@ window.addEventListener('error', function (event) {
         canvas.height = h;
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) {
-                            
+
           return empty;
         }
 
@@ -1434,7 +1454,7 @@ window.addEventListener('error', function (event) {
         }
         const brightness = sum / gray.length;
 
-           
+
         let lapSum = 0;
         let lapSqSum = 0;
         let count = 0;
@@ -1481,12 +1501,12 @@ window.addEventListener('error', function (event) {
         };
       }
 
-   
-                                      
-                                               
-                     
-                                       
-   
+
+
+
+
+
+
       function loadImage(file) {
         return new Promise((resolve, reject) => {
           const url = URL.createObjectURL(file);
@@ -1500,10 +1520,10 @@ window.addEventListener('error', function (event) {
         });
       }
 
-   
-                        
-                     
-   
+
+
+
+
       function readDimensions(file) {
         return loadImage(file).then((img) => ({
           width: img.naturalWidth,
@@ -1523,22 +1543,22 @@ window.addEventListener('error', function (event) {
 
     // ── src/data/nutrition.js
     "src/data/nutrition.js": function (__exports, __require) {
-   
-               
-  
-      
-                              
-                                                   
-                                       
-                                        
-                                                     
-                                     
-  
-                                          
-               
-   
 
-                                                                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
       const NUTRIENT_FIELDS = [
         { key: 'energy', label: '能量', unit: 'kJ', mandatory: true },
         { key: 'protein', label: '蛋白质', unit: 'g', mandatory: true },
@@ -1552,10 +1572,10 @@ window.addEventListener('error', function (event) {
       const NUTRIENT_LABEL = Object.fromEntries(NUTRIENT_FIELDS.map((f) => [f.key, f.label]));
       const NUTRIENT_UNIT = Object.fromEntries(NUTRIENT_FIELDS.map((f) => [f.key, f.unit]));
 
-   
-                       
-                                              
-   
+
+
+
+
       const DAILY_LIMITS = {
         sodium: {
           limit: 1500,
@@ -1591,7 +1611,7 @@ window.addEventListener('error', function (event) {
         }
       };
 
-                 
+
       const CONCERNS = [
         {
           id: 'sugar',
@@ -1621,17 +1641,17 @@ window.addEventListener('error', function (event) {
 
       const CONCERN_BY_ID = new Map(CONCERNS.map((c) => [c.id, c]));
 
-                          
+
       const AGE_GROUPS = [
         { id: 'age60', label: '60 — 69 岁', emoji: '6️⃣' },
         { id: 'age70', label: '70 — 79 岁', emoji: '7️⃣' },
         { id: 'age80', label: '80 岁以上', emoji: '8️⃣' }
       ];
 
-   
-                               
-             
-   
+
+
+
+
       const CONDITIONS = [
         { id: 'hypertension', label: '高血压', emoji: '🩺', nutrients: ['sodium'] },
         { id: 'diabetes', label: '糖尿病', emoji: '🩸', nutrients: ['sugar'] },
@@ -1641,10 +1661,10 @@ window.addEventListener('error', function (event) {
 
       const CONDITION_BY_ID = new Map(CONDITIONS.map((c) => [c.id, c]));
 
-   
-                   
-                                       
-   
+
+
+
+
       function gradeIntake(value, limit) {
         if (!Number.isFinite(value) || !Number.isFinite(limit) || limit <= 0) return 'unknown';
         const ratio = value / limit;
@@ -1654,7 +1674,7 @@ window.addEventListener('error', function (event) {
         return 'ok';
       }
 
-                                         
+
       const INTAKE_TONE_TEXT = {
         over: '已经达到或超过一天的建议上限',
         high: '占一天建议上限的大半',
@@ -1663,11 +1683,11 @@ window.addEventListener('error', function (event) {
         unknown: '暂时无法判断'
       };
 
-   
-                              
-                          
-                                     
-   
+
+
+
+
+
       function scaleIntake(per100g, grams) {
         const v = Number(per100g);
         const g = Number(grams);
@@ -1676,7 +1696,7 @@ window.addEventListener('error', function (event) {
         return (v * g) / 100;
       }
 
-                                             
+
       const DEFAULT_SERVING = {
         drink: 250,
         bottle: 500,
@@ -1703,17 +1723,17 @@ window.addEventListener('error', function (event) {
 
     // ── src/recognize/parse-label.js
     "src/recognize/parse-label.js": function (__exports, __require) {
-   
-                             
-  
-                                      
-                           
-                        
-   
+
+
+
+
+
+
+
 
       /* import ../data/nutrition.js */ const { NUTRIENT_FIELDS } = __require("src/data/nutrition.js");
 
-                                                 
+
       const FIELD_ALIASES = {
         energy: ['能量', '热量'],
         protein: ['蛋白质', '蛋白'],
@@ -1726,10 +1746,10 @@ window.addEventListener('error', function (event) {
 
       const NUM = '([0-9]+(?:\\.[0-9]+)?)';
 
-                            
+
       function findByAlias(text, aliases) {
         for (const alias of aliases) {
-                                      
+
           const re = new RegExp(`${alias}[^0-9\\n]{0,8}${NUM}`, 'i');
           const m = text.match(re);
           if (m) return { value: Number(m[1]), alias, matched: m[0] };
@@ -1737,11 +1757,11 @@ window.addEventListener('error', function (event) {
         return null;
       }
 
-   
-                        
-                       
-                                                                                                                                
-   
+
+
+
+
+
       function parseNutrition(text) {
         const per100g = {};
         const missing = [];
@@ -1758,7 +1778,7 @@ window.addEventListener('error', function (event) {
           }
         }
 
-                                                     
+
         let declaredPer = 'unknown';
         if (/每\s*100\s*(g|克|ml|毫升|ML)/i.test(text || '')) declaredPer = 'per100g';
         else if (/每\s*(份|包|袋|瓶|支|块)/.test(text || '')) declaredPer = 'perServing';
@@ -1766,20 +1786,20 @@ window.addEventListener('error', function (event) {
         return { per100g, found, missing, declaredPer };
       }
 
-   
-                                  
-                                               
-                               
-                                                              
-   
+
+
+
+
+
+
       function splitIngredientLines(text) {
         if (!text || typeof text !== 'string') return [];
         const normalized = text.replace(/\r/g, '').trim();
 
         let chunks = normalized.split(/[\n；;。]/).map((s) => s.trim()).filter(Boolean);
         if (chunks.length < 3) {
-                                      
-                                 
+
+
           chunks = normalized.split(/[，,、]/).map((s) => s.trim()).filter(Boolean);
         }
 
@@ -1789,28 +1809,28 @@ window.addEventListener('error', function (event) {
           return {
             line,
             text: chunk,
-                             
+
             isIngredient: !/致敏物质|过敏原|含有|可能含有/.test(chunk)
           };
         });
       }
 
-   
-                    
-                                    
-                           
-                                               
-   
+
+
+
+
+
+
       function missingMandatoryFields(per100g = {}) {
         return NUTRIENT_FIELDS.filter(
-          (f) => f.mandatory && !Number.isFinite(Number(per100g[f.key]))
+          (f) => f.mandatory && (per100g[f.key] == null || String(per100g[f.key]).trim() === '' || !Number.isFinite(Number(per100g[f.key])))
         ).map((f) => f.key);
       }
 
-   
-                     
-                       
-   
+
+
+
+
       function guessProductName(text) {
         if (!text) return '';
         const m = text.match(/(?:产品名称|品名|名称)[:：\s]*([^\n，,。；;]{2,24})/);
@@ -1820,35 +1840,35 @@ window.addEventListener('error', function (event) {
         return '';
       }
 
-   
-                      
-                       
-   
+
+
+
+
       function extractAllergenDeclaration(text) {
         if (!text) return '';
         const m = text.match(/(?:致敏物质提示|致敏物质|过敏原信息|过敏原|本品含有|含有)[:：\s]*([^\n]{2,80})/);
         return m ? m[1].trim() : '';
       }
 
-   
-               
-                       
-   
+
+
+
+
       function extractNetContent(text) {
         if (!text) return '';
         const m = text.match(/净含量[:：\s]*([^\n]{1,24})/);
         return m ? m[1].trim() : '';
       }
 
-   
-                     
-                          
-                            
-                                                                            
-                                        
-                                         
-                                                    
-   
+
+
+
+
+
+
+
+
+
       function parseLabelText(rawText, options = {}) {
         const text = rawText || '';
         const nutrition = parseNutrition(text);
@@ -1878,7 +1898,7 @@ window.addEventListener('error', function (event) {
         };
       }
 
-                                       
+
       function extractIngredientSection(text) {
         if (!text) return '';
         const startMatch = text.match(/(?:配料表|配料|原料|成分)[:：]?/);
@@ -1888,16 +1908,16 @@ window.addEventListener('error', function (event) {
         if (!endMatch) return tail.trim();
         const end = endMatch.index + 1;
         const sliced = tail.slice(0, end).trim();
-                                   
-                              
+
+
         return sliced.length >= 6 ? sliced : tail.trim();
       }
 
-   
-                  
-                                
-                              
-   
+
+
+
+
+
       function declaredConfidence(text, field) {
         const aliases = FIELD_ALIASES[field.key] || [field.label];
         for (const alias of aliases) {
@@ -1924,26 +1944,26 @@ window.addEventListener('error', function (event) {
 
     // ── src/recognize/http.js
     "src/recognize/http.js": function (__exports, __require) {
-   
-                 
-  
-              
-                                    
-                         
-  
-                                                       
-                                                      
-   
+
+
+
+
+
+
+
+
+
+
 
       /* import ./config.js */ const { CONFIG, VISION_PROMPT } = __require("src/recognize/config.js");
       /* import ../data/nutrition.js */ const { NUTRIENT_FIELDS } = __require("src/data/nutrition.js");
       /* import ./parse-label.js */ const { splitIngredientLines } = __require("src/recognize/parse-label.js");
 
-   
-                                    
-                          
-                          
-   
+
+
+
+
+
       async function toDataUrl(file, maxSide = 1600) {
         const bitmap = await createImageBitmap(file);
         const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
@@ -1973,16 +1993,16 @@ window.addEventListener('error', function (event) {
         });
       }
 
-                
+
       function isConfigured() {
         return Boolean(CONFIG.vision.endpoint);
       }
 
-   
-          
-                                                       
-                                                                                                                
-   
+
+
+
+
+
       async function recognize({ file, signal }) {
         if (!isConfigured()) {
           const error = new Error('尚未配置多模态视觉接口（src/recognize/config.js → vision.endpoint）。');
@@ -1991,11 +2011,14 @@ window.addEventListener('error', function (event) {
         }
 
         const started = performance.now();
+        if (signal?.aborted) throw new DOMException('读取已取消', 'AbortError');
         const dataUrl = await toDataUrl(file);
+        if (signal?.aborted) throw new DOMException('读取已取消', 'AbortError');
 
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), CONFIG.vision.timeoutMs);
-        if (signal) signal.addEventListener('abort', () => controller.abort(), { once: true });
+        const cancel = () => controller.abort();
+        if (signal) signal.addEventListener('abort', cancel, { once: true });
 
         const body = {
           model: CONFIG.vision.model,
@@ -2036,6 +2059,7 @@ window.addEventListener('error', function (event) {
           throw error;
         } finally {
           clearTimeout(timer);
+          signal?.removeEventListener('abort', cancel);
         }
 
         if (!response.ok) {
@@ -2062,7 +2086,7 @@ window.addEventListener('error', function (event) {
         };
       }
 
-                         
+
       function safeJson(text) {
         const cleaned = text
           .replace(/^\s*```(?:json)?/i, '')
@@ -2084,17 +2108,18 @@ window.addEventListener('error', function (event) {
         }
       }
 
-   
-                                   
-                             
-                      
-   
+
+
+
+
+
       function normalize(parsed) {
         const nutritionPer100g = {};
         const confidence = {};
         for (const field of NUTRIENT_FIELDS) {
           const raw = parsed?.nutritionPer100g?.[field.key];
-          const value = typeof raw === 'string' ? Number(raw.replace(/[^\d.\-]/g, '')) : Number(raw);
+          const value = raw === null || raw === undefined || raw === '' ? NaN :
+            typeof raw === 'string' ? Number(raw.replace(/[^\d.\-]/g, '')) : Number(raw);
           nutritionPer100g[field.key] = Number.isFinite(value) && value >= 0 ? value : null;
 
           const c = Number(parsed?.confidence?.[field.key]);
@@ -2105,7 +2130,7 @@ window.addEventListener('error', function (event) {
               : 0.8;
         }
 
-                                   
+
         const declaredPer = parsed?.declaredPer === 'perServing' ? 'perServing' : 'per100g';
         const servingGrams = Number(parsed?.servingGrams);
         if (declaredPer === 'perServing' && Number.isFinite(servingGrams) && servingGrams > 0) {
@@ -2143,33 +2168,33 @@ window.addEventListener('error', function (event) {
 
     // ── src/data/sample-labels.js
     "src/data/sample-labels.js": function (__exports, __require) {
-   
-                 
-  
-         
-                                                   
-                                          
-  
-                                
-                  
-   
 
-   
-                              
-                        
-                           
-                                 
-                                
-                                    
-                                                           
-                                                        
-                                                      
-                          
-                                                                 
-                                                                               
-   
 
-                          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
       const SAMPLE_CASES = [
         {
           id: 'peanut-cookie',
@@ -2321,38 +2346,38 @@ window.addEventListener('error', function (event) {
 
     // ── src/recognize/demo.js
     "src/recognize/demo.js": function (__exports, __require) {
-   
-                            
-  
-                                 
-                                      
-                          
-   
+
+
+
+
+
+
+
 
       /* import ../data/sample-labels.js */ const { SAMPLE_CASES, SAMPLE_BY_ID } = __require("src/data/sample-labels.js");
       /* import ./parse-label.js */ const { splitIngredientLines } = __require("src/recognize/parse-label.js");
 
-                                  
+
       const DEMO_PRESETS = [
         { id: 'peanut-cookie', title: '含花生的饼干', hint: '演示「过敏原命中 → 红色」' },
         { id: 'sugar-drink', title: '含糖饮料', hint: '演示「控糖超标 → 橙色」' },
         { id: 'blurry-photo', title: '拍糊的照片', hint: '演示「看不清就不下结论 → 灰色」' }
       ];
 
-   
-                 
-                     
-                                            
-                                                    
-   
+
+
+
+
+
+
       function caseToLabel(id, options = {}) {
         const testCase = SAMPLE_BY_ID.get(id) || SAMPLE_CASES[0];
         return buildLabel(testCase, options, '内置演示用例');
       }
 
-   
-                                                                 
-   
+
+
+
       function buildLabel(testCase, options = {}, channelLabel = '内置演示用例') {
         const ingredientLines = splitIngredientLines(testCase.ingredientText);
         const servingGrams = options.servingGrams || inferServing(testCase);
@@ -2375,7 +2400,7 @@ window.addEventListener('error', function (event) {
         };
       }
 
-                                  
+
       function inferServing(testCase) {
         const text = `${testCase.productName}${testCase.netContent || ''}`;
         if (/饮料|果汁|茶|水|奶|乳/.test(text)) {
@@ -2386,7 +2411,7 @@ window.addEventListener('error', function (event) {
           return 50;
         }
         if (/面|米|粉/.test(text)) {
-                                  
+
           return 50;
         }
         if (/肠|火腿|肉/.test(text)) {
@@ -2395,12 +2420,12 @@ window.addEventListener('error', function (event) {
         return 100;
       }
 
-   
-                    
-                        
-                               
-                                                                                                       
-   
+
+
+
+
+
+
       async function recognize({ caseId }) {
         const started = performance.now();
         if (!SAMPLE_BY_ID.has(caseId)) {
@@ -2414,11 +2439,11 @@ window.addEventListener('error', function (event) {
         };
       }
 
-   
-                                        
-                
-                       
-   
+
+
+
+
+
       function pickCaseBySeed(seed) {
         const pool = SAMPLE_CASES.filter((c) => c.id !== 'blurry-photo');
         let hash = 0;
@@ -2438,23 +2463,23 @@ window.addEventListener('error', function (event) {
 
     // ── src/recognize/mock.js
     "src/recognize/mock.js": function (__exports, __require) {
-   
-              
-  
-                             
-                                         
-                                        
-  
-                              
-                            
-                              
-                                            
-   
+
+
+
+
+
+
+
+
+
+
+
+
 
       /* import ../data/sample-labels.js */ const { SAMPLE_CASES } = __require("src/data/sample-labels.js");
       /* import ./demo.js */ const { buildLabel, inferServing } = __require("src/recognize/demo.js");
 
-                                   
+
       function hashBytes(buffer) {
         const view = new Uint8Array(buffer);
         let hash = 0x811c9dc5;
@@ -2477,17 +2502,17 @@ window.addEventListener('error', function (event) {
         };
       }
 
-   
-                        
-                                
-                                                                                                   
-                                            
-                                                                                                       
-   
+
+
+
+
+
+
+
       async function recognize({ file, quality = {}, mode = 'auto' }) {
         const started = performance.now();
 
-                                   
+
         const ineffective = Boolean(quality.blurry || quality.tooDark || quality.tooBright || quality.tooSmall);
         const effectiveMode = ineffective ? 'low' : mode;
 
@@ -2501,7 +2526,7 @@ window.addEventListener('error', function (event) {
             ? pool[0]
             : pool[seed % pool.length];
 
-                                
+
         await delay(effectiveMode === 'low' ? 900 : 1400);
 
         const label = buildLabel(testCase, { servingGrams: inferServing(testCase) }, '模拟多模态识别（演示）');
@@ -2509,7 +2534,7 @@ window.addEventListener('error', function (event) {
         label.rawText = testCase.ingredientText;
 
         if (effectiveMode !== 'high') {
-                                           
+
           for (const [key, value] of Object.entries(label.nutritionPer100g)) {
             if (!Number.isFinite(value)) continue;
             const factor = 1 + (rand() - 0.5) * 0.12;
@@ -2522,7 +2547,7 @@ window.addEventListener('error', function (event) {
         }
 
         if (effectiveMode === 'low') {
-                                    
+
           label.productName = '（照片有点糊，名称没看清）';
           label.confidence = Object.fromEntries(
             Object.keys(label.confidence).map((k) => [k, Math.round((0.2 + rand() * 0.4) * 100) / 100])
@@ -2554,29 +2579,29 @@ window.addEventListener('error', function (event) {
 
     // ── src/recognize/crypto-utils.js
     "src/recognize/crypto-utils.js": function (__exports, __require) {
-   
-                            
-  
-                                         
-                   
-   
+
+
+
+
+
+
 
       const encoder = new TextEncoder();
 
-                                                  
+
       function toBytes(data) {
         if (typeof data === 'string') return encoder.encode(data);
         if (data instanceof Uint8Array) return data;
         return new Uint8Array(data);
       }
 
-                       
+
       async function sha256Hex(data) {
         const digest = await crypto.subtle.digest('SHA-256', toBytes(data));
         return toHex(new Uint8Array(digest));
       }
 
-                         
+
       async function hmacSha256(key, message) {
         const cryptoKey = await crypto.subtle.importKey(
           'raw',
@@ -2589,7 +2614,7 @@ window.addEventListener('error', function (event) {
         return new Uint8Array(signature);
       }
 
-                           
+
       async function hmacSha256Hex(key, message) {
         return toHex(await hmacSha256(key, message));
       }
@@ -2600,12 +2625,12 @@ window.addEventListener('error', function (event) {
         return out;
       }
 
-   
-                    
-                                     
-                                  
-                                           
-   
+
+
+
+
+
+
       async function deriveSigningKey(secretKey, shortDate, service = 'ocr') {
         const kDate = await hmacSha256(`SDK${secretKey}`, shortDate);
         const kService = await hmacSha256(kDate, service);
@@ -2620,26 +2645,26 @@ window.addEventListener('error', function (event) {
 
     // ── src/recognize/ocr-huawei.js
     "src/recognize/ocr-huawei.js": function (__exports, __require) {
-   
-                                
-  
-                                         
-                                         
-  
-        
-                                                  
-                                                 
-                                             
-  
-                                        
-                                                      
-   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
       /* import ./config.js */ const { CONFIG } = __require("src/recognize/config.js");
       /* import ./crypto-utils.js */ const { deriveSigningKey, sha256Hex, hmacSha256 } = __require("src/recognize/crypto-utils.js");
       /* import ./parse-label.js */ const { parseLabelText } = __require("src/recognize/parse-label.js");
 
-                      
+
       const API_TABLE = {
         'general-table': {
           path: '/v2/{project_id}/ocr/general-table',
@@ -2658,12 +2683,12 @@ window.addEventListener('error', function (event) {
         return Boolean(c.endpoint && c.ak && c.sk && c.projectId);
       }
 
-   
-        
-                                                    
-                                                                                                                
-   
-      async function recognize({ file, imageUrl }) {
+
+
+
+
+
+      async function recognize({ file, imageUrl, signal }) {
         if (!isConfigured()) {
           const error = new Error('尚未配置华为云 OCR（src/recognize/config.js → huaweiOcr）。');
           error.code = 'E_NOT_CONFIGURED';
@@ -2671,7 +2696,8 @@ window.addEventListener('error', function (event) {
         }
 
         const started = performance.now();
-        const url = imageUrl || (await uploadToObs(file));
+        const url = imageUrl || (await uploadToObs(file, signal));
+        if (signal?.aborted) throw new DOMException('读取已取消', 'AbortError');
         const api = API_TABLE[CONFIG.huaweiOcr.api] || API_TABLE['general-table'];
 
         const path = api.path.replace('{project_id}', CONFIG.huaweiOcr.projectId);
@@ -2688,7 +2714,8 @@ window.addEventListener('error', function (event) {
         const response = await fetch(requestUrl, {
           method: 'POST',
           headers: { ...headers, 'Content-Type': 'application/json' },
-          body
+          body,
+          signal
         });
 
         if (!response.ok) {
@@ -2720,9 +2747,9 @@ window.addEventListener('error', function (event) {
           : '华为云 OCR 通用表格识别';
       }
 
-                                                                         
 
-                                     
+
+
       function pickTableText(payload) {
         const result = payload?.result;
         if (!Array.isArray(result) || !result.length) return '';
@@ -2731,7 +2758,7 @@ window.addEventListener('error', function (event) {
         return rows.map((w) => w?.words ?? w?.value ?? '').filter(Boolean).join('\n');
       }
 
-                         
+
       function pickSmartDocumentText(payload) {
         const parts = [];
         const result = payload?.result;
@@ -2750,13 +2777,13 @@ window.addEventListener('error', function (event) {
         return parts.join('\n');
       }
 
-                                                                         
 
-   
-                                 
-                                 
-                                                                       
-   
+
+
+
+
+
+
       async function sign({ method, url, body, service }) {
         const parsed = new URL(url);
         const now = new Date();
@@ -2800,21 +2827,21 @@ window.addEventListener('error', function (event) {
         return out;
       }
 
-                                                                         
 
-   
-                                      
-            
-                                           
-                                             
-                          
-                                              
-   
-      async function uploadToObs(file) {
+
+
+
+
+
+
+
+
+
+      async function uploadToObs(file, signal) {
         if (CONFIG.huaweiOcr.uploadProxy) {
           const form = new FormData();
           form.append('file', file, 'label.jpg');
-          const response = await fetch(CONFIG.huaweiOcr.uploadProxy, { method: 'POST', body: form });
+          const response = await fetch(CONFIG.huaweiOcr.uploadProxy, { method: 'POST', body: form, signal });
           if (!response.ok) {
             const error = new Error('照片上传失败，请检查网络。');
             error.code = 'E_UPLOAD';
@@ -2842,20 +2869,134 @@ window.addEventListener('error', function (event) {
     __exports.uploadToObs = uploadToObs;
     },
 
+    // ── src/recognize/ocr-local.js
+    "src/recognize/ocr-local.js": function (__exports, __require) {
+
+      /* import ./parse-label.js */ const { parseLabelText, splitIngredientLines } = __require("src/recognize/parse-label.js");
+      /* import ../data/nutrition.js */ const { NUTRIENT_FIELDS } = __require("src/data/nutrition.js");
+
+      let enginePromise;
+      const CDN = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/';
+
+      function abortError() { return new DOMException('读取已取消', 'AbortError'); }
+
+      function loadEngine() {
+        if (window.Tesseract) return Promise.resolve(window.Tesseract);
+        if (enginePromise) return enginePromise;
+        enginePromise = new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          const remote = window.location.protocol === 'file:';
+          script.src = remote ? `${CDN}tesseract.min.js` : new URL('assets/ocr/tesseract.min.js', document.baseURI).href;
+          const timer = setTimeout(() => finish(new Error('文字识别引擎加载超时，请检查网络后重试。')), 30000);
+          const finish = (error) => {
+            clearTimeout(timer);
+            script.onload = script.onerror = null;
+            if (error) { script.remove(); reject(error); }
+            else resolve(window.Tesseract);
+          };
+          script.onload = () => finish(window.Tesseract ? null : new Error('文字识别引擎加载失败。'));
+          script.onerror = () => finish(new Error('文字识别引擎无法加载。双击版首次读取需要联网；也可以通过本地服务打开。'));
+          document.head.appendChild(script);
+        }).catch((error) => { enginePromise = null; throw error; });
+        return enginePromise;
+      }
+
+
+      function labelFromOcr(data) {
+        const rawText = String(data?.text || '').replace(/\r/g, '').trim();
+
+        const normalized = rawText.replace(/([\u3400-\u9fff])[ \t\u3000]+(?=[\u3400-\u9fff])/g, '$1');
+        const score = Math.max(0, Math.min(1, Number(data?.confidence || 0) / 100));
+        const label = parseLabelText(normalized, { channelLabel: '本机照片文字识别' });
+        if (!/(?:配料表|配料|原料)\s*[:：]?/.test(normalized)) {
+          label.ingredientText = '';
+          label.ingredientLines = [];
+        } else label.ingredientLines = splitIngredientLines(label.ingredientText);
+        for (const field of NUTRIENT_FIELDS) {
+
+          label.nutritionPer100g[field.key] = null;
+          label.confidence[field.key] = 0;
+        }
+        label.rawText = rawText;
+        label.ocrConfidence = score;
+        label.channel = 'localOcr';
+
+        label.readingOnly = true;
+        label.productName = /(?:产品名称|品名|名称)\s*[:：]/.test(normalized) ? label.productName : '';
+        return label;
+      }
+
+      async function recognize({ file, signal, onProgress }) {
+        if (signal?.aborted) throw abortError();
+        let worker;
+        let stopped = false;
+        let rejectStop;
+        const stopPromise = new Promise((_, reject) => { rejectStop = reject; });
+        const stop = (error) => {
+          stopped = true;
+          if (worker) void worker.terminate().catch(() => {});
+          rejectStop(error);
+        };
+        const cancel = () => stop(abortError());
+        signal?.addEventListener('abort', cancel, { once: true });
+        const timer = setTimeout(() => stop(new Error('读取时间较长，请把配料表拍近一些再试。')), 120000);
+        const run = async () => {
+          onProgress?.({ text: '正在准备文字识别……', note: '首次使用需要稍等，照片留在本机。' });
+          const engine = await loadEngine();
+          if (stopped) throw abortError();
+          const remote = window.location.protocol === 'file:';
+          const base = new URL('assets/ocr/', document.baseURI).href;
+
+          worker = await engine.createWorker('chi_sim', 1, {
+            workerPath: remote ? `${CDN}worker.min.js` : `${base}worker.min.js`,
+            corePath: remote ? 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1/tesseract-core-lstm.wasm.js' : `${base}tesseract-core-lstm.wasm.js`,
+            langPath: remote ? 'https://tessdata.projectnaptha.com/4.0.0_fast' : base.replace(/\/$/, ''),
+            logger: (message) => {
+              if (stopped) return;
+              const reading = message.status === 'recognizing text';
+              onProgress?.({ text: reading ? `正在读取照片上的字……${Math.round((message.progress || 0) * 100)}%` : '正在准备中文识别……', note: '可以随时取消读取，照片不会上传。' });
+            },
+            errorHandler: (error) => stop(new Error(`文字识别失败：${String(error?.message || error).slice(0, 100)}`))
+          });
+          if (stopped) { await worker.terminate(); throw abortError(); }
+          await worker.setParameters({ tessedit_pageseg_mode: '3', preserve_interword_spaces: '1' });
+          const { data } = await worker.recognize(file);
+          if (stopped) throw abortError();
+          const label = labelFromOcr(data);
+          if (!label.rawText) throw new Error('没有读到文字，请对准配料表靠近拍摄，避开反光。');
+          return { label, channel: 'localOcr' };
+        };
+        try { return await Promise.race([run(), stopPromise]); }
+        finally {
+          stopped = true;
+          clearTimeout(timer);
+          signal?.removeEventListener('abort', cancel);
+          if (worker) await worker.terminate().catch(() => {});
+        }
+      }
+
+    __exports.labelFromOcr = labelFromOcr;
+    __exports.recognize = recognize;
+    },
+
     // ── src/recognize/channels.js
     "src/recognize/channels.js": function (__exports, __require) {
-   
-          
-  
-                      
-                                               
-                                                 
-                                         
-  
-                                          
-   
+
+
+
+
+
+
+
+
+
+
 
       const CHANNELS = {
+        localOcr: {
+          id: 'localOcr', label: '本机照片文字识别', short: '本机 OCR',
+          description: '中文与英文文字在浏览器内识别，照片不上传。', offline: true
+        },
         demo: {
           id: 'demo',
           label: '内置演示用例',
@@ -2888,7 +3029,7 @@ window.addEventListener('error', function (event) {
 
       const CHANNEL_LIST = Object.values(CHANNELS);
 
-                                       
+
       const CROSS_CHECK_TOLERANCE = 0.25;                    
 
     __exports.CHANNELS = CHANNELS;
@@ -2898,15 +3039,15 @@ window.addEventListener('error', function (event) {
 
     // ── src/recognize/index.js
     "src/recognize/index.js": function (__exports, __require) {
-   
-        
-  
-      
-                               
-                                     
-                                           
-                                           
-   
+
+
+
+
+
+
+
+
+
 
       /* import ./config.js */ const { CONFIG } = __require("src/recognize/config.js");
       /* import ./quality.js */ const { measureImage, loadImage } = __require("src/recognize/quality.js");
@@ -2914,92 +3055,134 @@ window.addEventListener('error', function (event) {
       /* import ./mock.js */ const mockChannel = __require("src/recognize/mock.js");
       /* import ./demo.js */ const demoChannel = __require("src/recognize/demo.js");
       /* import ./ocr-huawei.js */ const ocrChannel = __require("src/recognize/ocr-huawei.js");
+      /* import ./ocr-local.js */ const localOcr = __require("src/recognize/ocr-local.js");
       /* import ./channels.js */ const { CHANNELS, CROSS_CHECK_TOLERANCE } = __require("src/recognize/channels.js");
       /* import ../data/nutrition.js */ const { NUTRIENT_FIELDS } = __require("src/data/nutrition.js");
 
-   
-                                     
-                                                           
-                               
-                                   
-                                         
-                               
-   
 
-   
-            
-                        
-                                
-                                      
-                                                                 
-                                       
-   
-      async function recognizePhoto({ file, signal, prefer = 'auto' }) {
+      function unreadOutcome(quality, started, reason) {
+        return finalize({ channel: 'unavailable', label: {
+          productName: '', ingredientText: '', ingredientLines: [], allergenDeclaration: '',
+          nutritionPer100g: Object.fromEntries(NUTRIENT_FIELDS.map((f) => [f.key, null])),
+          confidence: Object.fromEntries(NUTRIENT_FIELDS.map((f) => [f.key, 0])),
+          channelLabel: '尚未读取配料表', servingGrams: 100, servingBasis: 'per100g',
+          unavailableReason: reason
+        } }, quality, reason, started);
+      }
+
+      function checkAbort(signal) {
+        if (signal?.aborted) throw new DOMException('读取已取消', 'AbortError');
+      }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      async function recognizePhoto({ file, signal, prefer = 'auto', onProgress }) {
         const started = performance.now();
+        let failedService = false;
+        checkAbort(signal);
         let quality = { blurry: false, tooSmall: false, tips: [] };
         let image = null;
 
-                                 
+
         try {
           image = await loadImage(file);
           quality = measureImage(image);
         } catch {
           quality = { blurry: true, tooSmall: false, tips: ['这张图片读不出内容，请重新拍一张。'] };
         }
+        if (image?.src) URL.revokeObjectURL(image.src);
+        checkAbort(signal);
 
-                                   
+
         const hardBad = Boolean(quality.blurry || quality.tooDark || quality.tooBright || quality.tooSmall);
 
         const mockMode = readMockMode();
 
-             
-        if (!hardBad && prefer !== 'mock' && prefer !== 'demo' && httpChannel.isConfigured()) {
+
+        if (prefer === 'mock') return fallbackToMock({ file, quality, mockMode, started, reason: '模拟识别：以下内容为演示数据。' });
+
+        if (!image || (hardBad && !CONFIG.localOcr.enabled)) return unreadOutcome(quality, started, '照片不够清楚，请调整光线并重新拍摄。');
+
+
+        if (prefer !== 'ocr' && httpChannel.isConfigured()) {
           try {
             const result = await withTimeout(
-              httpChannel.recognize({ file, signal }),
+              (requestSignal) => httpChannel.recognize({ file, signal: requestSignal }),
               CONFIG.vision.timeoutMs,
-              '识别超时了，请检查网络后再试一次。'
+              '识别超时了，请检查网络后再试一次。', signal
             );
+            checkAbort(signal);
             result.label.imageQuality = quality;
             return finalize(result, quality, null, started);
           } catch (error) {
+            checkAbort(signal);
             if (error?.code === 'E_NOT_CONFIGURED') {
-                 
+
             } else if (CONFIG.fallback.retry > 0) {
               try {
                 const retry = await withTimeout(
-                  httpChannel.recognize({ file, signal }),
+                  (requestSignal) => httpChannel.recognize({ file, signal: requestSignal }),
                   CONFIG.vision.timeoutMs,
-                  '识别超时了。'
+                  '识别超时了。', signal
                 );
+                checkAbort(signal);
                 retry.label.imageQuality = quality;
                 return finalize(retry, quality, null, started);
               } catch (retryError) {
-                return fallbackToMock({ file, quality, mockMode, started, reason: describeError(retryError) });
+                checkAbort(signal);
+                failedService = true;
               }
             } else {
-              return fallbackToMock({ file, quality, mockMode, started, reason: describeError(error) });
+              failedService = true;
             }
           }
         }
 
-                                   
-        if (prefer === 'ocr' && ocrChannel.isConfigured()) {
+
+        if (ocrChannel.isConfigured()) {
           try {
             const result = await withTimeout(
-              ocrChannel.recognize({ file }),
+              (requestSignal) => ocrChannel.recognize({ file, signal: requestSignal }),
               CONFIG.huaweiOcr.timeoutMs,
-              'OCR 通道超时。'
+              'OCR 通道超时。', signal
             );
+            checkAbort(signal);
             result.label.imageQuality = quality;
             return finalize(result, quality, null, started);
           } catch (error) {
-            return fallbackToMock({ file, quality, mockMode, started, reason: describeError(error) });
+            checkAbort(signal);
+            failedService = true;
           }
         }
 
-                               
-        return fallbackToMock({ file, quality, mockMode, started, reason: null });
+
+        if (CONFIG.localOcr.enabled) {
+          try {
+            const result = await localOcr.recognize({ file, signal, onProgress });
+            checkAbort(signal);
+            return finalize(result, quality, failedService ? '云端服务暂时不可用，本次已改用本机文字识别。' : null, started);
+          } catch (error) {
+            checkAbort(signal);
+            return unreadOutcome(quality, started, error.message || '照片文字读取失败，请重新拍摄。');
+          }
+        }
+
+        return unreadOutcome(quality, started, failedService ? '读取服务暂时不可用，请稍后重试。' : '尚未连接食品标签读取服务。这张照片已选好，但还不能读取真实配料。您可以返回重拍，或到首页体验演示用例。');
       }
 
       async function fallbackToMock({ file, quality, mockMode, started, reason }) {
@@ -3008,7 +3191,7 @@ window.addEventListener('error', function (event) {
         return finalize(result, quality, reason, started);
       }
 
-                           
+
       async function recognizeDemoCase(caseId) {
         const started = performance.now();
         const result = await demoChannel.recognize({ caseId });
@@ -3036,27 +3219,29 @@ window.addEventListener('error', function (event) {
         };
       }
 
-                                                                    
 
-   
-                    
-                                                    
-                                                    
-                                                                                 
-   
+
+
+
+
+
+
+
       function crossCheck(a, b) {
         const conflicts = [];
         const merged = { ...a, confidence: { ...a.confidence }, nutritionPer100g: { ...a.nutritionPer100g } };
 
         for (const field of NUTRIENT_FIELDS) {
-          const va = Number(a.nutritionPer100g?.[field.key]);
-          const vb = Number(b.nutritionPer100g?.[field.key]);
+          const rawA = a.nutritionPer100g?.[field.key];
+          const rawB = b.nutritionPer100g?.[field.key];
+          const va = rawA == null || String(rawA).trim() === '' ? NaN : Number(rawA);
+          const vb = rawB == null || String(rawB).trim() === '' ? NaN : Number(rawB);
           if (!Number.isFinite(va) || !Number.isFinite(vb)) continue;
           const base = Math.max(Math.abs(va), Math.abs(vb), 1e-6);
           const diff = Math.abs(va - vb) / base;
           if (diff > CROSS_CHECK_TOLERANCE) {
             conflicts.push(field.key);
-                                      
+
             merged.nutritionPer100g[field.key] = Math.min(va, vb);
             merged.confidence[field.key] = Math.min(
               Number(a.confidence?.[field.key] ?? 0.8),
@@ -3070,19 +3255,25 @@ window.addEventListener('error', function (event) {
         return { conflicts, merged };
       }
 
-                                                                         
 
-      function withTimeout(promise, ms, message) {
-        return Promise.race([
-          promise,
-          new Promise((_, reject) =>
-            setTimeout(() => {
-              const error = new Error(message);
-              error.code = 'E_TIMEOUT';
-              reject(error);
-            }, ms)
-          )
-        ]);
+
+      async function withTimeout(run, ms, message, signal) {
+        checkAbort(signal);
+        const controller = new AbortController();
+        let timer;
+        let cancel;
+        const interrupted = new Promise((_, reject) => {
+          cancel = () => { controller.abort(); reject(new DOMException('读取已取消', 'AbortError')); };
+          signal?.addEventListener('abort', cancel, { once: true });
+          timer = setTimeout(() => {
+            const error = new Error(message);
+            error.code = 'E_TIMEOUT';
+            reject(error);
+            controller.abort();
+          }, ms);
+        });
+        try { return await Promise.race([run(controller.signal), interrupted]); }
+        finally { clearTimeout(timer); signal?.removeEventListener('abort', cancel); }
       }
 
       function describeError(error) {
@@ -3120,19 +3311,19 @@ window.addEventListener('error', function (event) {
 
     // ── src/data/allergens.js
     "src/data/allergens.js": function (__exports, __require) {
-   
-           
-                                 
-                                        
-  
-                                      
-                                       
-                               
-   
 
-                                                                                                                        
 
-                         
+
+
+
+
+
+
+
+
+
+
+
       const ALLERGENS = [
         {
           id: 'gluten',
@@ -3222,17 +3413,17 @@ window.addEventListener('error', function (event) {
         }
       ];
 
-                    
+
       const ALLERGEN_BY_ID = new Map(ALLERGENS.map((a) => [a.id, a]));
 
-                                    
+
       const ALLERGEN_CHOICES = ALLERGENS.map((a) => ({
         id: a.id,
         label: a.short,
         emoji: a.emoji
       }));
 
-                                       
+
       function isFuzzyAlias(alias) {
         return alias.endsWith('*');
       }
@@ -3250,18 +3441,18 @@ window.addEventListener('error', function (event) {
 
     // ── src/data/additives.js
     "src/data/additives.js": function (__exports, __require) {
-   
-                                    
-                                            
-                                        
-                           
-   
 
-   
-                                                                        
-   
 
-                         
+
+
+
+
+
+
+
+
+
+
       const ADDITIVES = [
         { ins: 'INS 102', name: '柠檬黄', use: '着色剂' },
         { ins: 'INS 110', name: '日落黄', use: '着色剂' },
@@ -3315,19 +3506,19 @@ window.addEventListener('error', function (event) {
         { ins: 'INS 1520', name: '丙二醇', use: '水分保持剂' }
       ];
 
-                                                             
+
       const INS_RE = /\b(?:INS|E)[\s\-]?(\d{3}[a-z]?)\b/gi;
 
-                           
+
       const BY_INS = new Map(
         ADDITIVES.map((a) => [a.ins.replace(/^INS\s*/i, '').toLowerCase(), a])
       );
 
-   
-                                       
-                       
-                                                               
-   
+
+
+
+
+
       function findAdditivesByCode(text) {
         if (typeof text !== 'string' || !text) return [];
         const found = new Map();
@@ -3346,10 +3537,10 @@ window.addEventListener('error', function (event) {
         return [...found.values()];
       }
 
-   
-                          
-                       
-   
+
+
+
+
       function findAdditivesByName(text) {
         if (typeof text !== 'string' || !text) return [];
         const found = new Map();
@@ -3372,10 +3563,10 @@ window.addEventListener('error', function (event) {
         return [...found.values()];
       }
 
-   
-                          
-                       
-   
+
+
+
+
       function collectAdditives(text) {
         const byCode = findAdditivesByCode(text);
         const have = new Set(byCode.map((a) => a.code));
@@ -3391,28 +3582,28 @@ window.addEventListener('error', function (event) {
 
     // ── src/core/rules.js
     "src/core/rules.js": function (__exports, __require) {
-   
-                                   
-  
-                                   
-                          
-                  
-                            
-                                  
-                                                   
-                                    
-   
+
+
+
+
+
+
+
+
+
+
+
 
       /* import ../data/allergens.js */ const { ALLERGENS, ALLERGEN_BY_ID, isFuzzyAlias, normalizeAlias } = __require("src/data/allergens.js");
       /* import ../data/additives.js */ const { collectAdditives } = __require("src/data/additives.js");
       /* import ../data/nutrition.js */ const { DAILY_LIMITS, NUTRIENT_FIELDS, NUTRIENT_LABEL, CONCERN_BY_ID, CONDITION_BY_ID, scaleIntake, gradeIntake, INTAKE_TONE_TEXT } = __require("src/data/nutrition.js");
 
-                                                                             
 
-   
-                               
-                          
-   
+
+
+
+
+
       const RISK_LEVELS = {
         red: {
           id: 'red',
@@ -3456,52 +3647,52 @@ window.addEventListener('error', function (event) {
         }
       };
 
-                                                                         
 
-   
-                                                 
-                                 
-                                             
-                                                                                               
-                                                         
-                                                           
-                                                
-                                            
-                                           
-                                    
-                                                    
-                                                                                    
-   
 
-   
-                                
-                                
-                           
-                                                    
-                               
-                            
-                            
-                                
-   
 
-   
-                                   
-                                                           
-                              
-                            
-                                         
-                                 
-                             
-   
 
-                                                                         
 
-   
-                        
-                       
-                        
-                                                
-   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
       function locateAlias(text, alias) {
         const needle = normalizeAlias(alias);
         if (!needle) return null;
@@ -3510,11 +3701,11 @@ window.addEventListener('error', function (event) {
         return { index, length: needle.length };
       }
 
-   
-                               
-                                              
-                                             
-   
+
+
+
+
+
       function lineOfLocation(lines, loc) {
         let offset = 0;
         for (const line of lines) {
@@ -3526,15 +3717,15 @@ window.addEventListener('error', function (event) {
         return lines.length ? lines[lines.length - 1].line : null;
       }
 
-   
-                   
-  
-                                    
-                                
-  
-                             
-                           
-   
+
+
+
+
+
+
+
+
+
       function matchAllergens(label) {
         const ingredientText = label.ingredientText || '';
         const declaration = label.allergenDeclaration || '';
@@ -3542,7 +3733,7 @@ window.addEventListener('error', function (event) {
           ? label.ingredientLines
           : [{ line: 1, text: ingredientText, isIngredient: true }];
 
-                                           
+
         const byAllergen = new Map();
 
         for (const allergen of ALLERGENS) {
@@ -3556,7 +3747,7 @@ window.addEventListener('error', function (event) {
               if (!source.text) continue;
               const loc = locateAlias(source.text, alias);
               if (!loc) continue;
-                                      
+
               const dup = hits.find((h) => h.sourceKind === source.kind && h.alias === normalizeAlias(alias));
               if (dup) continue;
               hits.push({
@@ -3593,12 +3784,12 @@ window.addEventListener('error', function (event) {
         });
       }
 
-                                                                       
 
-   
-                         
-                                                                                  
-   
+
+
+
+
+
       function evaluateNutrient({ key, amount, remaining, isConcern, naturalSugarOnly = false }) {
         const limit = DAILY_LIMITS[key];
         if (!limit) return null;
@@ -3612,12 +3803,12 @@ window.addEventListener('error', function (event) {
         const reasons = [];
         let exempt = false;
 
-                                    
-                                      
-                                                
-                                                
-                                        
-                                       
+
+
+
+
+
+
         const largeShare = ratioOfDaily >= 0.6;
         const material = ratioOfDaily >= 0.15;
         const notable = ratioOfDaily >= 0.3;
@@ -3634,8 +3825,8 @@ window.addEventListener('error', function (event) {
           reasons.push(isConcern ? 'concernModerate' : 'generalNotice');
         }
 
-                               
-                                  
+
+
         if (naturalSugarOnly && level !== 'green' && reasons.every((r) => /^(concern|general)/.test(r))) {
           level = 'green';
           exempt = true;
@@ -3662,7 +3853,7 @@ window.addEventListener('error', function (event) {
         };
       }
 
-                                              
+
       const ADDED_SUGAR_MARKERS = [
         '白砂糖', '砂糖', '蔗糖', '果葡糖浆', '葡萄糖浆', '麦芽糖浆', '玉米糖浆', '淀粉糖浆',
         '蜂蜜', '焦糖', '糖蜜', '浓缩果汁', '果葡糖', '结晶果糖', '葡萄糖粉', '麦芽糊精'
@@ -3681,22 +3872,23 @@ window.addEventListener('error', function (event) {
         return `${value} ${unit}`;
       }
 
-                                                                        
 
-   
-                                  
-                                
-                                                         
-                                                                                           
-                                               
-   
 
-   
-            
-                               
-                            
-   
+
+
+
+
+
+
+
+
+
+
+
+
+
       function evaluate({ label, profile, consumedToday, servingGrams }) {
+        if (label.readingOnly) return evaluateReading(label, profile);
         const gray = detectGray(label);
         if (gray.isGray) {
           return buildGray(gray, label);
@@ -3710,7 +3902,7 @@ window.addEventListener('error', function (event) {
         const myAllergens = new Set((profile.allergens || []).filter((a) => a !== 'none'));
         const allergenConflicts = allergens.filter((a) => myAllergens.has(a.allergenId));
 
-                           
+
         const concernNutrients = new Set();
         const concernNames = [];
         for (const c of profile.concerns || []) {
@@ -3728,17 +3920,18 @@ window.addEventListener('error', function (event) {
 
         const per100g = label.nutritionPer100g || {};
 
-                                 
-                                 
-                                 
-                                     
+
+
+
+
         const lactoseOnly = isLactoseOnlySugar(label);
 
         const nutrients = [];
         for (const field of NUTRIENT_FIELDS) {
           const limit = DAILY_LIMITS[field.key];
           if (!limit) continue;                                        
-          const per100 = Number(per100g[field.key]);
+          const raw = per100g[field.key];
+          const per100 = raw === null || raw === undefined || raw === '' ? NaN : Number(raw);
           if (!Number.isFinite(per100)) continue;
           const amount = scaleIntake(per100, servingGrams);
           const consumed = Number(consumedToday?.[field.key]) || 0;
@@ -3785,23 +3978,61 @@ window.addEventListener('error', function (event) {
         };
       }
 
-                                                                       
 
-                        
+
+
       const CONFIDENCE_FLOOR = 0.7;
+
+
+      function evaluateReading(label, profile) {
+        const gray = detectGray(label);
+        const assessment = buildGray(gray, label);
+        const allergens = matchAllergens(label);
+        const mine = new Set(profile.allergens || []);
+        const conflicts = allergens.filter((a) => mine.has(a.allergenId));
+        const low = !label.ingredientsConfirmed && (label.ocrConfidence ?? 0) < CONFIDENCE_FLOOR;
+        assessment.partial = true;
+        assessment.nutritionUnavailable = true;
+        assessment.allAllergens = allergens;
+        assessment.allergenConflicts = conflicts;
+        if (conflicts.length) {
+          const names = conflicts.map((a) => a.short).join('、');
+          assessment.level = 'red';
+          assessment.headline = label.ingredientsConfirmed
+            ? `核对的配料含有您过敏的${names}，请别吃`
+            : `识别文字疑似含有您过敏的${names}，请先别吃并核对包装`;
+          assessment.advice = `${low ? '文字识别把握较低，可能严重漏读。' : ''}请对照包装确认配料和致敏物质提示。营养信息尚未核对，本次不计算摄入量。`;
+          assessment.basis.unshift({ kind: 'rule', title: '配料中的过敏冲突',
+            lines: conflicts.map((a) => `您的画像设置了${a.short}过敏；${label.ingredientsConfirmed ? '核对后的文字' : 'OCR 文字'}命中「${a.alias}」。`),
+            source: '用户过敏画像与配料词典匹配；OCR 文字须对照包装核对' });
+        } else if (label.ingredientsConfirmed) {
+          assessment.headline = '配料已核对，营养信息仍不足';
+          assessment.advice = '核对的文字中未匹配到您的过敏成分，这不代表一定可以吃。可继续填写并核对营养表，再查看营养提醒。';
+        } else if (low) {
+          assessment.headline = '文字可能严重漏读，请核对或重新拍摄';
+          assessment.advice = '识别把握较低，不能依赖这段文字判断食品风险。请先对照包装补齐配料和致敏提示，或重新拍一张清楚的照片。';
+        }
+        return assessment;
+      }
 
       function detectGray(label) {
         const reasons = [];
+        if (label.readingOnly) {
+          reasons.push({ code: 'readingOnly', text: '本次已读取照片文字，营养表的列与单位尚未核对，不据此判断摄入量。' });
+          if (!label.ingredientText) reasons.push({ code: 'noIngredientTitle', text: '没有找到清晰的配料标题，请查看识别全文或重新拍摄配料表。' });
+          return { isGray: true, reasons, hard: reasons };
+        }
         const criticalKeys = ['energy', 'protein', 'fat', 'carbohydrate', 'sodium'];
         const per100g = label.nutritionPer100g || {};
-        const present = criticalKeys.filter((k) => Number.isFinite(Number(per100g[k])));
-        const missingNew = ['saturatedFat', 'sugar'].filter((k) => !Number.isFinite(Number(per100g[k])));
+        const hasNumber = (v) => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v));
+        const present = criticalKeys.filter((k) => hasNumber(per100g[k]));
+        const missingNew = ['saturatedFat', 'sugar'].filter((k) => !hasNumber(per100g[k]));
 
         if (!label.ingredientText && present.length === 0) {
           reasons.push({ code: 'noContent', text: '照片里没有读到配料表或营养成分表。' });
         }
         if (missingNew.length >= 2) {
-                                
+
           reasons.push({
             code: 'missingNewField',
             text: `GB 28050-2025 要求的强制标示项「${missingNew
@@ -3809,7 +4040,7 @@ window.addEventListener('error', function (event) {
               .join('、')}」都没有读到，标签可能没拍全。`
           });
         } else if (missingNew.length === 1) {
-                              
+
           reasons.push({
             code: 'missingNewField',
             text: `GB 28050-2025 要求的强制标示项「${NUTRIENT_LABEL[missingNew[0]]}」没有读到，可能与包装标示或拍摄角度有关。`,
@@ -3838,15 +4069,16 @@ window.addEventListener('error', function (event) {
           reasons.push({ code: 'tooSmall', text: '包装在画面里太小，标签占比不够。' });
         }
 
-                                     
+
         const hard = reasons.filter((r) => !r.soft);
         return { isGray: hard.length > 0, reasons, hard };
       }
 
       function buildGray(gray, label) {
         const level = 'gray';
-        const headline = '照片有点看不清，能再拍一张吗？';
-        const advice = '把手机靠近包装背面，让配料表和营养成分表填满画面，光线亮一点再拍一次。';
+        const headline = label.readingOnly && label.ingredientText ? '已读取配料表，请对照照片核对' : label.readingOnly && label.rawText ? '已读取照片文字，未找到配料表标题' : label.unavailableReason && !label.imageQuality?.blurry && !label.imageQuality?.tooSmall
+          ? '还没有读取到这张照片的配料表' : '照片有点看不清，能再拍一张吗？';
+        const advice = label.readingOnly ? '下面是这张照片实际识别出的文字，可以放大和朗读。请核对错字与漏字；需要营养建议时还须核对完整营养表。' : label.unavailableReason || '把手机靠近包装背面，让配料表和营养成分表填满画面，光线亮一点再拍一次。';
         return {
           level,
           headline,
@@ -3859,7 +4091,7 @@ window.addEventListener('error', function (event) {
           basis: [
             {
               kind: 'conflict',
-              title: '为什么不给结论',
+              title: label.readingOnly ? '营养信息为什么仍不足' : '为什么不给结论',
               lines: gray.reasons.map((r) => r.text),
               source: '方案 4.3 灰色等级：承认不知道，比编一个答案更重要'
             },
@@ -3868,7 +4100,7 @@ window.addEventListener('error', function (event) {
               title: '本次识别情况',
               lines: [
                 `识别到配料表文本长度 ${(label.ingredientText || '').length} 字`,
-                `字段置信度：${Object.entries(label.confidence || {})
+                label.readingOnly ? `文字识别把握：${Math.round((label.ocrConfidence || 0) * 100)}%；${label.ingredientsConfirmed ? '配料已由用户核对' : '配料尚未核对'}` : `字段置信度：${Object.entries(label.confidence || {})
                   .map(([k, v]) => `${NUTRIENT_LABEL[k] || k} ${(v * 100).toFixed(0)}%`)
                   .join('、') || '无'}`
               ],
@@ -3881,9 +4113,9 @@ window.addEventListener('error', function (event) {
         };
       }
 
-                                                                         
 
-                            
+
+
       const DEFAULT_CONCERNS = ['sugar', 'salt', 'fat'];
 
       function decideLevel({ allergenConflicts, nutrients }) {
@@ -3894,12 +4126,12 @@ window.addEventListener('error', function (event) {
         return 'green';
       }
 
-                                                                        
 
-   
-                             
-                           
-   
+
+
+
+
+
       function headlineFor({ level, allergenConflicts, nutrients, concernNames, label }) {
         const name = label.productName ? `这个${shortName(label.productName)}` : '这个';
 
@@ -3971,11 +4203,11 @@ window.addEventListener('error', function (event) {
         return `${Math.round(p)}%`;
       }
 
-                                               
+
       function amountPhrase(key, ratio) {
         const noun = { sugar: '糖', sodium: '盐', fat: '油', saturatedFat: '油' }[key] || '这一项';
         const p = ratio * 100;
-                                     
+
         if (p >= 100) {
           const feel = { sugar: '这个太甜了，', sodium: '这个太咸了，', fat: '这个太油了，', saturatedFat: '这个太油了，' }[key] || '';
           return `${feel}一份的${noun}就顶了${percent(ratio)}`;
@@ -3983,7 +4215,7 @@ window.addEventListener('error', function (event) {
         return `一份的${noun}占了您一天限额的 ${Math.round(p)}%`;
       }
 
-                                                                       
+
 
       function adviceFor({ level, allergenConflicts, nutrients }) {
         if (level === 'red') {
@@ -4019,12 +4251,12 @@ window.addEventListener('error', function (event) {
         return '可以放心吃。记得一天吃的东西杂一点，蔬菜和粗粮也要有。';
       }
 
-                                                                       
+
 
       function buildBasis({ label, allergenConflicts, nutrients, allergens, additives, gray, concernNames }) {
         const blocks = [];
 
-                                         
+
         const softReasons = (gray?.reasons || []).filter((r) => r.soft);
         if (softReasons.length) {
           blocks.push({
@@ -4035,7 +4267,7 @@ window.addEventListener('error', function (event) {
           });
         }
 
-               
+
         const conflictIds = new Set(allergenConflicts.map((a) => a.allergenId));
         blocks.push({
           kind: 'rule',
@@ -4054,7 +4286,7 @@ window.addEventListener('error', function (event) {
           source: 'GB 7718-2025《预包装食品标签通则》附录 D'
         });
 
-               
+
         if (nutrients.length) {
           blocks.push({
             kind: 'rule',
@@ -4070,7 +4302,7 @@ window.addEventListener('error', function (event) {
           });
         }
 
-                  
+
         if (additives.length) {
           blocks.push({
             kind: 'rule',
@@ -4087,15 +4319,15 @@ window.addEventListener('error', function (event) {
           });
         }
 
-                             
+
         const conf = label.confidence || {};
         blocks.push({
-          kind: 'model',
-          title: '识别置信度（模型推测部分，与规则判定分开）',
+          kind: label.nutritionConfirmed ? 'rule' : 'model',
+          title: label.nutritionConfirmed ? '用户核对的标签字段' : '识别置信度（模型推测部分，与规则判定分开）',
           lines: [
             `识别通道：${label.channelLabel || '未知'}`,
             `配料表文本：${label.ingredientText ? `${label.ingredientText.length} 字` : '未读到'}`,
-            `字段置信度：${
+            label.nutritionConfirmed ? '配料与七项营养值由用户对照包装核对；营养值为人工填写，并非 OCR 自动识别或准确率承诺。' : `字段置信度：${
               Object.entries(conf)
                 .map(([k, v]) => `${NUTRIENT_LABEL[k] || k} ${(v * 100).toFixed(0)}%`)
                 .join('、') || '无'
@@ -4110,13 +4342,13 @@ window.addEventListener('error', function (event) {
         return blocks;
       }
 
-                                                                       
 
-   
-                                  
-                                                                      
-                                                                
-   
+
+
+
+
+
+
       function selfTest(cases) {
         const results = [];
         const profiles = {
@@ -4181,11 +4413,11 @@ window.addEventListener('error', function (event) {
 
     // ── src/ui/icons.js
     "src/ui/icons.js": function (__exports, __require) {
-   
-             
-                              
-                                     
-   
+
+
+
+
+
 
       const wrap = (paths, extra = '') =>
         `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ` +
@@ -4222,12 +4454,6 @@ window.addEventListener('error', function (event) {
             '<path d="M8.6 10h6.8M8.6 13.6h6.8M8.6 17.2h4.2"/>'
         ),
         sliders: wrap('<path d="M5 8h9M18 8h1M5 16h4M13 16h6"/><circle cx="16" cy="8" r="2.2"/><circle cx="11" cy="16" r="2.2"/>'),
-        qr: wrap(
-          '<rect x="3.5" y="3.5" width="6.5" height="6.5" rx="1.5"/>' +
-            '<rect x="14" y="3.5" width="6.5" height="6.5" rx="1.5"/>' +
-            '<rect x="3.5" y="14" width="6.5" height="6.5" rx="1.5"/>' +
-            '<path d="M14 14h2.5v2.5H14zM18 18h2.5v2.5H18zM14 20.5h2"/>'
-        ),
         refresh: wrap('<path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4.5h-4.5"/>'),
         shield: wrap('<path d="M12 3.2 19 6v6.2c0 4.2-3 7.2-7 8.6-4-1.4-7-4.4-7-8.6V6z"/><path d="m8.8 12.2 2.4 2.4 4-4.6"/>'),
         home: wrap('<path d="M4 10.5 12 4l8 6.5V19a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19z"/><path d="M9.5 20.5v-6h5v6"/>'),
@@ -4236,10 +4462,10 @@ window.addEventListener('error', function (event) {
         textSize: wrap('<path d="M3 19 8 5l5 14M5 14h6M15 19l3-9 3 9M16.2 16h3.6"/>')
       };
 
-   
-                                   
-                              
-   
+
+
+
+
       function icon(name, className = '') {
         const svg = ICONS[name] || ICONS.info;
         return className ? svg.replace('class="icon"', `class="icon ${className}"`) : svg;
@@ -4251,22 +4477,22 @@ window.addEventListener('error', function (event) {
 
     // ── src/ui/dom.js
     "src/ui/dom.js": function (__exports, __require) {
-   
-            
-  
-                                    
-                      
-   
+
+
+
+
+
+
 
       /* import ./icons.js */ const { icon } = __require("src/ui/icons.js");
 
-   
-        
-                      
-                                                                    
-                                                           
-                         
-   
+
+
+
+
+
+
+
       function h(tag, props = {}, children = []) {
         const el = document.createElement(tag);
 
@@ -4317,16 +4543,16 @@ window.addEventListener('error', function (event) {
         return el;
       }
 
-   
-                                                           
-  
-                                                           
-                                           
-                                              
-  
-                          
-                          
-   
+
+
+
+
+
+
+
+
+
+
       function fill(parent, children) {
         const flat = [];
         const visit = (value) => {
@@ -4345,10 +4571,10 @@ window.addEventListener('error', function (event) {
       const $ = (selector, root = document) => root.querySelector(selector);
       const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
-   
-                                                   
-                          
-   
+
+
+
+
       function button({
         label,
         sub,
@@ -4378,10 +4604,10 @@ window.addEventListener('error', function (event) {
         ]);
       }
 
-   
-                       
-                                                                 
-   
+
+
+
+
       function topbar({ title, onBack, right }) {
         return h('header', { class: 'topbar' }, [
           onBack
@@ -4398,7 +4624,7 @@ window.addEventListener('error', function (event) {
         ]);
       }
 
-                                 
+
       function stepDots(total, current) {
         return h('ol', { class: 'step-dots', 'aria-label': `第 ${current} 步，共 ${total} 步` },
           Array.from({ length: total }, (_, i) =>
@@ -4407,14 +4633,14 @@ window.addEventListener('error', function (event) {
         );
       }
 
-                                                                           
+
 
       let toastTimer = null;
-   
-                                     
-                          
-                       
-   
+
+
+
+
+
       function toast(message, ms = 2600) {
         const el = document.getElementById('toast');
         if (!el) return;
@@ -4426,7 +4652,7 @@ window.addEventListener('error', function (event) {
         }, ms);
       }
 
-                                      
+
       function announce(message) {
         const el = document.getElementById('aria-live');
         if (el) el.textContent = message;
@@ -4447,45 +4673,45 @@ window.addEventListener('error', function (event) {
 
     // ── src/core/flow.js
     "src/core/flow.js": function (__exports, __require) {
-    
-                       
-   
-                      
-                                 
-                                                 
-                                                 
-                                            
-                                                     
-   
-                          
-   
+
+
+
+
+
+
+
+
+
+
+
+
 
       /* import ../recognize/index.js */ const recognizer = __require("src/recognize/index.js");
       /* import ./rules.js */ const { evaluate } = __require("src/core/rules.js");
-      /* import ./store.js */ const { addRecord, todayTotals, scaleNutrients } = __require("src/core/store.js");
+      /* import ./store.js */ const { addRecord, loadRecords, todayTotals, scaleNutrients } = __require("src/core/store.js");
       /* import ./speech.js */ const speech = __require("src/core/speech.js");
       /* import ../ui/dom.js */ const { toast } = __require("src/ui/dom.js");
 
       const MAX_SIDE = 2000;
 
-    
-                                
-                                                      
-                                              
-                                   
-                                   
-                              
-                                          
-                                
-                                   
-   
 
-    
-                                       
-                                 
-                      
-                            
-   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
       async function compressPhoto(file) {
         try {
           const bitmap = await createImageBitmap(file);
@@ -4507,20 +4733,20 @@ window.addEventListener('error', function (event) {
         }
       }
 
-    
-                                       
-   
-                
-                                         
-                                               
-                                     
-                                             
-                                                    
-                              
-   
-                                  
-                                                         
-   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
       let sharedInput = null;
       let pendingResolve = null;
 
@@ -4547,7 +4773,7 @@ window.addEventListener('error', function (event) {
           const file = input.files && input.files[0];
           settle(file || null);
         });
-                                
+
         input.addEventListener('cancel', () => settle(null));
 
         document.body.appendChild(input);
@@ -4555,36 +4781,49 @@ window.addEventListener('error', function (event) {
         return input;
       }
 
-      function pickPhoto(mode = 'camera') {
+      async function pickPhoto(mode = 'camera') {
         const input = ensureInput();
         if (mode === 'camera') input.setAttribute('capture', 'environment');
         else input.removeAttribute('capture');
 
-                                  
+
         if (pendingResolve) {
           const previous = pendingResolve;
           pendingResolve = null;
           previous(null);
         }
 
-        return new Promise((resolve) => {
+        const file = await new Promise((resolve) => {
           pendingResolve = resolve;
           input.click();
         });
+        if (file && (!file.type.startsWith('image/') || file.size === 0)) {
+          throw new Error('请选择一张有效的食品配料表照片。');
+        }
+        if (file && file.size > 20 * 1024 * 1024) {
+          throw new Error('这张照片太大了，请换一张小于 20 MB 的照片。');
+        }
+        return file;
       }
 
-    
-                          
-                           
-                                    
-                                                 
-                                                             
-   
-      async function processPhoto(file, origin, profile) {
+
+
+
+
+
+
+
+      async function processPhoto(file, origin, profile, options = {}) {
         const prepared = file instanceof File ? await compressPhoto(file) : file;
         const previewUrl = URL.createObjectURL(prepared);
 
-        const outcome = await recognizer.recognizePhoto({ file: prepared });
+        let outcome;
+        try {
+          outcome = await recognizer.recognizePhoto({ file: prepared, signal: options.signal, onProgress: options.onProgress });
+        } catch (error) {
+          URL.revokeObjectURL(previewUrl);
+          throw error;
+        }
         const photo = {
           label: outcome.label,
           origin,
@@ -4599,11 +4838,11 @@ window.addEventListener('error', function (event) {
         return { photo, assessment };
       }
 
-    
-                          
-                          
-                                                 
-   
+
+
+
+
+
       async function processDemoCase(caseId, profile) {
         const outcome = await recognizer.recognizeDemoCase(caseId);
         const photo = {
@@ -4620,7 +4859,7 @@ window.addEventListener('error', function (event) {
         return { photo, assessment };
       }
 
-                             
+
       function evaluateLabel(label, profile) {
         const totals = todayTotals();
         const servingGrams = Number(label.servingGrams) || 100;
@@ -4637,42 +4876,51 @@ window.addEventListener('error', function (event) {
         });
       }
 
-    
-                    
-                                                         
-                                                 
-                                        
-   
+
+
+
+
+
+
       function speakAndRecord({ photo, assessment }, profile, options = {}) {
         if (profile.voiceOn) {
           speech.unlock();
           speech.speak(speech.buildSpeechText(assessment));
         }
-        if (options.record === false) return null;
-        return recordResult({ photo, assessment });
+        if (options.record !== true) return null;
+        return recordResult({ photo, assessment }, options);
       }
 
-                                 
-      function recordResult({ photo, assessment }) {
+
+      function recordResult(result, options = {}) {
+        const { photo, assessment } = result;
+        if (options.consumptionConfirmed !== true || assessment.level === 'gray' || photo.label.readingOnly || photo.origin === 'demo') return null;
+        const existing = result.consumptionRecordId && loadRecords().find((r) => r.id === result.consumptionRecordId);
+        if (existing) return existing;
         const label = photo.label;
-        const servingGrams = Number(label.servingGrams) || 100;
+        const servingGrams = Number(label.servingGrams);
+        if (!Number.isFinite(servingGrams) || servingGrams <= 0) throw new Error('请填写大于 0 的实际食用数量。');
         const nutrients = scaleNutrients(label.nutritionPer100g || {}, servingGrams);
-        return addRecord({
+        const item = addRecord({
+          consumptionConfirmed: true,
           productName: label.productName || '未识别名称的食品',
           level: assessment.level,
           headline: assessment.headline,
           advice: assessment.advice,
           channel: label.channelLabel,
           servingGrams,
+          servingUnit: label.servingUnit || 'g',
           nutrients,
           allergenHits: (assessment.allergenConflicts || []).map((a) => a.short),
           origin: photo.origin,
           demoCaseId: photo.demoCaseId || null,
           previewUrl: photo.previewUrl || null
         });
+        result.consumptionRecordId = item.id;
+        return item;
       }
 
-                                   
+
       function reportFailure(error) {
         console.error('[FoodLensCare] 处理失败：', error);
         const message =
@@ -4695,14 +4943,14 @@ window.addEventListener('error', function (event) {
 
     // ── src/pages/onboarding.js
     "src/pages/onboarding.js": function (__exports, __require) {
-﻿    
-                     
-   
-                     
-                                       
-                                                         
-                                       
-   
+
+
+
+
+
+
+
+
 
       /* import ../ui/dom.js */ const { h, button, topbar, stepDots, toast, announce, fill } = __require("src/ui/dom.js");
       /* import ../ui/icons.js */ const { icon } = __require("src/ui/icons.js");
@@ -4762,14 +5010,14 @@ window.addEventListener('error', function (event) {
         }
       ];
 
-    
-                             
-                           
-                                                         
-   
+
+
+
+
+
       function renderOnboarding(view, _params, ctx) {
         let stepIndex = 0;
-                                    
+
         const draft = {
           ageGroup: null,
           concerns: [],
@@ -4915,15 +5163,15 @@ window.addEventListener('error', function (event) {
 
     // ── src/pages/home.js
     "src/pages/home.js": function (__exports, __require) {
-    
-                     
-   
-                  
-                                  
-                                       
-                          
-                                       
-   
+
+
+
+
+
+
+
+
+
 
       /* import ../ui/dom.js */ const { h, button, topbar, toast, fill } = __require("src/ui/dom.js");
       /* import ../ui/icons.js */ const { icon } = __require("src/ui/icons.js");
@@ -4933,13 +5181,13 @@ window.addEventListener('error', function (event) {
       /* import ../core/flow.js */ const { pickPhoto, processPhoto, processDemoCase, reportFailure } = __require("src/core/flow.js");
       /* import ../core/speech.js */ const speech = __require("src/core/speech.js");
 
-    
-           
-   
-                                          
-                                       
-                                  
-   
+
+
+
+
+
+
+
       const DEMO_PROFILES = [
         {
           id: 'allergy',
@@ -4983,18 +5231,18 @@ window.addEventListener('error', function (event) {
         ctx.rerender();
       }
 
-    
-                             
-                           
-                                                         
-   
+
+
+
+
+
       function renderHome(view, _params, ctx) {
         const profile = ctx.state.profile;
         const today = recordsOfToday(loadRecords());
         const totals = todayTotals();
 
-                                     
-                               
+
+
         const shutterSub = h('span', { class: 'shutter-hint', text: '对准配料表和营养成分表' });
 
         const setShutterNote = (text) => {
@@ -5007,11 +5255,11 @@ window.addEventListener('error', function (event) {
             const file = await pickPhoto(mode);
             setShutterNote('');
             if (!file) {
-                                    
+
               toast('没有选照片。再点一次就能重新拍。', 2600);
               return;
             }
-            ctx.setState({ pendingFile: file, pendingOrigin: mode });
+            ctx.setState({ pendingFile: file, pendingOrigin: mode, pendingReturn: 'home', result: null });
             ctx.navigate('confirm');
           } catch (error) {
             setShutterNote('');
@@ -5045,7 +5293,7 @@ window.addEventListener('error', function (event) {
 
           h('section', { class: 'card hero' }, [
             h('h2', { class: 'card-title', text: '举起手机，对准包装背面' }),
-            h('p', { class: 'hero-sub', text: '拍一张照片就行，不用打字。我来告诉您这个能不能吃。' }),
+            h('p', { class: 'hero-sub', text: '拍下配料表，我帮您读文字、找过敏冲突。营养信息核对完整后，再查看摄入提醒。' }),
             h('button', {
               class: 'shutter',
               type: 'button',
@@ -5066,13 +5314,19 @@ window.addEventListener('error', function (event) {
             onClick: () => grab('album')
           }),
 
+          h('details', { class: 'basis' }, [
+            h('summary', { text: '拍照帮助' }),
+            h('p', { text: '对准包装背面的配料表，避开反光，让字清楚地占满画面。' }),
+            button({ label: '拍照读取配料表：查看引导', variant: 'secondary', block: true, onClick: () => ctx.navigate('scan') })
+          ]),
+
           budgetLine,
 
           h('section', { class: 'card' }, [
             h('h3', { class: 'card-title', text: '今天的记录' }),
             today.length
-              ? h('p', { text: `今天已经看过 ${today.length} 件食品，最近一件：${today[today.length - 1].productName}。` })
-              : h('p', { text: '今天还没看过东西。看完会自动记下来，方便您回头查。' }),
+              ? h('p', { text: `今天有 ${today.length} 条记录，最近一件：${today[today.length - 1].productName}。` })
+              : h('p', { text: '今天还没有记录。确认已经吃了以后，才记入今天的摄入量。' }),
             button({
               label: '看看今天的记录',
               iconHtml: icon('clipboard'),
@@ -5128,13 +5382,13 @@ window.addEventListener('error', function (event) {
           })
         ]);
 
-                               
+
         if (!speech.isSupported() && profile.voiceOn) {
           toast('这台设备的浏览器不支持语音朗读，结论会加大显示。', 3200);
         }
       }
 
-                                 
+
       function buildBudgetLine(totals) {
         if (!totals.count) {
           return h('section', { class: 'card' }, [
@@ -5144,7 +5398,7 @@ window.addEventListener('error', function (event) {
               h('span', { text: `糖 ${DAILY_LIMITS.sugar.limit} ${DAILY_LIMITS.sugar.unit}` }),
               h('span', { text: `饱和脂肪 ${DAILY_LIMITS.saturatedFat.limit} ${DAILY_LIMITS.saturatedFat.unit}` })
             ]),
-            h('p', { class: 'footnote', text: '这是 60 岁以上人群一天的建议上限，每看一件食品就自动扣减。' })
+            h('p', { class: 'footnote', text: '这是一天的参考额度；确认已经吃了以后，才按实际数量扣减。未记录的食物不在统计中。' })
           ]);
         }
 
@@ -5187,28 +5441,29 @@ window.addEventListener('error', function (event) {
 
     // ── src/pages/confirm.js
     "src/pages/confirm.js": function (__exports, __require) {
-    
-                       
-   
-                                   
-                         
-                                    
-            
-   
+
+
+
+
+
+
+
+
 
       /* import ../ui/dom.js */ const { h, button, topbar, fill } = __require("src/ui/dom.js");
       /* import ../ui/icons.js */ const { icon } = __require("src/ui/icons.js");
       /* import ../core/flow.js */ const { pickPhoto, processPhoto, reportFailure } = __require("src/core/flow.js");
       /* import ../recognize/quality.js */ const { measureImage, loadImage } = __require("src/recognize/quality.js");
 
-    
-                             
-                           
-                                                         
-   
+
+
+
+
+
       function renderConfirm(view, _params, ctx) {
         const file = ctx.state.pendingFile;
         const origin = ctx.state.pendingOrigin || 'camera';
+        const returnTo = ctx.state.pendingReturn || 'home';
 
         if (!file) {
           ctx.navigate('home', {}, { replace: true });
@@ -5227,24 +5482,30 @@ window.addEventListener('error', function (event) {
         const go = async () => {
           if (busy) return;
           busy = true;
-          ctx.setState({ progressStage: 0, progressPhoto: { file, origin, previewUrl } });
+          ctx.setState({ progressStage: 0, progressPhoto: { file, origin, previewUrl, returnTo } });
           ctx.navigate('progress');
         };
 
         const retake = async () => {
+          if (busy) return;
+          busy = true;
           try {
             const next = await pickPhoto(origin);
             if (next) {
               ctx.setState({ pendingFile: next, pendingOrigin: origin });
               ctx.navigate('confirm', {}, { replace: true, force: true });
+            } else {
+
+              busy = false;
             }
           } catch (error) {
+            busy = false;
             reportFailure(error);
           }
         };
 
         fill(view, [
-          topbar({ title: '这张拍得清楚吗？', onBack: () => ctx.navigate('home', {}, { replace: true }) }),
+          topbar({ title: '这张拍得清楚吗？', onBack: () => ctx.navigate(returnTo, {}, { replace: true }) }),
           h('section', { class: 'photo-frame' }, [image]),
           qualityBox,
           button({
@@ -5267,7 +5528,7 @@ window.addEventListener('error', function (event) {
           })
         ]);
 
-                            
+
         loadImage(file)
           .then((img) => {
             const quality = measureImage(img);
@@ -5279,7 +5540,7 @@ window.addEventListener('error', function (event) {
               ),
               h('p', {
                 class: 'photo-meta',
-                text: `清晰度 ${quality.sharpness}，亮度 ${quality.brightness}，分辨率 ${quality.width}×${quality.height}`
+                text: '请确认照片里能看到完整配料表，文字没有被反光或手指挡住。'
               }),
               h('p', {
                 class: 'footnote',
@@ -5290,6 +5551,7 @@ window.addEventListener('error', function (event) {
           .catch(() => {
             qualityBox.replaceChildren(h('p', { class: 'photo-meta', text: '这张图片读不出内容，请重拍一张。' }));
           });
+        return () => { if (ctx.state.progressPhoto?.previewUrl !== previewUrl) URL.revokeObjectURL(previewUrl); };
       }
 
     __exports.renderConfirm = renderConfirm;
@@ -5297,39 +5559,43 @@ window.addEventListener('error', function (event) {
 
     // ── src/pages/progress.js
     "src/pages/progress.js": function (__exports, __require) {
-﻿    
-                
-   
-                                    
-                                   
-   
+
+
+
+
+
+
 
       /* import ../ui/dom.js */ const { h, topbar, button, fill } = __require("src/ui/dom.js");
       /* import ../ui/icons.js */ const { icon } = __require("src/ui/icons.js");
       /* import ../core/flow.js */ const { processPhoto, reportFailure } = __require("src/core/flow.js");
+      /* import ../core/router.js */ const { current } = __require("src/core/router.js");
 
-                        
-      const STAGES = [
-        { at: 0, text: '正在看标签……', note: '把照片上的字读出来' },
-        { at: 700, text: '正在念配料表……', note: '找出里面有哪些东西' },
-        { at: 1500, text: '正在比您的身体情况……', note: '看看和您有没有冲突' },
-        { at: 2400, text: '马上就出结果了', note: '给您一句听得懂的话' }
-      ];
 
-    
-                             
-                           
-                                                         
-   
+
+
+
+
+
       function renderProgress(view, _params, ctx) {
         const pending = ctx.state.progressPhoto;
         if (!pending) {
           ctx.navigate('home', {}, { replace: true });
           return;
         }
+        const controller = new AbortController();
+        let waitingResult = null;
+        const started = performance.now();
+        const active = () => !controller.signal.aborted && ctx.state.progressPhoto === pending && current().split('?')[0] === 'progress';
+        const leave = () => {
+          controller.abort();
+          timers.forEach(clearTimeout);
+          ctx.setState({ progressPhoto: null });
+          ctx.navigate(pending.returnTo || 'home', {}, { replace: true });
+        };
 
-        const textEl = h('p', { class: 'progress-text', text: STAGES[0].text });
-        const noteEl = h('p', { class: 'progress-note', text: STAGES[0].note });
+        const textEl = h('p', { class: 'progress-text', text: '正在看标签……' });
+        const noteEl = h('p', { class: 'progress-note', text: '把照片上的字读出来' });
 
         fill(view, [
           topbar({ title: '正在看标签' }),
@@ -5344,35 +5610,48 @@ window.addEventListener('error', function (event) {
               : null
           ]),
           button({
-            label: '取消，回首页',
+            label: '取消读取，返回',
             variant: 'ghost',
             block: true,
-            onClick: () => ctx.navigate('home', {}, { replace: true })
+            onClick: leave
           })
         ]);
 
-        const timers = STAGES.slice(1).map((stage) =>
-          setTimeout(() => {
-            textEl.textContent = stage.text;
-            noteEl.textContent = stage.note;
-          }, stage.at)
-        );
+        const timers = [];
 
-        processPhoto(pending.file, pending.origin, ctx.state.profile)
+        processPhoto(pending.file, pending.origin, ctx.state.profile, {
+          signal: controller.signal,
+          onProgress: (progress) => {
+            if (!active()) return;
+            textEl.textContent = progress.text;
+            noteEl.textContent = progress.note;
+          }
+        })
           .then((result) => {
             timers.forEach(clearTimeout);
-                                              
-            const wait = Math.max(0, 1200 - (result.photo.elapsedMs || 0));
-            setTimeout(() => {
+            if (!active()) {
+              if (result.photo.previewUrl) URL.revokeObjectURL(result.photo.previewUrl);
+              return;
+            }
+
+            const wait = Math.max(0, 1200 - (performance.now() - started));
+            waitingResult = result;
+            timers.push(setTimeout(() => {
+              if (!active()) {
+                if (result.photo.previewUrl) URL.revokeObjectURL(result.photo.previewUrl);
+                return;
+              }
               ctx.setState({ result, progressPhoto: null, pendingFile: null });
+              waitingResult = null;
               ctx.navigate('result', {}, { replace: true });
-            }, wait);
+            }, wait));
           })
           .catch((error) => {
             timers.forEach(clearTimeout);
+            if (!active()) return;
             const message = reportFailure(error);
             fill(view, [
-              topbar({ title: '没看成', onBack: () => ctx.navigate('home', {}, { replace: true }) }),
+              topbar({ title: '没看成', onBack: leave }),
               h('section', { class: 'card' }, [
                 h('h2', { class: 'card-title', text: '这张照片没处理好' }),
                 h('p', { class: 'error-box', text: message }),
@@ -5383,35 +5662,77 @@ window.addEventListener('error', function (event) {
                 iconHtml: icon('camera'),
                 block: true,
                 huge: true,
-                onClick: () => ctx.navigate('home', {}, { replace: true })
+                onClick: leave
               })
             ]);
           });
+        return () => {
+          controller.abort();
+          timers.forEach(clearTimeout);
+          if (waitingResult?.photo.previewUrl) URL.revokeObjectURL(waitingResult.photo.previewUrl);
+          if (pending.previewUrl) URL.revokeObjectURL(pending.previewUrl);
+          if (ctx.state.progressPhoto === pending) ctx.setState({ progressPhoto: null });
+        };
       }
 
     __exports.renderProgress = renderProgress;
     },
 
+    // ── src/core/label-review.js
+    "src/core/label-review.js": function (__exports, __require) {
+
+      /* import ../data/nutrition.js */ const { NUTRIENT_FIELDS } = __require("src/data/nutrition.js");
+      /* import ../recognize/parse-label.js */ const { splitIngredientLines } = __require("src/recognize/parse-label.js");
+
+      function reviewLabel(label, { ingredientText, allergenDeclaration = '', nutrients = {}, unit = 'g' }) {
+        if (!ingredientText?.trim()) throw new Error('请填写完整配料；没有看清时请重新拍摄。');
+        if (!['g', 'ml'].includes(unit)) throw new Error('请选择每 100 克或每 100 毫升。');
+        const values = {};
+        let filled = 0;
+        for (const field of NUTRIENT_FIELDS) {
+          const raw = nutrients[field.key];
+          if (raw == null || String(raw).trim() === '') { values[field.key] = null; continue; }
+          const value = Number(raw);
+          if (!Number.isFinite(value) || value < 0) throw new Error(`${field.label}请填写大于或等于 0 的数值。`);
+          values[field.key] = value;
+          filled++;
+        }
+        if (filled && filled !== NUTRIENT_FIELDS.length) throw new Error('请核对并填写全部七项营养值；包装未标示的项目请留空，不要填成 0。也可以清空全部营养值，仅核对配料。');
+        return {
+          ...label, ingredientText: ingredientText.trim(), ingredientLines: splitIngredientLines(ingredientText),
+          allergenDeclaration: allergenDeclaration.trim(), ingredientsConfirmed: true,
+          readingOnly: filled !== NUTRIENT_FIELDS.length, nutritionConfirmed: filled === NUTRIENT_FIELDS.length,
+          nutritionPer100g: values, confidence: Object.fromEntries(NUTRIENT_FIELDS.map((f) => [f.key, values[f.key] === null ? 0 : 1])),
+          declaredPer: 'per100g', servingBasis: 'per100g', servingUnit: unit,
+          servingLabel: unit === 'ml' ? '每 100 毫升' : '每 100 克',
+          imageQuality: {}, unavailableReason: null
+        };
+      }
+
+    __exports.reviewLabel = reviewLabel;
+    },
+
     // ── src/pages/result.js
     "src/pages/result.js": function (__exports, __require) {
-﻿    
-                            
-   
-                           
-                                                       
-                                            
-                                       
-                                
-                        
-   
+
+
+
+
+
+
+
+
+
+
 
       /* import ../ui/dom.js */ const { h, button, topbar, toast, fill } = __require("src/ui/dom.js");
       /* import ../ui/icons.js */ const { icon } = __require("src/ui/icons.js");
       /* import ../core/rules.js */ const { RISK_LEVELS } = __require("src/core/rules.js");
-      /* import ../data/nutrition.js */ const { DAILY_LIMITS } = __require("src/data/nutrition.js");
+      /* import ../data/nutrition.js */ const { DAILY_LIMITS, NUTRIENT_FIELDS } = __require("src/data/nutrition.js");
       /* import ../data/sample-labels.js */ const { SAMPLE_BY_ID } = __require("src/data/sample-labels.js");
       /* import ../core/store.js */ const { loadRecords, todayTotals } = __require("src/core/store.js");
-      /* import ../core/flow.js */ const { speakAndRecord, processDemoCase } = __require("src/core/flow.js");
+      /* import ../core/flow.js */ const { speakAndRecord, processDemoCase, evaluateLabel, recordResult } = __require("src/core/flow.js");
+      /* import ../core/label-review.js */ const { reviewLabel } = __require("src/core/label-review.js");
       /* import ../core/speech.js */ const speech = __require("src/core/speech.js");
 
       const NUTRIENT_TITLE = {
@@ -5421,16 +5742,16 @@ window.addEventListener('error', function (event) {
         fat: '脂肪'
       };
 
-    
-                             
-                          
-                                                         
-   
+
+
+
+
+
       function renderResult(view, params, ctx) {
         const result = ctx.state.result;
 
-                                                     
-                          
+
+
         if (!result && params?.case) {
           renderDeepLink(view, params.case, ctx);
           return;
@@ -5445,10 +5766,10 @@ window.addEventListener('error', function (event) {
         const meta = RISK_LEVELS[assessment.level] || RISK_LEVELS.gray;
         const label = photo.label;
 
-                                    
-        if (!result.recorded) {
-          result.recorded = true;
-          speakAndRecord(result, ctx.state.profile);
+
+        if (!result.spoken) {
+          result.spoken = true;
+          speakAndRecord(result, ctx.state.profile, { record: false });
         }
 
         const speakerBar = document.getElementById('speaker');
@@ -5471,58 +5792,51 @@ window.addEventListener('error', function (event) {
             onBack: () => ctx.navigate('home', {}, { replace: true })
           }),
 
-                                                       
+
           h('section', { class: 'risk-banner', dataset: { level: assessment.level } }, [
             h('span', { class: 'risk-icon', html: icon(iconNameFor(assessment.level)) }),
             h('div', { class: 'risk-body' }, [
               h('div', { class: 'risk-level' }, [
-                h('span', { class: 'risk-level-label', text: `${meta.label} · ${meta.text}` }),
+                h('span', { class: 'risk-level-label', text: assessment.partial && assessment.allergenConflicts.length ? '配料过敏提醒 · 营养待核对' : label.readingOnly ? '配料读取 · 营养待核对' : label.channel === 'unavailable' ? '灰色 · 尚未读取' : `${meta.label} · ${meta.text}` }),
                 label.productName ? h('span', { text: `　${label.productName}` }) : null
               ]),
               h('h2', { class: 'risk-headline', text: assessment.headline })
             ])
           ]),
 
-                                    
+
           h('section', { class: 'card' }, [
-            h('h3', { class: 'card-title', text: assessment.level === 'gray' ? '怎么拍才看得清' : '该怎么办' }),
+            h('h3', { class: 'card-title', text: assessment.level === 'gray' ? '接下来怎么做' : '该怎么办' }),
             h('p', { text: assessment.advice })
           ]),
 
-                                    
+
           assessment.level !== 'gray' && assessment.nutrients?.length
-            ? budgetCard(assessment)
+            ? budgetCard(assessment, result)
             : null,
 
-                                          
+          ...actionsFor(assessment, ctx),
+
+
           photoCard(photo, label),
 
-                                    
+          label.channel === 'localOcr' && !result.consumptionRecordId ? reviewCard(result, ctx) : null,
+          !label.readingOnly && assessment.level !== 'gray' ? consumptionCard(result, ctx) : null,
+
+
           ...(assessment.basis || []).map(basisBlock),
 
-                                                            
-          assessment.level === 'gray' ? null : digitalLabelCard(label),
 
-                                        
-          label.ingredientLines?.length
-            ? h('details', { class: 'basis' }, [
-                h('summary', {}, [h('span', { html: icon('tag') }), h('span', { text: '包装上的配料表原文' })]),
-                h('ul', { class: 'ingredient-lines' },
-                  label.ingredientLines.map((line) =>
-                    h('li', {}, [
-                      h('span', { class: 'line-no', text: `第 ${line.line} 行` }),
-                      h('span', { text: line.text })
-                    ])
-                  )
-                ),
-                label.allergenDeclaration
-                  ? h('p', { class: 'footnote', text: `包装致敏物质提示原文：${label.allergenDeclaration}` })
-                  : h('p', { class: 'footnote', text: '这张包装上没读到「致敏物质提示」。' })
-              ])
-            : null,
-
-                                     
-          ...actionsFor(assessment, ctx),
+          label.ingredientText ? digitalLabelCard(label) : null,
+          label.rawText ? h('details', { class: 'basis' }, [
+            h('summary', { text: '照片识别全文（可展开朗读）' }),
+            h('p', { class: 'footnote', text: '以下是实际 OCR 输出，可能有错字或漏字，请对照照片核对。' }),
+            h('p', { text: label.rawText, style: { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' } }),
+            button({ label: '朗读照片上的文字', variant: 'secondary', block: true, onClick: () => {
+              if (!speech.isSupported()) { toast('浏览器不支持朗读，请查看上方大字。'); return; }
+              speech.unlock(); speech.speak(label.rawText);
+            } })
+          ]) : null,
 
           h('p', {
             class: 'footnote',
@@ -5533,17 +5847,13 @@ window.addEventListener('error', function (event) {
         ]);
       }
 
-                                                                           
 
-    
-                
-                                   
-                       
-   
+
+
+
+
+
       function photoCard(photo, label) {
-        const pending = !label.ingredientText && !Object.values(label.nutritionPer100g || {}).some((v) => Number.isFinite(Number(v)));
-        if (pending) return null;
-
         return h('section', { class: 'card' }, [
           h('h3', { class: 'card-title', text: '看的是哪张照片' }),
           photo.previewUrl
@@ -5560,7 +5870,7 @@ window.addEventListener('error', function (event) {
         ]);
       }
 
-                             
+
       function renderDeepLink(view, caseId, ctx) {
         const testCase = SAMPLE_BY_ID.get(caseId);
         if (!testCase) {
@@ -5588,22 +5898,24 @@ window.addEventListener('error', function (event) {
           .catch(() => ctx.navigate('home', {}, { replace: true }));
       }
 
-      function budgetCard(assessment) {
+      function budgetCard(assessment, result) {
         const totals = todayTotals();
+        const recorded = Boolean(result.consumptionRecordId && loadRecords().some((r) => r.id === result.consumptionRecordId));
         const rows = assessment.nutrients.map((n) => {
           const limit = DAILY_LIMITS[n.key];
           if (!limit) return null;
           const usedBefore = Math.max(0, Math.min(totals[n.key] || 0, limit.limit));
-          const after = Math.min(limit.limit, usedBefore + n.amount);
+          const additional = recorded ? 0 : n.amount;
+          const after = Math.min(limit.limit, usedBefore + additional);
           const ratio = limit.limit > 0 ? after / limit.limit : 0;
           const tone = ratio >= 1 ? 'high' : ratio >= 0.6 ? 'over' : 'ok';
-          const remaining = Math.max(0, Math.round((limit.limit - usedBefore - n.amount) * 10) / 10);
+          const remaining = Math.max(0, Math.round((limit.limit - usedBefore - additional) * 10) / 10);
           return h('div', { class: 'meter' }, [
             h('div', { class: 'meter-head' }, [
               h('span', { text: `${NUTRIENT_TITLE[n.key] || n.label}　这一份 ${n.amount} ${n.unit}` }),
               h('span', {
                 class: 'meter-value',
-                text: remaining > 0 ? `吃完还剩 ${remaining} ${n.unit}` : '这一份就吃满了'
+                text: remaining > 0 ? `${recorded ? '已记录，还剩' : '如果吃这一份，还剩'} ${remaining} ${n.unit}` : '达到今日建议上限'
               })
             ]),
             h('div', { class: 'meter-track' }, [
@@ -5649,14 +5961,14 @@ window.addEventListener('error', function (event) {
         const gray = assessment.level === 'gray';
         const actions = [];
 
-        if (gray) {
+        if (gray || assessment.partial) {
           actions.push(
             button({
-              label: '再拍一张清楚点的',
+              label: ctx.state.result?.photo.label.readingOnly ? '再拍一张配料表' : '再拍一张清楚点的',
               iconHtml: icon('camera'),
               block: true,
               huge: true,
-              onClick: () => ctx.navigate('home', {}, { replace: true })
+            onClick: () => ctx.navigate(ctx.state.pendingReturn || 'home', {}, { replace: true })
             })
           );
         } else {
@@ -5689,34 +6001,32 @@ window.addEventListener('error', function (event) {
           orange: 'alert',
           yellow: 'info',
           green: 'check',
-          gray: 'qr'
+          gray: 'refresh'
         }[level] || 'info';
       }
 
-    
-           
-   
-                                             
-                                              
-   
-                                     
-                                    
-                  
-   
+
+
+
+
+
+
+
       function digitalLabelCard(label) {
+        const nutrients = Object.entries(label.nutritionPer100g || {})
+          .filter(([, v]) => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v)));
         const lines = [
           `商品名称：${label.productName || '未识别'}`,
           label.netContent ? `净含量：${label.netContent}` : null,
           `配料表：${label.ingredientText || '未读到'}`,
-          label.allergenDeclaration ? `致敏物质提示：${label.allergenDeclaration}` : '致敏物质提示：包装上未标示',
-          '营养成分表（每 100 g）：',
-          ...Object.entries(label.nutritionPer100g || {})
-            .filter(([, v]) => Number.isFinite(Number(v)))
+          label.allergenDeclaration ? `致敏物质提示：${label.allergenDeclaration}` : '致敏物质提示：本次未读到',
+          nutrients.length ? `营养成分表（${label.declaredPer === 'perServing' ? '每份' : label.declaredPer === 'unknown' ? '口径待核对' : label.servingUnit === 'ml' ? '每 100 毫升' : '每 100 克'}）：` : '营养数值尚未核对，可对照包装填写。',
+          ...nutrients
             .map(([k, v]) => `　${NUTRIENT_NAMES[k] || k}　${v} ${NUTRIENT_UNITS[k] || ''}`)
         ].filter(Boolean);
 
-        return h('details', { class: 'basis' }, [
-          h('summary', {}, [h('span', { html: icon('qr') }), h('span', { text: '数字标签（可放大、可朗读）' })]),
+        return h('details', { class: 'basis', open: true }, [
+          h('summary', {}, [h('span', { html: icon('tag') }), h('span', { text: '标签原文（可朗读）' })]),
           h('ul', { class: 'basis-list' },
             lines.map((line) => h('li', {}, [h('span', { text: line })]))
           ),
@@ -5733,8 +6043,85 @@ window.addEventListener('error', function (event) {
           }, [h('span', { class: 'btn-icon', html: icon('speaker') }), h('span', { text: '把标签念给我听' })]),
           h('p', {
             class: 'footnote',
-            text: '说明：本期已实现「放大 + 朗读」的数字标签视图；扫描包装二维码直接进入的入口尚未接入，列入路线图。'
+            text: '说明：这里展示的是本次拍照识别到的配料表与营养成分；也可点「把标签念给我听」听完整标签。'
           })
+        ]);
+      }
+
+      function reviewCard(result, ctx) {
+        const label = result.photo.label;
+        const ingredient = h('textarea', { id: 'review-ingredients', class: 'review-input', rows: 4, value: label.ingredientText || '' });
+        const declaration = h('textarea', { id: 'review-allergens', class: 'review-input', rows: 2, value: label.allergenDeclaration || '' });
+        const unit = h('select', { id: 'review-unit', class: 'review-input' }, [
+          h('option', { value: 'g', text: '每 100 克' }), h('option', { value: 'ml', text: '每 100 毫升' })
+        ]);
+        unit.value = label.servingUnit || 'g';
+        const inputs = {};
+        const nutrientRows = NUTRIENT_FIELDS.map((field) => {
+          const input = h('input', { id: `review-${field.key}`, class: 'review-input', type: 'number', min: 0, step: 'any', inputMode: 'decimal',
+            value: label.nutritionConfirmed ? label.nutritionPer100g[field.key] : '', placeholder: '未标示请留空' });
+          inputs[field.key] = input;
+          return h('label', { class: 'review-field', htmlFor: input.id }, [h('span', { text: `${field.label}（${field.unit}）` }), input]);
+        });
+        const checked = h('input', { type: 'checkbox', id: 'review-checked' });
+        const error = h('p', { class: 'error-box', role: 'alert', hidden: true });
+        return h('details', { class: 'basis', open: !label.nutritionConfirmed }, [
+          h('summary', { text: '核对配料，继续查看提醒' }),
+          h('div', { class: 'review-form' }, [
+            h('p', { class: 'footnote', text: '对照上方照片补齐错字、漏字。请查看包装的完整配料及致敏提示；没匹配到过敏成分不代表一定安全。' }),
+            h('label', { class: 'review-field', htmlFor: ingredient.id }, [h('span', { text: '完整配料表' }), ingredient]),
+            h('label', { class: 'review-field', htmlFor: declaration.id }, [h('span', { text: '包装致敏物质提示（无标示可留空）' }), declaration]),
+            h('details', { class: 'basis' }, [
+              h('summary', { text: '填写营养表（可选）' }),
+              h('div', { class: 'review-form' }, [
+                h('p', { class: 'footnote', text: '仅支持包装明确标示每 100 克或每 100 毫升的数值。填写含量列，不要填写 NRV%；每份标签请先补拍每 100 克/毫升口径。七项都核对后才计算营养摄入量。' }),
+                h('label', { class: 'review-field', htmlFor: unit.id }, [h('span', { text: '包装标示口径' }), unit]), ...nutrientRows
+              ])
+            ]),
+            h('label', { class: 'review-check', htmlFor: checked.id }, [checked, h('span', { text: '我已对照包装核对完整配料、致敏提示和填写的营养值' })]),
+            error,
+            button({ label: '确认核对，重新查看提醒', block: true, onClick: () => {
+              try {
+                if (!checked.checked) throw new Error('请先对照包装核对，再勾选确认。');
+                if (Object.values(inputs).some((input) => input.validity.badInput)) throw new Error('营养值请输入有效数字。');
+                const next = reviewLabel(label, { ingredientText: ingredient.value, allergenDeclaration: declaration.value,
+                  nutrients: Object.fromEntries(Object.entries(inputs).map(([key, input]) => [key, input.value])), unit: unit.value });
+                result.photo.label = next;
+                result.assessment = evaluateLabel(next, ctx.state.profile);
+                result.spoken = false;
+                ctx.navigate('result', {}, { replace: true, force: true });
+              } catch (cause) { error.textContent = cause.message; error.hidden = false; }
+            } })
+          ])
+        ]);
+      }
+
+      function consumptionCard(result, ctx) {
+        if (result.photo.origin === 'demo') return h('p', { class: 'footnote', text: '这是演示用例，不计入真实摄入记录。' });
+        const saved = result.consumptionRecordId && loadRecords().some((r) => r.id === result.consumptionRecordId);
+        if (saved) return h('section', { class: 'card' }, [h('p', { text: '本次食用已记录，不会重复扣减额度。' })]);
+        const unit = result.photo.label.servingUnit === 'ml' ? '毫升' : '克';
+        const quantity = h('input', { id: 'consumed-quantity', class: 'review-input', type: 'number', step: 'any', min: '0.01', inputMode: 'decimal',
+          value: result.photo.label.servingGrams || 100 });
+        const error = h('p', { class: 'error-box', role: 'alert', hidden: true });
+        return h('section', { class: 'card' }, [
+          h('h3', { class: 'card-title', text: '吃了以后再记下来' }),
+          h('p', { class: 'footnote', text: '查看标签不会扣减额度。只有确认已经吃了，才把实际数量计入今天。' }),
+          h('label', { class: 'review-field', htmlFor: quantity.id }, [h('span', { text: `实际吃了多少（${unit}）` }), quantity]), error,
+          button({ label: '我已吃了，记入今天', block: true, onClick: () => {
+            try {
+              const amount = Number(quantity.value);
+              if (!Number.isFinite(amount) || amount <= 0) throw new Error('请填写大于 0 的实际食用数量。');
+              const previous = result.photo.label.servingGrams;
+              result.photo.label.servingGrams = amount;
+              result.assessment = evaluateLabel(result.photo.label, ctx.state.profile);
+              try {
+                if (!recordResult(result, { consumptionConfirmed: true })) throw new Error('营养信息还不完整，暂时不能计入摄入量。');
+              } catch (cause) { result.photo.label.servingGrams = previous; result.assessment = evaluateLabel(result.photo.label, ctx.state.profile); throw cause; }
+              ctx.navigate('result', {}, { replace: true, force: true });
+              toast('已按实际食用数量记录。');
+            } catch (cause) { error.textContent = cause.message; error.hidden = false; }
+          } })
         ]);
       }
 
@@ -5763,13 +6150,13 @@ window.addEventListener('error', function (event) {
 
     // ── src/pages/records.js
     "src/pages/records.js": function (__exports, __require) {
-    
-        
-   
-                                            
-                                          
-             
-   
+
+
+
+
+
+
+
 
       /* import ../ui/dom.js */ const { h, button, topbar, toast, fill } = __require("src/ui/dom.js");
       /* import ../ui/icons.js */ const { icon } = __require("src/ui/icons.js");
@@ -5780,13 +6167,13 @@ window.addEventListener('error', function (event) {
 
       const NUTRIENT_TITLE = { sodium: '盐（钠）', sugar: '糖', saturatedFat: '油（饱和脂肪）' };
 
-    
-                             
-                           
-                                                         
-   
+
+
+
+
+
       function renderRecords(view, _params, ctx) {
-                                        
+
         const draw = () => {
           const fresh = loadRecords();
           const list = recordsOfToday(fresh).slice().reverse();
@@ -5801,12 +6188,12 @@ window.addEventListener('error', function (event) {
             h('section', { class: 'card' }, [
               h('h3', {
                 class: 'card-title',
-                text: list.length ? `今天一共看了 ${list.length} 件` : '今天还没有记录'
+                text: list.length ? `今天有 ${list.length} 条记录` : '今天还没有记录'
               }),
               ...meterRows(todayTotals(fresh)),
               h('p', {
                 class: 'footnote',
-                text: '额度按 60 岁以上人群的建议上限自动扣减，只做提醒，不是医嘱。'
+                text: '仅统计确认食用的记录。旧版自动扫描记录和演示记录保留供查看，不扣减额度；未记录的食物不在统计中。'
               })
             ]),
 
@@ -5814,7 +6201,7 @@ window.addEventListener('error', function (event) {
               ? h('ul', { class: 'record-list' }, list.map((record) => recordItem(record, ctx, draw)))
               : h('section', { class: 'card empty-state' }, [
                   h('span', { class: 'empty-icon', html: icon('clipboard') }),
-                  h('p', { text: '今天还没看过食品。回首页拍一张照片，看完会自动记在这里。' })
+                  h('p', { text: '今天还没有食用记录。查看食品后，填写实际吃了多少，再确认记入今天。' })
                 ]),
 
             button({
@@ -5825,7 +6212,7 @@ window.addEventListener('error', function (event) {
               onClick: () => ctx.navigate('home', {}, { replace: true })
             }),
 
-                                         
+
             fresh.length
               ? button({
                   label: '把记录全部清空',
@@ -5857,7 +6244,7 @@ window.addEventListener('error', function (event) {
             h('p', { class: 'record-line', text: record.headline }),
             h('p', { class: 'record-line record-time' }, [
               h('span', { text: `${meta.label} · ${meta.text}　${time}` }),
-              record.servingGrams ? h('span', { text: `　一份约 ${record.servingGrams} g` }) : null
+              record.servingGrams ? h('span', { text: `　${record.consumptionConfirmed ? '已食用' : '旧版查看记录'} ${record.servingGrams} ${record.servingUnit || 'g'}` }) : null
             ])
           ]),
           h('div', { style: { display: 'flex', flexDirection: 'column', gap: '0.4rem' } }, [
@@ -5914,7 +6301,7 @@ window.addEventListener('error', function (event) {
         });
       }
 
-                                  
+
       function olderGroup(records) {
         const todayKey = localDateKey();
         const older = records.filter((r) => localDateKey(new Date(r.at)) !== todayKey);
@@ -5950,16 +6337,16 @@ window.addEventListener('error', function (event) {
 
     // ── src/pages/settings.js
     "src/pages/settings.js": function (__exports, __require) {
-﻿    
-      
-   
-                 
-                                                   
-                                
-                               
-   
-                               
-   
+
+
+
+
+
+
+
+
+
+
 
       /* import ../ui/dom.js */ const { h, button, topbar, toast, fill } = __require("src/ui/dom.js");
       /* import ../ui/icons.js */ const { icon } = __require("src/ui/icons.js");
@@ -5975,11 +6362,11 @@ window.addEventListener('error', function (event) {
         { id: 'huge', label: '最大', note: '正文约 29 磅，结论字号超过 40 磅' }
       ];
 
-    
-                             
-                           
-                                                         
-   
+
+
+
+
+
       function renderSettings(view, _params, ctx) {
         const prefs = ctx.state.prefs;
         const profile = ctx.state.profile;
@@ -5993,7 +6380,7 @@ window.addEventListener('error', function (event) {
               }
             }),
 
-                                                  
+
             h('section', { class: 'card' }, [
               h('h3', { class: 'card-title', text: '字要大一点吗？' }),
               h('ul', { class: 'option-list' },
@@ -6023,7 +6410,7 @@ window.addEventListener('error', function (event) {
               h('p', { class: 'footnote', text: '当前示例文字：这个饼干里有花生，您对花生过敏，别吃。' })
             ]),
 
-                                                  
+
             h('section', { class: 'card' }, [
               h('h3', { class: 'card-title', text: '语音播报' }),
               speech.isSupported()
@@ -6071,7 +6458,7 @@ window.addEventListener('error', function (event) {
               })
             ]),
 
-                                                  
+
             h('section', { class: 'card' }, [
               h('h3', { class: 'card-title', text: '我的情况' }),
               profileSummary(profile),
@@ -6085,7 +6472,7 @@ window.addEventListener('error', function (event) {
               h('p', { class: 'footnote', text: '这些内容只存在您的手机里，不会上传。' })
             ]),
 
-                                                      
+
             button({
               label: '这个软件是怎么做适老化的',
               iconHtml: icon('info'),
@@ -6138,7 +6525,7 @@ window.addEventListener('error', function (event) {
         return '模拟识别（尚未配置真实接口）';
       }
 
-                                                 
+
       function applyTextSize(id) {
         document.documentElement.dataset.textSize = TEXT_SIZES.some((s) => s.id === id) ? id : 'large';
       }
@@ -6152,17 +6539,17 @@ window.addEventListener('error', function (event) {
 
     // ── src/data/contrast-report.js
     "src/data/contrast-report.js": function (__exports, __require) {
-   
-                                                  
-  
-        
-                                                                     
-  
-                                
-                                    
-                                
-                                        
-   
+
+
+
+
+
+
+
+
+
+
+
 
       const CONTRAST_REPORT = {
         generatedAt: '2026-10-08',
@@ -6200,12 +6587,12 @@ window.addEventListener('error', function (event) {
 
     // ── src/pages/help.js
     "src/pages/help.js": function (__exports, __require) {
-﻿    
-                         
-   
-                                           
-                                 
-   
+
+
+
+
+
+
 
       /* import ../ui/dom.js */ const { h, topbar, button, fill } = __require("src/ui/dom.js");
       /* import ../ui/icons.js */ const { icon } = __require("src/ui/icons.js");
@@ -6216,11 +6603,11 @@ window.addEventListener('error', function (event) {
       /* import ../data/nutrition.js */ const { DAILY_LIMITS, NUTRIENT_FIELDS } = __require("src/data/nutrition.js");
       /* import ../core/store.js */ const { loadRecords } = __require("src/core/store.js");
 
-    
-                             
-                           
-                                                         
-   
+
+
+
+
+
       function renderHelp(view, _params, ctx) {
         const dpr = window.devicePixelRatio || 1;
         const cssWidth = window.innerWidth;
@@ -6254,7 +6641,7 @@ window.addEventListener('error', function (event) {
             })
           ]),
 
-                                                  
+
           h('section', { class: 'card' }, [
             h('h2', { class: 'card-title', text: '适老化对照表（逐条自检）' }),
             h('p', {
@@ -6292,7 +6679,7 @@ window.addEventListener('error', function (event) {
             ])
           ]),
 
-                                                   
+
           h('details', { class: 'basis' }, [
             h('summary', {}, [h('span', { html: icon('textSize') }), h('span', { text: '对比度实测明细' })]),
             h('table', { class: 'kv-table' }, [
@@ -6312,7 +6699,7 @@ window.addEventListener('error', function (event) {
             })
           ]),
 
-                                                 
+
           h('section', { class: 'card' }, [
             h('h2', { class: 'card-title', text: '判断依据从哪来' }),
             h('table', { class: 'kv-table' }, [
@@ -6327,7 +6714,7 @@ window.addEventListener('error', function (event) {
             ])
           ]),
 
-                                                
+
           h('section', { class: 'card' }, [
             h('h2', { class: 'card-title', text: '识别通道（双通道策略）' }),
             h('ul', { class: 'option-list' },
@@ -6351,7 +6738,7 @@ window.addEventListener('error', function (event) {
             })
           ]),
 
-                                                 
+
           h('section', { class: 'card' }, [
             h('h2', { class: 'card-title', text: '隐私与边界' }),
             h('ul', { class: 'ingredient-lines' }, [
@@ -6362,7 +6749,7 @@ window.addEventListener('error', function (event) {
             ])
           ]),
 
-                                                       
+
           h('section', { class: 'card' }, [
             h('h2', { class: 'card-title', text: '生成式人工智能工具使用说明（占位）' }),
             h('p', {
@@ -6412,21 +6799,141 @@ window.addEventListener('error', function (event) {
     __exports.renderHelp = renderHelp;
     },
 
+    // ── src/pages/scan.js
+    "src/pages/scan.js": function (__exports, __require) {
+
+
+
+
+
+
+
+
+
+
+
+      /* import ../ui/dom.js */ const { h, button, topbar, toast, fill } = __require("src/ui/dom.js");
+      /* import ../ui/icons.js */ const { icon } = __require("src/ui/icons.js");
+      /* import ../core/flow.js */ const { pickPhoto, reportFailure } = __require("src/core/flow.js");
+      /* import ../recognize/config.js */ const { CONFIG } = __require("src/recognize/config.js");
+
+
+
+
+
+
+
+
+
+      async function grab(mode, ctx, setBusy) {
+        setBusy(true, mode === 'camera' ? '正在打开相机……' : '正在打开相册……');
+        try {
+          const file = await pickPhoto(mode);
+          if (!file) {
+
+            toast('没有选照片。再点一次就能重新拍。', 2600);
+            return;
+          }
+          ctx.setState({ pendingFile: file, pendingOrigin: mode, pendingReturn: 'scan', result: null });
+          ctx.navigate('confirm');
+        } catch (error) {
+          reportFailure(error);
+        } finally {
+          setBusy(false);
+        }
+      }
+
+
+
+
+
+
+
+
+      function renderScan(view, _params, ctx) {
+        const status = h('p', { class: 'footnote', text: '拍照或选择照片，然后确认，再查看配料原文。', role: 'status' });
+        let busy = false;
+        let cameraButton;
+        let albumButton;
+        const setBusy = (value, message) => {
+          busy = value;
+          cameraButton.disabled = value;
+          albumButton.disabled = value;
+          status.textContent = message || '拍照或选择照片，然后确认，再查看配料原文。';
+        };
+        const choose = (mode) => { if (!busy) return grab(mode, ctx, setBusy); };
+        cameraButton = h('button', {
+          class: 'shutter', type: 'button', onClick: () => choose('camera'),
+          'aria-label': '拍一张食品配料表的照片'
+        }, [
+          h('span', { class: 'shutter-icon', html: icon('camera') }),
+          h('span', { text: '拍配料表' }),
+          h('span', { class: 'shutter-hint', text: '让字清楚地占满画面' })
+        ]);
+        albumButton = button({
+          label: '从相册里选一张配料表照片', iconHtml: icon('album'),
+          variant: 'secondary', block: true, onClick: () => choose('album')
+        });
+        fill(view, [
+          topbar({
+            title: '拍照读取配料表',
+            onBack: () => {
+              ctx.navigate('home', {}, { replace: true });
+            }
+          }),
+
+          h('section', { class: 'card hero' }, [
+            h('h2', { class: 'card-title', text: '对准配料表拍一张' }),
+            h('p', {
+              class: 'hero-sub',
+              text: '对准包装背面的配料表，让文字清楚地占满画面。读取后可核对配料、查看过敏提醒；需要营养提醒时，可继续核对填写营养表。'
+            }),
+            cameraButton
+          ]),
+
+          albumButton,
+          status,
+          CONFIG.localOcr.enabled
+            ? h('p', { class: 'footnote', text: '支持真实中文文字读取，照片在本机处理。识别后请对照照片核对；反光、小字或弯曲包装可能读错。' })
+            : !CONFIG.vision.endpoint && !CONFIG.huaweiOcr.endpoint
+            ? h('p', { class: 'error-box', text: '配料表读取服务尚未连接。您可以先拍照、预览和重拍；连接服务后才能读取照片上的真实文字。' })
+            : null,
+
+          h('section', { class: 'card' }, [
+            h('h3', { class: 'card-title', text: '怎么拍更清楚' }),
+            h('ul', { class: 'ingredient-lines' }, [
+              h('li', {}, [h('span', { text: '配料表一般在包装背面，靠近营养成分表。' })]),
+              h('li', {}, [h('span', { text: '字越大越清楚，可以离近一点，让配料表占满画面。' })]),
+              h('li', {}, [h('span', { text: '光线亮一点，别让影子挡住字。' })]),
+              h('li', {}, [h('span', { text: '拍糊了也没关系，识别时会让您确认，还能重拍。' })])
+            ])
+          ]),
+
+          h('p', {
+            class: 'footnote',
+            text: '拍完先确认清不清楚，再核对识别文字。营养信息不足时不判断摄入量。'
+          })
+        ]);
+      }
+
+    __exports.renderScan = renderScan;
+    },
+
     // ── src/app.js
     "src/app.js": function (__exports, __require) {
-   
-                          
-  
-                            
-                                                   
-  
-              
-                                              
-                                                       
-                                                  
-                                                   
-                                           
-   
+
+
+
+
+
+
+
+
+
+
+
+
+
 
       /* import ./core/router.js */ const { define, setNotFound, setView, init, navigate, back } = __require("src/core/router.js");
       /* import ./core/store.js */ const { loadProfile, saveProfile, loadPrefs, savePrefs, clearRecords } = __require("src/core/store.js");
@@ -6440,34 +6947,36 @@ window.addEventListener('error', function (event) {
       /* import ./pages/records.js */ const { renderRecords } = __require("src/pages/records.js");
       /* import ./pages/settings.js */ const { renderSettings, applyTextSize } = __require("src/pages/settings.js");
       /* import ./pages/help.js */ const { renderHelp } = __require("src/pages/help.js");
+      /* import ./pages/scan.js */ const { renderScan } = __require("src/pages/scan.js");
       /* import ./ui/dom.js */ const { h, button, topbar } = __require("src/ui/dom.js");
       /* import ./ui/icons.js */ const { icon } = __require("src/ui/icons.js");
 
-                                                                       
+
 
       const state = {
         profile: loadProfile(),
         prefs: loadPrefs(),
-                     
+
         pendingFile: null,
         pendingOrigin: 'camera',
-               
+        pendingReturn: 'home',
+
         progressPhoto: null,
-                                       
-        result: null
+
+        result: null,
       };
 
-   
-                                                               
-  
-                                   
-                         
-                  
-                                  
-  
-                                             
-                                        
-   
+
+
+
+
+
+
+
+
+
+
+
       function applyProfileFromUrl() {
         let preset = null;
         try {
@@ -6478,7 +6987,7 @@ window.addEventListener('error', function (event) {
         if (!preset) return;
 
         const PRESETS = {
-                               
+
           allergy: {
             completed: true,
             ageGroup: 'age70',
@@ -6487,7 +6996,7 @@ window.addEventListener('error', function (event) {
             conditions: [],
             voiceOn: true
           },
-                               
+
           plain: {
             completed: true,
             ageGroup: 'age70',
@@ -6496,7 +7005,7 @@ window.addEventListener('error', function (event) {
             conditions: ['hypertension'],
             voiceOn: true
           },
-                          
+
           none: {
             completed: true,
             ageGroup: 'age70',
@@ -6512,13 +7021,13 @@ window.addEventListener('error', function (event) {
         saveProfile(state.profile);
       }
 
-   
-                            
-  
-                                    
-                                      
-                               
-   
+
+
+
+
+
+
+
       function applyResetFromUrl() {
         let shouldReset = false;
         try {
@@ -6530,7 +7039,7 @@ window.addEventListener('error', function (event) {
         return shouldReset;
       }
 
-                                                                        
+
 
       const ctx = {
         state,
@@ -6553,7 +7062,7 @@ window.addEventListener('error', function (event) {
         return lastRoute;
       }
 
-                                                                         
+
 
       const ROUTES = {
         home: renderHome,
@@ -6563,14 +7072,15 @@ window.addEventListener('error', function (event) {
         result: renderResult,
         records: renderRecords,
         settings: renderSettings,
-        help: renderHelp
+        help: renderHelp,
+        scan: renderScan,
       };
 
       for (const [name, render] of Object.entries(ROUTES)) {
         define(name, (view, params, context) => {
           lastRoute = name;
           hideSpeakerUnless(name === 'result');
-          render(view, params, context);
+          return render(view, params, context);
         });
       }
 
@@ -6591,20 +7101,20 @@ window.addEventListener('error', function (event) {
         );
       });
 
-                                
+
       function hideSpeakerUnless(keep) {
         const bar = document.getElementById('speaker');
         if (bar && !keep) bar.hidden = true;
       }
 
-                                                                         
+
 
       function boot() {
-                                            
+
         applyResetFromUrl();
         applyProfileFromUrl();
 
-                                            
+
         applyTextSize(state.prefs.textSize);
         savePrefs({ ...state.prefs, textSize: state.prefs.textSize });
 
@@ -6616,11 +7126,11 @@ window.addEventListener('error', function (event) {
 
         registerServiceWorker();
 
-                         
+
         window.FoodLensCare = {
           state,
           ctx,
-                                                           
+
           debug: { pickPhoto, processDemoCase, speak: (text) => speech.speak(text) },
           async selfTest() {
             const [{ selfTest }, { SAMPLE_CASES }] = await Promise.all([
@@ -6636,7 +7146,7 @@ window.addEventListener('error', function (event) {
         };
       }
 
-                                                
+
       function registerServiceWorker() {
         if (!('serviceWorker' in navigator)) return;
         if (window.location.protocol === 'file:') return;

@@ -41,7 +41,7 @@ export function isConfigured() {
  * @param {{file:File|Blob, imageUrl?:string}} input
  * @returns {Promise<{label:import('../core/rules.js').ParsedLabel, channel:string, elapsedMs:number, raw:any}>}
  */
-export async function recognize({ file, imageUrl }) {
+export async function recognize({ file, imageUrl, signal }) {
   if (!isConfigured()) {
     const error = new Error('尚未配置华为云 OCR（src/recognize/config.js → huaweiOcr）。');
     error.code = 'E_NOT_CONFIGURED';
@@ -49,7 +49,8 @@ export async function recognize({ file, imageUrl }) {
   }
 
   const started = performance.now();
-  const url = imageUrl || (await uploadToObs(file));
+  const url = imageUrl || (await uploadToObs(file, signal));
+  if (signal?.aborted) throw new DOMException('读取已取消', 'AbortError');
   const api = API_TABLE[CONFIG.huaweiOcr.api] || API_TABLE['general-table'];
 
   const path = api.path.replace('{project_id}', CONFIG.huaweiOcr.projectId);
@@ -66,7 +67,8 @@ export async function recognize({ file, imageUrl }) {
   const response = await fetch(requestUrl, {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/json' },
-    body
+    body,
+    signal
   });
 
   if (!response.ok) {
@@ -188,11 +190,11 @@ function toHex(bytes) {
  * @param {File|Blob} file
  * @returns {Promise<string>} 可被 OCR 访问的图片 URL
  */
-export async function uploadToObs(file) {
+export async function uploadToObs(file, signal) {
   if (CONFIG.huaweiOcr.uploadProxy) {
     const form = new FormData();
     form.append('file', file, 'label.jpg');
-    const response = await fetch(CONFIG.huaweiOcr.uploadProxy, { method: 'POST', body: form });
+    const response = await fetch(CONFIG.huaweiOcr.uploadProxy, { method: 'POST', body: form, signal });
     if (!response.ok) {
       const error = new Error('照片上传失败，请检查网络。');
       error.code = 'E_UPLOAD';

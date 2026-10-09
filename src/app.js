@@ -24,6 +24,7 @@ import { renderResult } from './pages/result.js';
 import { renderRecords } from './pages/records.js';
 import { renderSettings, applyTextSize } from './pages/settings.js';
 import { renderHelp } from './pages/help.js';
+import { renderScan } from './pages/scan.js';
 import { h, button, topbar } from './ui/dom.js';
 import { icon } from './ui/icons.js';
 
@@ -35,10 +36,11 @@ const state = {
   /** 待处理的照片（确认页用） */
   pendingFile: null,
   pendingOrigin: 'camera',
+  pendingReturn: 'home',
   /** 进度页上下文 */
   progressPhoto: null,
   /** 最近一次识别结果 { photo, assessment } */
-  result: null
+  result: null,
 };
 
 /**
@@ -147,14 +149,15 @@ const ROUTES = {
   result: renderResult,
   records: renderRecords,
   settings: renderSettings,
-  help: renderHelp
+  help: renderHelp,
+  scan: renderScan,
 };
 
 for (const [name, render] of Object.entries(ROUTES)) {
   define(name, (view, params, context) => {
     lastRoute = name;
     hideSpeakerUnless(name === 'result');
-    render(view, params, context);
+    return render(view, params, context);
   });
 }
 

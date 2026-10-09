@@ -94,7 +94,7 @@ export function renderHome(view, _params, ctx) {
         toast('没有选照片。再点一次就能重新拍。', 2600);
         return;
       }
-      ctx.setState({ pendingFile: file, pendingOrigin: mode });
+      ctx.setState({ pendingFile: file, pendingOrigin: mode, pendingReturn: 'home', result: null });
       ctx.navigate('confirm');
     } catch (error) {
       setShutterNote('');
@@ -128,7 +128,7 @@ export function renderHome(view, _params, ctx) {
 
     h('section', { class: 'card hero' }, [
       h('h2', { class: 'card-title', text: '举起手机，对准包装背面' }),
-      h('p', { class: 'hero-sub', text: '拍一张照片就行，不用打字。我来告诉您这个能不能吃。' }),
+      h('p', { class: 'hero-sub', text: '拍下配料表，我帮您读文字、找过敏冲突。营养信息核对完整后，再查看摄入提醒。' }),
       h('button', {
         class: 'shutter',
         type: 'button',
@@ -149,13 +149,19 @@ export function renderHome(view, _params, ctx) {
       onClick: () => grab('album')
     }),
 
+    h('details', { class: 'basis' }, [
+      h('summary', { text: '拍照帮助' }),
+      h('p', { text: '对准包装背面的配料表，避开反光，让字清楚地占满画面。' }),
+      button({ label: '拍照读取配料表：查看引导', variant: 'secondary', block: true, onClick: () => ctx.navigate('scan') })
+    ]),
+
     budgetLine,
 
     h('section', { class: 'card' }, [
       h('h3', { class: 'card-title', text: '今天的记录' }),
       today.length
-        ? h('p', { text: `今天已经看过 ${today.length} 件食品，最近一件：${today[today.length - 1].productName}。` })
-        : h('p', { text: '今天还没看过东西。看完会自动记下来，方便您回头查。' }),
+        ? h('p', { text: `今天有 ${today.length} 条记录，最近一件：${today[today.length - 1].productName}。` })
+        : h('p', { text: '今天还没有记录。确认已经吃了以后，才记入今天的摄入量。' }),
       button({
         label: '看看今天的记录',
         iconHtml: icon('clipboard'),
@@ -227,7 +233,7 @@ function buildBudgetLine(totals) {
         h('span', { text: `糖 ${DAILY_LIMITS.sugar.limit} ${DAILY_LIMITS.sugar.unit}` }),
         h('span', { text: `饱和脂肪 ${DAILY_LIMITS.saturatedFat.limit} ${DAILY_LIMITS.saturatedFat.unit}` })
       ]),
-      h('p', { class: 'footnote', text: '这是 60 岁以上人群一天的建议上限，每看一件食品就自动扣减。' })
+      h('p', { class: 'footnote', text: '这是一天的参考额度；确认已经吃了以后，才按实际数量扣减。未记录的食物不在统计中。' })
     ]);
   }
 

@@ -5,21 +5,75 @@
 <title>单文件版截图台</title>
 <style>
   html, body { margin: 0; padding: 0; background: #FFFFFF; }
-  /* 固定 390×844（iPhone 14 逻辑分辨率）：应用在 iframe 内以真实手机宽度排版 */
-  iframe { display: block; width: 390px; height: 844px; border: 0; margin: 0; }
+  /* 默认 390×844（iPhone 14 逻辑分辨率）：应用在 iframe 内以真实手机宽度排版。
+     ⚠️ 宽度必须由 iframe 决定，不能靠 --window-size：无头 Chrome 的视口宽度有
+     ~490px 的下限，喂 390 会被忽略，截图就会从 490 里裁掉右边（看起来像布局溢出）。
+     高度可通过 ?h= 调大，用于出「整页」验收图（见 check-standalone.py --size）。 */
+  iframe { display: block; border: 0; margin: 0; }
 </style>
 </head>
 <body>
 <iframe id="frame" src="../FoodLensCare-standalone.html#/home"></iframe>
 <script>
-  // 通过 ?to=<hash路由> 指定页面；?profile= 预设画像
+  // 通过 ?to=<hash路由> 指定页面；?profile= 预设画像；?h= 指定 iframe 高度；
+  // ?textSize= 预设字号档（large / xlarge / huge）——适老化截图要按档出图；
+  // ?records= 预设当天记录量（none / ok / watch / over）——首页「一句话预警行」
+  //   有四个档位，靠空数据只能拍到其中一档，另外三档必须喂数据才验得到。
   // 注意是 ../：单文件躺在仓库根目录，这个页面在 _qa/ 下
   const params = new URLSearchParams(location.search);
   const to = params.get('to') || '/home';
   const preset = params.get('profile');
+  const height = Number(params.get('h')) || 844;
+  const textSize = params.get('textSize');
+  const records = params.get('records');
+
+  /* 预警行的四档。数值按 DAILY_LIMITS（盐 1500 mg / 糖 25 g / 油 20 g）反推：
+     ok    → 三样都在 20% 以内              → 绿「都还有余量」
+     watch → 糖 64%（最紧张的那一项）        → 黄「快吃到上限了」
+     over  → 糖正好 100%                     → 橙「已经到上限了」+ 超标标签 */
+  const RECORD_PRESETS = {
+    none: null,
+    ok: { sodium: 200, sugar: 3, saturatedFat: 2 },
+    watch: { sodium: 400, sugar: 16, saturatedFat: 5 },
+    over: { sodium: 400, sugar: 25, saturatedFat: 5 }
+  };
+  if (records && records in RECORD_PRESETS) {
+    try {
+      const amounts = RECORD_PRESETS[records];
+      const list = amounts
+        ? [{
+            id: 'shot-seed',
+            at: new Date().toISOString(),
+            productName: '（截图预设，非真实记录）',
+            origin: 'photo',
+            /* 必须带这一项：todayTotals() 只统计「已确认食用」的记录
+               （查看结果本身不再计入摄入）。漏了它，页面会静默退回
+               「今天还没看过东西」，另外三档就永远拍不到、也验不到。 */
+            consumptionConfirmed: true,
+            nutrients: { ...amounts, fat: 0 }
+          }]
+        : [];
+      localStorage.setItem('flc.records.v1', JSON.stringify(list));
+    } catch (error) {
+      /* 隐私模式下不可写，忽略即可：截图会退回「今天还没看过东西」 */
+    }
+  }
+
+  /* 字号是存在 localStorage 里的偏好，只能这样预设。写在本页（与 iframe 同源）
+     再让 iframe 自己启动去读：这样选项高亮、底栏、所有字号都是真实状态，
+     而不是启动后再改 data-text-size 去凑。 */
+  if (textSize) {
+    try {
+      localStorage.setItem('flc.prefs.v1', JSON.stringify({ textSize }));
+    } catch (error) {
+      /* 隐私模式下不可写，忽略即可：截图会退回默认档 */
+    }
+  }
   const qs = '?v=' + Date.now() + (preset ? '&profile=' + preset : '');
-  document.getElementById('frame').src =
-    '../FoodLensCare-standalone.html' + qs + '#' + to;
+  const frame = document.getElementById('frame');
+  frame.style.width = '390px';
+  frame.style.height = height + 'px';
+  frame.src = '../FoodLensCare-standalone.html' + qs + '#' + to;
 </script>
 </body>
 </html>

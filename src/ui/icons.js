@@ -43,6 +43,7 @@ export const ICONS = {
   shield: wrap('<path d="M12 3.2 19 6v6.2c0 4.2-3 7.2-7 8.6-4-1.4-7-4.4-7-8.6V6z"/><path d="m8.8 12.2 2.4 2.4 4-4.6"/>'),
   home: wrap('<path d="M4 10.5 12 4l8 6.5V19a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19z"/><path d="M9.5 20.5v-6h5v6"/>'),
   tag: wrap('<path d="M4 4.8A1.8 1.8 0 0 1 5.8 3h5.4a2 2 0 0 1 1.4.6l7 7a2 2 0 0 1 0 2.8l-5.2 5.2a2 2 0 0 1-2.8 0l-7-7A2 2 0 0 1 4 10.2z"/><circle cx="8.4" cy="8.4" r="1.4"/>'),
+  chart: wrap('<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5A8.5 8.5 0 0 1 20.5 12H12z"/>'),
   plus: wrap('<path d="M12 5v14M5 12h14"/>'),
   textSize: wrap('<path d="M3 19 8 5l5 14M5 14h6M15 19l3-9 3 9M16.2 16h3.6"/>')
 };

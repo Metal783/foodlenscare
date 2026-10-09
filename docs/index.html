@@ -11,7 +11,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=3" />
-<meta name="theme-color" content="#0F4C81" />
+<meta name="theme-color" content="#0B4A32" />
 <meta name="description" content="食护家 FoodLensCare —— 面向老年家庭的食品标签智能解读工具。拍一张照片，用一句听得懂的话告诉您这个能不能吃。" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
@@ -21,10 +21,10 @@
   食护家 FoodLensCare · 食品标签初版 · 单文件版
   2026 年第十四届全国大学生数字媒体科技作品及创意竞赛 · 自主选题类 · 移动与网络应用开发
 
-  这是「双击就能打开」的独立版本：36 个源模块、约 244 KB 业务代码
+  这是「双击就能打开」的独立版本：36 个源模块、约 257 KB 业务代码
   全部内联在这一个文件里，不需要服务器、不需要联网、不需要安装任何环境。
 
-  生成时间：2026-10-09 11:32:10
+  生成时间：2026-10-09 11:41:26
   生成方式：node tools/bundle-standalone.mjs
   对应源码：index.html + src/（多文件开发版，二者页面结构与样式完全一致）
 
@@ -54,28 +54,48 @@
   /* ---- 文字缩放系数：由 data-text-size 驱动，只作用于文字 ---- */
   --fs-scale: 1.25;
 
-  /* ---- 品牌与语义色（均为浅底深字，正文对比度 ≥ 7:1） ---- */
-  --c-brand: #0F4C81;
-  --c-brand-ink: #0A3560;
-  --c-brand-soft: #E8F1FA;
-  --c-ink: #16202B;
-  --c-ink-2: #3A4653;
-  --c-ink-3: #5A6673;
-  --c-line: #C9D3DE;
-  --c-line-soft: #E3E9F0;
-  --c-surface: #FFFFFF;
-  --c-surface-2: #F4F7FA;
-  --c-surface-3: #EAF0F6;
+  /* ---- 装饰缩放倍率：相对「标准大字」档 = 1 / 1.2 / 1.44 ----
+     给「方框 + 里面的字或图标」这种必须**整体同步放大**的装饰用。
+     反面教材：方框写死 36px、里面的字跟着 --fs-scale 放大，
+     到「更大 / 最大」档字就顶出方框、越过圆角，看起来像「字偏离了」。
+     用法：width: calc(36px * var(--zoom));  —— 括号里写标准档的原始 px，
+     这样标准档的观感一个像素都不会变。 */
+  --zoom: calc(var(--fs-scale) / 1.25);
 
-  /* ---- 风险五级：color + label + icon + speech 四重编码 ---- */
-  --c-risk-red: #B3261E;      /* 明确命中过敏成分 */
+  /* ---- 品牌与语义色（均为浅底深字，正文对比度 ≥ 7:1） ----
+     2026-10-09 主色定案为绿。完整色板与实测见 色板/色板定义-绿色主色.md。
+
+     品牌绿是深青绿，只用于「结构 / 交互」：主按钮底、顶栏标题、链接、底栏选中态。
+     它**绝不能**用于表达「安全 / 可以吃」这类等级判定，也绝不能进结果页的结论区
+     —— 那里的绿色属于下面的 --c-risk-green。两者靠三样东西分开：
+       CIE L*   27.29 vs 39.72
+       色相     157°（偏青） vs 125°（偏黄）
+       形态     深底白字 vs 浅底深字
+     */
+  --c-brand: #0B4A32;
+  --c-brand-ink: #073724;
+  --c-brand-soft: #D3E8DC;
+  --c-ink: #191D1A;
+  --c-ink-2: #414941;
+  --c-ink-3: #5C6660;
+  --c-line: #C0C9BE;
+  --c-line-soft: #E4EAE6;
+  --c-surface: #FFFFFF;
+  --c-surface-2: #F7FAF5;
+  --c-surface-3: #F1F4EF;
+
+  /* ---- 风险五级：color + label + icon + speech 四重编码 ----
+     ⚠️ 红色全站只有一个含义：过敏命中 → 别吃。
+        任何其它警示（糖超标、盐超标、识别失败）都不许用红，改用橙色。
+        进度条「吃满」也用橙色，不用红色。 */
+  --c-risk-red: #B3261E;      /* 明确命中过敏成分 —— 全站唯一用红的地方 */
   --c-risk-red-soft: #FBE9E7;
-  --c-risk-orange: #9A4A00;   /* 糖/钠显著超出当日剩余额度 */
+  --c-risk-orange: #9A4A00;   /* 糖/钠显著超出当日剩余额度（也用于进度条吃满） */
   --c-risk-orange-soft: #FDF0E2;
-  --c-risk-yellow: #7A5A00;   /* 一般性营养结构提示 */
+  --c-risk-yellow: #7A5A00;   /* 一般性营养结构提示（也用于进度条将满） */
   --c-risk-yellow-soft: #FCF4DC;
-  --c-risk-green: #1B5E3A;    /* 未发现与画像明显冲突 */
-  --c-risk-green-soft: #E6F2EA;
+  --c-risk-green: #256B2B;    /* 未发现与画像明显冲突 —— 只属于结果页结论区 */
+  --c-risk-green-soft: #EBF5E6;
   --c-risk-gray: #4A5560;     /* 信息不足，请补拍 */
   --c-risk-gray-soft: #EDF0F3;
 
@@ -167,6 +187,16 @@ body {
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
+/* 路由切换后会把焦点移到页面标题（供读屏播报，见 core/router.js 的 render()）。
+   那是程序性聚焦：标题被加上 tabindex="-1"，键盘 Tab 永远到不了它，
+   所以它既不需要、也不该有焦环——浏览器默认会画一个黑框，还会被参赛截图带进去。
+
+   ⚠️ 不要在这里补 :focus-visible 的黄环：实测（无头 Chrome 截图）页面首次加载时
+   程序性聚焦**同样匹配 :focus-visible**，补了黄环照样会印进截图。
+   压掉焦环不影响读屏播报——焦点本身还在。 */
+.view h1:focus,
+.view .question:focus { outline: none; }
+
 /* 图标随字号缩放，保证与文字同步放大 */
 .icon {
   width: 1.25em;
@@ -190,14 +220,24 @@ body {
   color: var(--c-brand-ink);
   font-weight: 700;
 }
+/* 方框与里面的字必须用**同一个倍率**整体缩放。
+   原来是「方框写死 36px + 字跟着 --fs-scale 放大」：到「更大 / 最大」档，
+   字顶出方框、越过圆角，看起来就是「食」字偏离了。
+   --zoom = 相对「标准大字」档的倍率（1 / 1.2 / 1.44，见 tokens.css），
+   所以括号里的 px 就是标准档的原始尺寸——标准档的观感一个像素都没变。 */
 .topbar .brand-mark {
-  width: 36px; height: 36px; flex: 0 0 auto;
+  width: calc(36px * var(--zoom));
+  height: calc(36px * var(--zoom));
+  flex: 0 0 auto;
   display: grid; place-items: center;
-  border-radius: 10px;
+  border-radius: calc(10px * var(--zoom));
   background: var(--c-brand);
   color: #fff;
   font-weight: 700;
-  font-size: calc(1.1 * var(--fs-scale) * 1rem);
+  /* line-height:1 配 place-items:center：单字在方框里按几何中心居中，
+     不再受字体 ascent/descent 不对称的影响 */
+  line-height: 1;
+  font-size: calc(22px * var(--zoom));
 }
 
 /* ---------- 卡片 ---------- */
@@ -295,8 +335,9 @@ body {
 }
 .shutter {
   width: 100%;
-  /* 用视口高度限制，避免在大字号下把按钮撑出屏幕 */
-  min-height: clamp(150px, 26vh, 230px);
+  /* 2026-10-09：取景框并进这张卡之后，视觉重心落在那块框上，
+     主按钮不再需要原来那么高。390×844 下 18vh ≈ 152px，仍远高于 96px 下限。 */
+  min-height: clamp(124px, 18vh, 176px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -304,7 +345,8 @@ body {
   gap: 10px;
   border: none;
   border-radius: var(--radius-l);
-  background: linear-gradient(160deg, #12639F 0%, #0F4C81 60%, #0A3560 100%);
+  /* 2026-10-09：原来是三层蓝渐变，两处都不合规——渐变在禁止项里，且品牌色不该硬编码 */
+  background: var(--c-brand);
   color: #fff;
   font-family: inherit;
   font-size: calc(1.45 * var(--fs-scale) * 1rem);
@@ -313,8 +355,143 @@ body {
   cursor: pointer;
 }
 .shutter .shutter-icon { font-size: 3.2em; line-height: 1; }
+.shutter .shutter-label { line-height: 1.25; }
 .shutter .shutter-hint { font-size: calc(0.85 * var(--fs-scale) * 1rem); font-weight: 500; opacity: 0.95; }
 .shutter:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* ---------- 首页取景框（对齐 stitch出稿/01-首页-v3.html） ----------
+   四角标与中间的相机圆标都是纯装饰，「框」本身不可点——真正可点的只有下面的
+   大按钮。别把它做成 button，否则会出现两个「主动作」，也违背自检项「一次一个动作」。
+   尺寸统一写成 calc(<标准档原始 px> * var(--zoom))：圆标里有图标，
+   只写死 px 会让图标在大字号档顶出圆框（同一个坑见 tokens.css 里 --zoom 的注释）。 */
+.viewfinder {
+  position: relative;
+  height: calc(148px * var(--zoom));
+  border-radius: var(--radius-l);
+  background: var(--c-surface-3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.vf-corner {
+  position: absolute;
+  width: calc(22px * var(--zoom));
+  height: calc(22px * var(--zoom));
+  border: 3px solid var(--c-brand);
+}
+.vf-corner.tl { top: 10px; left: 10px; border-right: 0; border-bottom: 0; border-top-left-radius: var(--radius-s); }
+.vf-corner.tr { top: 10px; right: 10px; border-left: 0; border-bottom: 0; border-top-right-radius: var(--radius-s); }
+.vf-corner.bl { bottom: 10px; left: 10px; border-right: 0; border-top: 0; border-bottom-left-radius: var(--radius-s); }
+.vf-corner.br { bottom: 10px; right: 10px; border-left: 0; border-top: 0; border-bottom-right-radius: var(--radius-s); }
+.vf-icon {
+  width: calc(64px * var(--zoom));
+  height: calc(64px * var(--zoom));
+  border-radius: 50%;
+  background: var(--c-brand-soft);
+  color: var(--c-brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* .icon 是 1.25em，所以 29 × 1.25 ≈ 36px */
+  font-size: calc(29px * var(--zoom));
+}
+.vf-text {
+  font-size: calc(1 * var(--fs-scale) * 1rem);
+  font-weight: 500;
+  color: var(--c-ink-2);
+}
+
+/* ---------- 卡片标题行（v3）：图标 + 标题 + 右侧链接 ---------- */
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.card-head .head-icon {
+  flex: 0 0 auto;
+  color: var(--c-brand);
+  font-size: calc(22px * var(--zoom));
+}
+.card-head .card-title { flex: 1 1 auto; min-width: 0; }
+.card-link {
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  /* 链接也是可点目标，别让它比 60px 小 */
+  min-height: var(--tap-min);
+  font-size: calc(0.9 * var(--fs-scale) * 1rem);
+  font-weight: 700;
+  color: var(--c-brand);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.card-link .icon-link {
+  width: 1.1em;
+  height: 1.1em;
+  display: inline-flex;
+}
+.card-link .icon-link .icon { vertical-align: middle; }
+.card-link:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-s); }
+
+/* ---------- 一句话预警行（v3） ----------
+   老人不用去读三条进度条，一眼就知道「今天还行不行」。
+   四个档位都用「颜色 + 文字 + 图标 + 标签」四重编码，颜色不是唯一载体。
+
+   配色只用风险五级里的绿 / 黄 / 橙 + 一个中性档，**没有红**：
+   红色在全站只有一个含义——过敏命中「别吃」（见 色板/色板定义-绿色主色.md 的铁律）。
+   橙色只表「要当心 / 超标」，所以「正常」用的是「可以吃」那一级的绿，不是品牌绿。 */
+.alert-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: var(--space-2);
+  border: 2px solid transparent;
+  border-radius: var(--radius-m);
+}
+.alert-row .alert-icon { flex: 0 0 auto; font-size: calc(22px * var(--zoom)); }
+.alert-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.alert-title { font-size: calc(1 * var(--fs-scale) * 1rem); font-weight: 700; }
+.alert-sub { font-size: calc(0.85 * var(--fs-scale) * 1rem); font-weight: 500; }
+.alert-tag {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: calc(0.85 * var(--fs-scale) * 1rem);
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+}
+
+/* 还没看过东西：中性档，不占用任何风险色 */
+.alert-row[data-tone='quiet'] { background: var(--c-surface-3); border-color: var(--c-line-soft); }
+.alert-row[data-tone='quiet'] .alert-icon { color: var(--c-brand); }
+.alert-row[data-tone='quiet'] .alert-title { color: var(--c-ink); }
+.alert-row[data-tone='quiet'] .alert-sub { color: var(--c-ink-2); }
+
+/* 绿 · 可以吃（三样都还有余量） */
+.alert-row[data-tone='ok'] { background: var(--c-risk-green-soft); border-color: var(--c-risk-green); }
+.alert-row[data-tone='ok'] .alert-icon,
+.alert-row[data-tone='ok'] .alert-title,
+.alert-row[data-tone='ok'] .alert-sub { color: var(--c-risk-green); }
+.alert-row[data-tone='ok'] .alert-tag { background: var(--c-risk-green); }
+
+/* 黄 · 留意一下（快吃到上限） */
+.alert-row[data-tone='watch'] { background: var(--c-risk-yellow-soft); border-color: var(--c-risk-yellow); }
+.alert-row[data-tone='watch'] .alert-icon,
+.alert-row[data-tone='watch'] .alert-title,
+.alert-row[data-tone='watch'] .alert-sub { color: var(--c-risk-yellow); }
+.alert-row[data-tone='watch'] .alert-tag { background: var(--c-risk-yellow); }
+
+/* 橙 · 要当心（到上限了） */
+.alert-row[data-tone='over'] { background: var(--c-risk-orange-soft); border-color: var(--c-risk-orange); }
+.alert-row[data-tone='over'] .alert-icon,
+.alert-row[data-tone='over'] .alert-title,
+.alert-row[data-tone='over'] .alert-sub { color: var(--c-risk-orange); }
+.alert-row[data-tone='over'] .alert-tag { background: var(--c-risk-orange); }
 
 /* ---------- 逐屏单问题（画像设置） ---------- */
 .step-dots {
@@ -366,15 +543,29 @@ body {
   border-radius: var(--radius-m);
   cursor: pointer;
 }
+/* 勾选框同理：方框与里面的对号一起按 --zoom 缩放。
+   原来是「方框写死 34px + font-size:1.2em（跟着选项文字放大）」，
+   最大字号下对号撑出框外、看起来偏在一边。括号里的 px 是标准档原尺寸。 */
 .option .option-mark {
   flex: 0 0 auto;
-  width: 34px; height: 34px;
+  position: relative;
+  width: calc(34px * var(--zoom));
+  height: calc(34px * var(--zoom));
   display: grid; place-items: center;
   border: 2px solid var(--c-line);
-  border-radius: 8px;
-  font-size: 1.2em;
+  border-radius: calc(8px * var(--zoom));
+  font-size: calc(26.4px * var(--zoom));   /* 里面的对号 svg = 1.25em = 33px */
   color: transparent;
   background: var(--c-surface-3);
+}
+/* 对号比勾选框的**内框**还大（33px 的 svg 装进 34−2×2=30px），而 grid / flex 的
+   center 在「装不下」时会退化成从左边开始排（实测因此右偏 1.5px，最大字号下还会
+   蹭出右边框）。改成绝对定位 + translate 居中：装得下装不下，几何中心都重合。 */
+.option .option-mark .icon {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 .option[aria-pressed='true'] {
   border-color: var(--c-brand);
@@ -393,6 +584,53 @@ body {
   font-weight: 500;
   color: var(--c-ink-3);
 }
+
+/* 字号档位的「活示例」：它自己不特殊，就是一个正文大小的句子，
+   跟着 --fs-scale 一起变。老人靠它判断档位差别，比「约 XX 磅」直观。 */
+.preview-sentence {
+  margin: 0;
+  padding: var(--space-2);
+  border: 2px solid var(--c-line-soft);
+  border-radius: var(--radius-m);
+  background: var(--c-surface-3);
+  color: var(--c-ink);
+  font-size: calc(1 * var(--fs-scale) * 1rem);
+  font-weight: 600;
+}
+
+/* 「我的情况」四行：行本身即入口，值仍然并排显示（原来是只读表格，看得到改不了）。
+   行高沿用 --tap-min（60px），不用 height，最大字号下允许自然长高。 */
+.setting-rows { list-style: none; margin: 0; padding: 0; }
+.setting-rows > li + li { border-top: 2px solid var(--c-line-soft); }
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: 10px 4px;
+  text-align: left;
+  font-family: inherit;
+  font-size: calc(1 * var(--fs-scale) * 1rem);
+  color: var(--c-ink);
+  background: none;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.setting-row .setting-key {
+  flex: 0 0 auto;
+  min-width: 4.6em;          /* 四行的值从同一竖线起排，像表格一样好扫读 */
+  color: var(--c-ink-3);
+  font-weight: 600;
+  font-size: calc(0.95 * var(--fs-scale) * 1rem);
+}
+.setting-row .setting-value { flex: 1 1 auto; min-width: 0; font-weight: 700; }
+.setting-row .setting-go { flex: 0 0 auto; display: flex; color: var(--c-brand-ink); }
+.setting-row .setting-go .icon { width: 1.1em; height: 1.1em; }
+.setting-row:active { background: var(--c-surface-3); }
+.setting-row:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .grid-2 {
   display: grid;
@@ -466,6 +704,12 @@ body {
 .risk-banner[data-level='green'] .risk-level-label  { background: var(--c-risk-green); }
 .risk-banner[data-level='gray'] .risk-level-label   { background: var(--c-risk-gray); }
 
+/* ---------- 额度条 ---------- */
+.meters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
 .meter {
   display: flex;
   flex-direction: column;
@@ -473,12 +717,25 @@ body {
 }
 .meter-head {
   display: flex; justify-content: space-between; align-items: baseline; gap: 8px 12px;
-  font-size: calc(0.95 * var(--fs-scale) * 1rem); font-weight: 600;
+  font-size: calc(1 * var(--fs-scale) * 1rem);
   flex-wrap: wrap;
 }
 /* 两段文字各自不折断，窄屏上整体换行即可，避免「已吃 0 / mg」这种割裂 */
 .meter-head > span { white-space: nowrap; }
-.meter-value { font-variant-numeric: tabular-nums; }
+.meter-name { font-weight: 600; color: var(--c-ink); }
+.meter-value { font-variant-numeric: tabular-nums; font-weight: 700; }
+/* 「还剩多少」的配色跟着紧张度走（v3）。没有 data-tone 的调用保持默认色 */
+.meter-value[data-tone='ok'] { color: var(--c-brand); }
+.meter-value[data-tone='watch'] { color: var(--c-risk-yellow); }
+.meter-value[data-tone='over'] { color: var(--c-risk-orange); }
+/* 单指标结论：这一份自己算什么档次（规则层已算好 grade，这里只做短措辞）。
+   与右上角「还剩多少」（累计口径）不是一回事，所以每句都以「这一份」开头。
+   只有出问题才上风险色，正常状态用中性色，避免整张卡花掉。 */
+.meter-verdict { margin: 0; font-size: calc(0.9 * var(--fs-scale) * 1rem); font-weight: 700; color: var(--c-ink-2); }
+.meter-verdict[data-tone='watch'] { color: var(--c-risk-yellow); }
+.meter-verdict[data-tone='over'] { color: var(--c-risk-orange); }
+/* 「今天已吃 X，上限 Y」——比进度条上的读数更能解释「还剩多少」是怎么来的 */
+.meter-sub { margin: 0; font-size: calc(0.85 * var(--fs-scale) * 1rem); color: var(--c-ink-2); }
 .meter-track {
   height: 18px;
   border-radius: 999px;
@@ -486,9 +743,13 @@ body {
   border: 2px solid var(--c-line-soft);
   overflow: hidden;
 }
+/* 进度条只在「出问题」时才上风险色：正常用品牌绿，将满用黄，吃满用橙。
+   红色不参与 —— 它属于过敏「别吃」那一级。
+   2026-10-09：原来 [data-tone='high'] 配的是 --c-risk-red，违反这条铁律，已改掉；
+   首页 / 结果页 / 记录页现在统一发 ok / watch / over 三个档。 */
 .meter-fill { height: 100%; background: var(--c-brand); }
+.meter-fill[data-tone='watch'] { background: var(--c-risk-yellow); }
 .meter-fill[data-tone='over'] { background: var(--c-risk-orange); }
-.meter-fill[data-tone='high'] { background: var(--c-risk-red); }
 
 /* 依据展开：每条结论都可追溯 */
 details.basis {
@@ -527,7 +788,7 @@ details.basis[open] > summary::after { content: '▴'; }
   font-weight: 700;
   margin-right: 6px;
 }
-.basis-tag[data-kind='rule']     { background: #DDEBF7; color: #0A3560; }
+.basis-tag[data-kind='rule']     { background: var(--c-brand-soft); color: var(--c-brand-ink); }
 .basis-tag[data-kind='model']    { background: #EFE4F7; color: #4A2070; }
 .basis-tag[data-kind='conflict'] { background: #FBE0DC; color: #7A1B12; }
 .basis-src { color: var(--c-ink-3); font-size: calc(0.85 * var(--fs-scale) * 1rem); display: block; }
@@ -626,13 +887,64 @@ details.basis[open] > summary::after { content: '▴'; }
   display: flex;
   justify-content: center;
   padding: var(--space-2) var(--space-2) calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
-  background: linear-gradient(to top, var(--c-surface-2) 72%, rgba(244, 247, 250, 0));
+  background: linear-gradient(to top, var(--c-surface-2) 72%, rgba(247, 250, 245, 0));
   pointer-events: none;
   z-index: 30;
 }
 /* 必须显式处理：display:flex 会盖掉 hidden 属性的默认 display:none */
 .speaker-bar[hidden] { display: none; }
 .speaker-bar > * { pointer-events: auto; width: 100%; }
+
+/* ---------- 底部导航（T2）：只做页面切换，不含任何主动作 ---------- */
+/* 「每屏一个主动作」指的是内容区，导航栏不计入。形态：常驻贴底通栏（不要悬浮
+   胶囊、不要滚动到底才出现）。显示/隐藏由 app.js 的 syncTabbar() 在路由层控制：
+   仅 首页/记录/设置 三页，流程页（确认/进度/结果/画像/说明）一律隐藏。
+   ⚠️ 隐式依赖：.speaker-bar 与 .tabbar 同为 bottom:0 的 fixed 元素，同时显示会
+   重叠。目前不冲突只是因为「语音条只在结果页出现」且「结果页不显示底栏」——
+   以后要给结果页加底栏，必须先处理这条。
+   定位沿用 .speaker-bar 的 left:50% + translateX(-50%) + width:min(480px,100%)：
+   PC 上自动跟着 .app-shell 的 480px 居中，不需要媒体查询。
+   注意：不要给它的祖先元素加 transform，否则 iOS Safari 上 fixed 定位会飘。 */
+.tabbar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: min(480px, 100%);
+  z-index: 15;
+  display: flex;
+  background: var(--c-surface);
+  border-top: 2px solid var(--c-line);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+/* 同 .speaker-bar：display:flex 会盖掉 hidden 属性的默认 display:none */
+.tabbar[hidden] { display: none; }
+
+.tabbar .tab {
+  flex: 1 1 0;
+  min-height: 68px;             /* 不用 height：最大字号下允许自然长高 */
+  padding: 8px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  text-decoration: none;
+  color: var(--c-ink-2);
+  font-size: calc(1 * var(--fs-scale) * 1rem);   /* 与正文同档，20px 起 */
+}
+/* 图标固定 24px，不随字号缩放：若用 em，1.8 倍字号时会变 36px，把 68px 的项撑破。
+   （需要「方框与里面的字一起放大」的装饰不用 em，用 tokens.css 的 --zoom。） */
+.tabbar .tab .icon {
+  width: 24px;
+  height: 24px;
+}
+/* 选中态 = 颜色 + 加粗，不只靠颜色（无障碍：颜色不得是唯一信息载体） */
+.tabbar .tab[aria-current='page'] {
+  color: var(--c-brand-ink);
+  font-weight: 700;
+}
+.tabbar .tab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 /* ---------- 轻提示（非弹窗、不打断、不诱导） ---------- */
 .toast {
@@ -643,7 +955,7 @@ details.basis[open] > summary::after { content: '▴'; }
   max-width: min(480px, 92vw);
   padding: 10px 16px;
   border-radius: 999px;
-  background: #16202B;
+  background: var(--c-ink);
   color: #fff;
   font-size: calc(0.95 * var(--fs-scale) * 1rem);
   font-weight: 600;
@@ -700,6 +1012,12 @@ textarea.review-input { resize: vertical; }
     </button>
   </div>
 
+  <!-- 底部导航（T2）：常驻贴底通栏，只做页面切换、不放任何主动作（「每屏一个主动作」指内容区）。
+       显示范围由 src/app.js 的 syncTabbar() 控制：仅 首页/记录/设置 三页，
+       流程页（确认/进度/结果/画像/说明）一律隐藏。此节点是占位壳，
+       链接与图标由 src/ui/dom.js 的 tabbar() 在启动时填充（图标统一来自 ui/icons.js）。 -->
+  <nav id="tabbar" class="tabbar" aria-label="主要页面" hidden></nav>
+
   <div id="toast" class="toast" role="status" aria-live="assertive" hidden></div>
   <div id="aria-live" class="sr-only" aria-live="assertive"></div>
 
@@ -717,7 +1035,7 @@ textarea.review-input { resize: vertical; }
 
 <script>
 /* 启动守卫：万一某个模块出错，不能让老人对着白屏——先给一句人话，再给一行诊断信息。 */
-window.__FLC_BOOT__ = { ok: false, at: "2026-10-09 11:32:10" };
+window.__FLC_BOOT__ = { ok: false, at: "2026-10-09 11:41:26" };
 window.addEventListener('error', function (event) {
   if (window.__FLC_BOOT__.ok) return;
   var view = document.getElementById('view');
@@ -3406,7 +3724,9 @@ window.addEventListener('error', function (event) {
           try {
             const result = await localOcr.recognize({ file, signal, onProgress });
             checkAbort(signal);
-            return finalize(result, quality, paddleFailure ? `中文区域识别未能运行，已改用基础文字识别：${paddleFailure}` : failedService ? '云端服务暂时不可用，本次已改用本机文字识别。' : null, started);
+            return finalize(result, quality, window.location.protocol === 'file:'
+              ? '当前通过双击 HTML 打开，使用基础文字识别。新版中文识别请双击同目录的“启动新版OCR.cmd”，打开后重新选择照片。'
+              : paddleFailure ? `中文区域识别未能运行，已改用基础文字识别：${paddleFailure}` : failedService ? '云端服务暂时不可用，本次已改用本机文字识别。' : null, started);
           } catch (error) {
             checkAbort(signal);
             return unreadOutcome(quality, started, error.message || '照片文字读取失败，请重新拍摄。');
@@ -3877,6 +4197,12 @@ window.addEventListener('error', function (event) {
           tone: 'unknown'
         }
       };
+
+
+
+
+
+
 
 
 
@@ -4703,6 +5029,7 @@ window.addEventListener('error', function (event) {
         shield: wrap('<path d="M12 3.2 19 6v6.2c0 4.2-3 7.2-7 8.6-4-1.4-7-4.4-7-8.6V6z"/><path d="m8.8 12.2 2.4 2.4 4-4.6"/>'),
         home: wrap('<path d="M4 10.5 12 4l8 6.5V19a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19z"/><path d="M9.5 20.5v-6h5v6"/>'),
         tag: wrap('<path d="M4 4.8A1.8 1.8 0 0 1 5.8 3h5.4a2 2 0 0 1 1.4.6l7 7a2 2 0 0 1 0 2.8l-5.2 5.2a2 2 0 0 1-2.8 0l-7-7A2 2 0 0 1 4 10.2z"/><circle cx="8.4" cy="8.4" r="1.4"/>'),
+        chart: wrap('<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5A8.5 8.5 0 0 1 20.5 12H12z"/>'),
         plus: wrap('<path d="M12 5v14M5 12h14"/>'),
         textSize: wrap('<path d="M3 19 8 5l5 14M5 14h6M15 19l3-9 3 9M16.2 16h3.6"/>')
       };
@@ -4870,6 +5197,34 @@ window.addEventListener('error', function (event) {
       }
 
 
+
+
+
+
+
+
+
+
+
+
+      const TABBAR_TABS = [
+        { route: 'home', label: '首页', iconName: 'home' },
+        { route: 'records', label: '记录', iconName: 'clipboard' },
+        { route: 'settings', label: '设置', iconName: 'sliders' }
+      ];
+
+      function tabbar() {
+        return h('nav', { id: 'tabbar', class: 'tabbar', 'aria-label': '主要页面', hidden: true },
+          TABBAR_TABS.map(({ route, label, iconName }) =>
+            h('a', { class: 'tab', href: `#/${route}` }, [
+              h('span', { class: 'icon', html: icon(iconName), 'aria-hidden': 'true' }),
+              h('span', { text: label })
+            ])
+          )
+        );
+      }
+
+
       function stepDots(total, current) {
         return h('ol', { class: 'step-dots', 'aria-label': `第 ${current} 步，共 ${total} 步` },
           Array.from({ length: total }, (_, i) =>
@@ -4911,6 +5266,7 @@ window.addEventListener('error', function (event) {
     __exports.$$ = $$;
     __exports.button = button;
     __exports.topbar = topbar;
+    __exports.tabbar = tabbar;
     __exports.stepDots = stepDots;
     __exports.toast = toast;
     __exports.announce = announce;
@@ -5199,6 +5555,11 @@ window.addEventListener('error', function (event) {
 
 
 
+
+
+
+
+
       /* import ../ui/dom.js */ const { h, button, topbar, stepDots, toast, announce, fill } = __require("src/ui/dom.js");
       /* import ../ui/icons.js */ const { icon } = __require("src/ui/icons.js");
       /* import ../data/nutrition.js */ const { AGE_GROUPS, CONCERNS, CONDITIONS } = __require("src/data/nutrition.js");
@@ -5262,15 +5623,27 @@ window.addEventListener('error', function (event) {
 
 
 
-      function renderOnboarding(view, _params, ctx) {
-        let stepIndex = 0;
+      function renderOnboarding(view, params, ctx) {
+        const requested = STEPS.findIndex((step) => step.key === params?.step);
+
+        const singleMode = requested >= 0;
+        let stepIndex = singleMode ? requested : 0;
+        const returnTo = singleMode ? 'settings' : 'home';
+
+
+
+
+
+
+
+
 
         const draft = {
-          ageGroup: null,
-          concerns: [],
-          allergens: [],
-          conditions: [],
-          voiceOn: true
+          ageGroup: ctx.state.profile.ageGroup ?? null,
+          concerns: [...(ctx.state.profile.concerns || [])],
+          allergens: [...(ctx.state.profile.allergens || [])],
+          conditions: [...(ctx.state.profile.conditions || [])],
+          voiceOn: ctx.state.profile.voiceOn !== false
         };
 
         function commit() {
@@ -5288,11 +5661,12 @@ window.addEventListener('error', function (event) {
           if (profile.voiceOn && !speech.isSupported()) {
             toast('这台设备的浏览器不支持语音朗读，文字会加大显示。', 3600);
           }
-          ctx.navigate('home', {}, { replace: true });
+          ctx.navigate(returnTo, {}, { replace: true });
         }
 
         function goNext() {
-          if (stepIndex >= TOTAL_STEPS - 1) {
+
+          if (singleMode || stepIndex >= TOTAL_STEPS - 1) {
             commit();
             return;
           }
@@ -5301,6 +5675,10 @@ window.addEventListener('error', function (event) {
         }
 
         function goBack() {
+          if (singleMode) {
+            leave();
+            return;
+          }
           if (stepIndex === 0) {
             ctx.navigate('home', {}, { replace: true });
             return;
@@ -5309,13 +5687,19 @@ window.addEventListener('error', function (event) {
           draw();
         }
 
+
+        function leave() {
+          ctx.navigate(returnTo, {}, { replace: true });
+        }
+
         function toggle(step, optionId) {
           const stepKey = step.key;
           if (step.single) {
             if (stepKey === 'voiceOn') draft.voiceOn = optionId === 'on';
             else draft[stepKey] = optionId;
             if (stepKey === 'voiceOn' && optionId === 'on') {
-              speech.unlock();                           
+
+              speech.unlock();
               speech.speak('好的，我会念给您听。');
             }
             draw();
@@ -5365,13 +5749,18 @@ window.addEventListener('error', function (event) {
             ]);
           });
 
-          const actionLabel = last ? '好了，开始用' : '下一步';
+          const actionLabel = singleMode ? '改好了' : last ? '好了，开始用' : '下一步';
           fill(view, [
             topbar({
-              title: stepIndex === 0 ? '先认识一下您' : `还有 ${TOTAL_STEPS - stepIndex - 1} 个问题`,
+              title: singleMode
+                ? '改一项'
+                : stepIndex === 0
+                  ? '先认识一下您'
+                  : `还有 ${TOTAL_STEPS - stepIndex - 1} 个问题`,
               onBack: goBack
             }),
-            stepDots(TOTAL_STEPS, stepIndex + 1),
+
+            singleMode ? null : stepDots(TOTAL_STEPS, stepIndex + 1),
             h('section', { class: 'card' }, [
               h('h2', { class: 'question', text: step.question }),
               h('p', { class: 'question-hint', text: step.hint }),
@@ -5379,27 +5768,29 @@ window.addEventListener('error', function (event) {
             ]),
             button({
               label: actionLabel,
-              iconHtml: last ? icon('check') : icon('arrowRight'),
+              iconHtml: singleMode || last ? icon('check') : icon('arrowRight'),
               block: true,
               huge: true,
               onClick: goNext
             }),
-            step.skippable
-              ? button({
-                  label: stepIndex === TOTAL_STEPS - 1 ? '先不设置' : '这个问题先跳过',
-                  variant: 'ghost',
-                  block: true,
-                  onClick: goNext
-                })
-              : null,
+            singleMode
+              ? button({ label: '不改了', variant: 'ghost', block: true, onClick: leave })
+              : step.skippable
+                ? button({
+                    label: last ? '先不设置' : '这个问题先跳过',
+                    variant: 'ghost',
+                    block: true,
+                    onClick: goNext
+                  })
+                : null,
             h('p', {
               class: 'footnote',
               text:
                 '这些问题只存在您自己的手机里，不会上传，也不会分享给别人。' +
-                '以后想改，回到首页点右上角的「设置」就行。'
+                '以后想改哪一项，到「设置」里点那一条就行。'
             })
           ]);
-          announce(`第 ${stepIndex + 1} 步：${step.question}`);
+          announce(singleMode ? `改一项：${step.question}` : `第 ${stepIndex + 1} 步：${step.question}`);
         }
 
         draw();
@@ -5420,63 +5811,33 @@ window.addEventListener('error', function (event) {
 
 
 
+
+
+
+
+
+
+
+
+
       /* import ../ui/dom.js */ const { h, button, topbar, toast, fill } = __require("src/ui/dom.js");
       /* import ../ui/icons.js */ const { icon } = __require("src/ui/icons.js");
-      /* import ../recognize/demo.js */ const { DEMO_PRESETS } = __require("src/recognize/demo.js");
-      /* import ../core/store.js */ const { loadRecords, recordsOfToday, todayTotals, saveProfile } = __require("src/core/store.js");
+      /* import ../core/store.js */ const { todayTotals } = __require("src/core/store.js");
       /* import ../data/nutrition.js */ const { DAILY_LIMITS } = __require("src/data/nutrition.js");
-      /* import ../core/flow.js */ const { pickPhoto, processPhoto, processDemoCase, reportFailure } = __require("src/core/flow.js");
+      /* import ../core/flow.js */ const { pickPhoto, reportFailure } = __require("src/core/flow.js");
       /* import ../core/speech.js */ const speech = __require("src/core/speech.js");
 
 
+      const METER_KEYS = ['sodium', 'sugar', 'saturatedFat'];
+
+      const METER_LABEL = {
+        sodium: '盐（钠）',
+        sugar: '糖',
+        saturatedFat: '油（饱和脂肪）'
+      };
 
 
-
-
-
-
-      const DEMO_PROFILES = [
-        {
-          id: 'allergy',
-          label: '我：花生和牛奶过敏，还控糖',
-          note: '看含花生的饼干会变成红色警示',
-          profile: {
-            completed: true,
-            ageGroup: 'age70',
-            concerns: ['sugar', 'salt'],
-            allergens: ['peanut', 'milk'],
-            conditions: [],
-            voiceOn: true
-          }
-        },
-        {
-          id: 'plain',
-          label: '我：什么都不过敏，只留意血压',
-          note: '同一块饼干变成黄色提醒',
-          profile: {
-            completed: true,
-            ageGroup: 'age70',
-            concerns: ['salt'],
-            allergens: [],
-            conditions: ['hypertension'],
-            voiceOn: true
-          }
-        }
-      ];
-
-      function isDemoProfileActive(demo, profile) {
-        const a = [...(profile.allergens || [])].sort().join(',');
-        const b = [...(demo.profile.allergens || [])].sort().join(',');
-        return a === b && [...(profile.concerns || [])].sort().join(',') === [...demo.profile.concerns].sort().join(',');
-      }
-
-      function switchProfile(demo, ctx) {
-        const next = { ...demo.profile, voiceOn: ctx.state.profile.voiceOn };
-        ctx.setState({ profile: next, result: null });
-        saveProfile(next);
-        toast(`已切换为「${demo.label}」，再点一次演示用例就能看到不同的结论。`, 4200);
-        ctx.rerender();
-      }
+      const METER_SHORT = { sodium: '盐', sugar: '糖分', saturatedFat: '油' };
 
 
 
@@ -5485,15 +5846,14 @@ window.addEventListener('error', function (event) {
 
       function renderHome(view, _params, ctx) {
         const profile = ctx.state.profile;
-        const today = recordsOfToday(loadRecords());
         const totals = todayTotals();
 
 
 
-        const shutterSub = h('span', { class: 'shutter-hint', text: '对准配料表和营养成分表' });
+        const shutterSub = h('span', { class: 'shutter-hint', text: '拍清楚就行，不用打字' });
 
         const setShutterNote = (text) => {
-          shutterSub.textContent = text || '对准配料表和营养成分表';
+          shutterSub.textContent = text || '拍清楚就行，不用打字';
         };
 
         const grab = async (mode) => {
@@ -5514,112 +5874,59 @@ window.addEventListener('error', function (event) {
           }
         };
 
-        const runDemo = async (caseId) => {
-          try {
-            const result = await processDemoCase(caseId, profile);
-            ctx.setState({ result });
-            ctx.navigate('result');
-          } catch (error) {
-            reportFailure(error);
-          }
-        };
-
-        const budgetLine = buildBudgetLine(totals);
-
         fill(view, [
-          topbar({
-            title: '食护家 FoodLensCare',
-            right: h('button', {
-              class: 'btn btn-ghost',
-              type: 'button',
-              style: { minHeight: '3rem', padding: '0.4rem 0.8rem' },
-              onClick: () => ctx.navigate('settings'),
-              'aria-label': '设置'
-            }, [h('span', { class: 'btn-icon', html: icon('sliders') }), h('span', { text: '设置' })])
-          }),
 
-          h('section', { class: 'card hero' }, [
-            h('h2', { class: 'card-title', text: '举起手机，对准包装背面' }),
-            h('p', { class: 'hero-sub', text: '拍下配料表，我帮您读文字、找过敏冲突。营养信息核对完整后，再查看摄入提醒。' }),
+          topbar({ title: '食护家' }),
+
+
+          h('section', { class: 'card' }, [
+
+
+            h('div', { class: 'viewfinder' }, [
+              h('span', { class: 'vf-corner tl', 'aria-hidden': 'true' }),
+              h('span', { class: 'vf-corner tr', 'aria-hidden': 'true' }),
+              h('span', { class: 'vf-corner bl', 'aria-hidden': 'true' }),
+              h('span', { class: 'vf-corner br', 'aria-hidden': 'true' }),
+              h('span', { class: 'vf-icon', html: icon('camera'), 'aria-hidden': 'true' }),
+              h('span', { class: 'vf-text', text: '把包装背面放进框里' })
+            ]),
+
             h('button', {
               class: 'shutter',
               type: 'button',
               onClick: () => grab('camera'),
               'aria-label': '拍一张食品包装的照片'
             }, [
-              h('span', { class: 'shutter-icon', html: icon('camera') }),
-              h('span', { text: '拍一张照片' }),
+              h('span', { class: 'shutter-icon', html: icon('camera'), 'aria-hidden': 'true' }),
+              h('span', { class: 'shutter-label', text: '拍一张照片' }),
               shutterSub
+            ]),
+
+            button({
+              label: '从相册里选一张',
+              iconHtml: icon('album'),
+              variant: 'secondary',
+              block: true,
+              onClick: () => grab('album')
+            }),
+
+
+
+            h('details', { class: 'basis' }, [
+              h('summary', { text: '拍照帮助' }),
+              h('p', { text: '对准包装背面的配料表，避开反光，让字清楚地占满画面。' }),
+              h('p', { text: '先帮您读文字、找过敏冲突；营养信息核对完整后，再查看摄入提醒。' }),
+              button({
+                label: '拍照读取配料表：查看引导',
+                variant: 'secondary',
+                block: true,
+                onClick: () => ctx.navigate('scan')
+              })
             ])
           ]),
 
-          button({
-            label: '从相册里选一张',
-            iconHtml: icon('album'),
-            variant: 'secondary',
-            block: true,
-            onClick: () => grab('album')
-          }),
 
-          h('details', { class: 'basis' }, [
-            h('summary', { text: '拍照帮助' }),
-            h('p', { text: '对准包装背面的配料表，避开反光，让字清楚地占满画面。' }),
-            button({ label: '拍照读取配料表：查看引导', variant: 'secondary', block: true, onClick: () => ctx.navigate('scan') })
-          ]),
-
-          budgetLine,
-
-          h('section', { class: 'card' }, [
-            h('h3', { class: 'card-title', text: '今天的记录' }),
-            today.length
-              ? h('p', { text: `今天有 ${today.length} 条记录，最近一件：${today[today.length - 1].productName}。` })
-              : h('p', { text: '今天还没有记录。确认已经吃了以后，才记入今天的摄入量。' }),
-            button({
-              label: '看看今天的记录',
-              iconHtml: icon('clipboard'),
-              variant: 'secondary',
-              block: true,
-              onClick: () => ctx.navigate('records')
-            })
-          ]),
-
-          h('section', { class: 'card' }, [
-            h('h3', { class: 'card-title', text: '没带包装？用演示用例试试' }),
-            h('p', { class: 'footnote', text: '这三条数据已经存在手机里，不用联网也能演示，答辩和断网时最稳。' }),
-            h('div', { class: 'option-list' },
-              DEMO_PRESETS.map((preset) =>
-                h('button', {
-                  class: 'option',
-                  type: 'button',
-                  onClick: () => runDemo(preset.id)
-                }, [
-                  h('span', { class: 'option-mark', html: icon('arrowRight') }),
-                  h('span', { class: 'option-text' }, [
-                    h('span', { text: preset.title }),
-                    h('span', { class: 'option-note', text: preset.hint })
-                  ])
-                ])
-              )
-            ),
-            h('hr', { class: 'divider' }),
-            h('p', { class: 'footnote', text: '换一个「我」来看同一件食品：同一张标签，不同的人结论不一样，这就是规则层在起作用。' }),
-            h('div', { class: 'option-list' },
-              DEMO_PROFILES.map((demo) =>
-                h('button', {
-                  class: 'option',
-                  type: 'button',
-                  'aria-pressed': isDemoProfileActive(demo, profile) ? 'true' : 'false',
-                  onClick: () => switchProfile(demo, ctx)
-                }, [
-                  h('span', { class: 'option-mark', html: icon(isDemoProfileActive(demo, profile) ? 'check' : 'arrowRight') }),
-                  h('span', { class: 'option-text' }, [
-                    h('span', { text: demo.label }),
-                    h('span', { class: 'option-note', text: demo.note })
-                  ])
-                ])
-              )
-            )
-          ]),
+          overviewCard(totals),
 
           h('p', {
             class: 'footnote',
@@ -5636,51 +5943,148 @@ window.addEventListener('error', function (event) {
       }
 
 
-      function buildBudgetLine(totals) {
-        if (!totals.count) {
-          return h('section', { class: 'card' }, [
-            h('h3', { class: 'card-title', text: '今天的额度' }),
-            h('div', { class: 'record-total' }, [
-              h('span', { text: `盐 ${DAILY_LIMITS.sodium.limit} ${DAILY_LIMITS.sodium.unit}` }),
-              h('span', { text: `糖 ${DAILY_LIMITS.sugar.limit} ${DAILY_LIMITS.sugar.unit}` }),
-              h('span', { text: `饱和脂肪 ${DAILY_LIMITS.saturatedFat.limit} ${DAILY_LIMITS.saturatedFat.unit}` })
-            ]),
-            h('p', { class: 'footnote', text: '这是一天的参考额度；确认已经吃了以后，才按实际数量扣减。未记录的食物不在统计中。' })
-          ]);
-        }
 
-        const rows = ['sodium', 'sugar', 'saturatedFat'].map((key) => {
-          const limit = DAILY_LIMITS[key];
-          const used = Math.min(totals[key] || 0, limit.limit);
-          const ratio = limit.limit > 0 ? used / limit.limit : 0;
-          const tone = ratio >= 1 ? 'high' : ratio >= 0.6 ? 'over' : 'ok';
-          return h('div', { class: 'meter' }, [
-            h('div', { class: 'meter-head' }, [
-              h('span', { text: `${limitLabel(key)}今天还能吃` }),
-              h('span', {
-                class: 'meter-value',
-                text: totals.unknown[key] ? '有缺失记录，余量未知' : `还剩 ${Math.max(0, Math.round((limit.limit - used) * 10) / 10)} ${limit.unit}`
-              })
-            ]),
-            h('div', { class: 'meter-track' }, [
-              h('div', {
-                class: 'meter-fill',
-                dataset: { tone },
-                style: { width: `${Math.min(100, Math.round(ratio * 100))}%` }
-              })
-            ])
-          ]);
-        });
 
+
+
+
+      function overviewCard(totals) {
         return h('section', { class: 'card' }, [
-          h('h3', { class: 'card-title', text: '今天的额度' }),
-          ...rows,
-          h('p', { class: 'footnote', text: '按 60 岁以上人群的建议上限逐件扣减，只是提醒，不是医嘱。' })
+          h('div', { class: 'card-head' }, [
+            h('span', { class: 'head-icon', html: icon('chart'), 'aria-hidden': 'true' }),
+            h('h3', { class: 'card-title', text: '今日摄入概览' }),
+            h('a', { class: 'card-link', href: '#/records', 'aria-label': '看看今天的记录' }, [
+              h('span', { text: '今天的记录' }),
+              h('span', { class: 'icon-link', html: icon('arrowRight'), 'aria-hidden': 'true' })
+            ])
+          ]),
+
+          alertRow(totals),
+
+          h('div', { class: 'meters' }, METER_KEYS.map((key) => meterRow(key, totals[key] || 0, Boolean(totals.unknown[key])))),
+
+          h('p', { class: 'footnote', text: '只统计已确认吃过的；按 60 岁以上人群的建议上限逐件扣减，只是提醒，不是医嘱。' })
         ]);
       }
 
-      function limitLabel(key) {
-        return { sodium: '盐', sugar: '糖', saturatedFat: '油（饱和脂肪）' }[key] || key;
+
+
+
+
+
+
+
+
+      function alertRow(totals) {
+
+        if (!totals.count) {
+          return h('div', { class: 'alert-row', dataset: { tone: 'quiet' } }, [
+            h('span', { class: 'alert-icon', html: icon('camera'), 'aria-hidden': 'true' }),
+            h('span', { class: 'alert-body' }, [
+              h('span', { class: 'alert-title', text: '今天还没看过东西' }),
+              h('span', { class: 'alert-sub', text: '拍一张就能看到还剩多少' })
+            ])
+          ]);
+        }
+
+        const missing = METER_KEYS.filter(key => totals.unknown[key]);
+        if (missing.length) {
+          return h('div', { class: 'alert-row', dataset: { tone: 'quiet' } }, [
+            h('span', { class: 'alert-icon', html: icon('alert'), 'aria-hidden': 'true' }),
+            h('span', { class: 'alert-body' }, [
+              h('span', { class: 'alert-title', text: '今日记录有缺失，余量未知' }),
+              h('span', { class: 'alert-sub', text: `${missing.map(key => METER_SHORT[key]).join('、')}有未标示数据，仅统计已知摄入量` })
+            ]),
+            h('span', { class: 'alert-tag', text: '数据不全' })
+          ]);
+        }
+
+        const ranked = METER_KEYS
+          .map((key) => ({ key, ratio: ratioOf(key, totals[key] || 0) }))
+          .sort((a, b) => b.ratio - a.ratio);
+
+        const worst = ranked[0];
+        const others = ranked.slice(1);
+        const otherNames = others.map((r) => METER_SHORT[r.key]).join('和');
+        const othersQuiet = others.every((r) => r.ratio < 0.6);
+
+        let tone;
+        let title;
+        let sub;
+        let tag;
+
+        if (worst.ratio >= 1) {
+          tone = 'over';
+          title = `${METER_SHORT[worst.key]}已经到上限了`;
+          sub = othersQuiet ? `${otherNames}还正常` : `${otherNames}也快到了`;
+          tag = '超标';
+        } else if (worst.ratio >= 0.6) {
+          tone = 'watch';
+          title = `${METER_SHORT[worst.key]}快吃到上限了`;
+          sub = othersQuiet ? `${otherNames}还正常` : `${otherNames}也在涨`;
+          tag = '要当心';
+        } else {
+          tone = 'ok';
+          title = '今天三样都还有余量';
+
+          sub = `吃得最多的是${METER_SHORT[worst.key]}`;
+          tag = '正常';
+        }
+
+        return h('div', { class: 'alert-row', dataset: { tone } }, [
+          h('span', { class: 'alert-icon', html: icon(tone === 'ok' ? 'check' : 'alert'), 'aria-hidden': 'true' }),
+          h('span', { class: 'alert-body' }, [
+            h('span', { class: 'alert-title', text: title }),
+            h('span', { class: 'alert-sub', text: sub })
+          ]),
+          h('span', { class: 'alert-tag', text: tag })
+        ]);
+      }
+
+
+      function meterRow(key, used, unknown = false) {
+        const limit = DAILY_LIMITS[key];
+        const capped = Math.min(used, limit.limit);
+        const ratio = limit.limit > 0 ? capped / limit.limit : 0;
+        const tone = toneOf(ratio);
+        const remaining = Math.max(0, Math.round((limit.limit - capped) * 10) / 10);
+        const eaten = Math.round(used * 10) / 10;
+
+        return h('div', { class: 'meter' }, [
+          h('div', { class: 'meter-head' }, [
+            h('span', { class: 'meter-name', text: METER_LABEL[key] }),
+            h('span', {
+              class: 'meter-value',
+              dataset: { tone },
+
+              text: unknown ? '有缺失记录，余量未知' : remaining > 0 ? `还剩 ${remaining} ${limit.unit}` : '已经用完了'
+            })
+          ]),
+          h('p', { class: 'meter-sub', text: `今天已知记录 ${eaten} ${limit.unit}，参考上限 ${limit.limit} ${limit.unit}${unknown ? '；另有记录未标示此项' : ''}` }),
+          h('div', { class: 'meter-track' }, [
+            h('div', {
+              class: 'meter-fill',
+              dataset: { tone },
+              style: { width: `${Math.min(100, Math.round(ratio * 100))}%` }
+            })
+          ])
+        ]);
+      }
+
+      function ratioOf(key, used) {
+        const limit = DAILY_LIMITS[key];
+        if (!limit || !limit.limit) return 0;
+        return Math.min(used, limit.limit) / limit.limit;
+      }
+
+
+
+
+
+      function toneOf(ratio) {
+        if (ratio >= 1) return 'over';
+        if (ratio >= 0.6) return 'watch';
+        return 'ok';
       }
 
     __exports.renderHome = renderHome;
@@ -6068,6 +6472,9 @@ window.addEventListener('error', function (event) {
         const label = photo.label;
 
 
+
+
+
         if (!result.spoken) {
           result.spoken = true;
           speakAndRecord(result, ctx.state.profile, { record: false });
@@ -6199,9 +6606,32 @@ window.addEventListener('error', function (event) {
           .catch(() => ctx.navigate('home', {}, { replace: true }));
       }
 
+
+
+
+
+
+
+
+
+      const VERDICT = {
+        over: '这一份就到了一整天的量',
+        high: '这一份占了今天的一大半',
+        notice: '这一份占了今天的一部分',
+        ok: '这一份占比不高',
+        unknown: '这一份暂时算不出来'
+      };
+
+
+
+
+
       function budgetCard(assessment, result) {
         const totals = todayTotals();
         const recorded = Boolean(result.consumptionRecordId && loadRecords().some((r) => r.id === result.consumptionRecordId));
+
+        const serving = assessment.quantity?.servingGrams;
+        const netContent = result.photo?.label?.netContent;
         const rows = assessment.nutrients.map((n) => {
           const limit = DAILY_LIMITS[n.key];
           if (!limit) return null;
@@ -6209,31 +6639,61 @@ window.addEventListener('error', function (event) {
           const additional = recorded ? 0 : n.amount;
           const after = Math.min(limit.limit, usedBefore + additional);
           const ratio = limit.limit > 0 ? after / limit.limit : 0;
-          const tone = ratio >= 1 ? 'high' : ratio >= 0.6 ? 'over' : 'ok';
+
+
+          const tone = toneOf(ratio);
           const remaining = Math.max(0, Math.round((limit.limit - usedBefore - additional) * 10) / 10);
           return h('div', { class: 'meter' }, [
             h('div', { class: 'meter-head' }, [
-              h('span', { text: `${NUTRIENT_TITLE[n.key] || n.label}　这一份 ${n.amount} ${n.unit}` }),
+              h('span', {
+                class: 'meter-name',
+                text: `${NUTRIENT_TITLE[n.key] || n.label}　这一份 ${n.amount} ${n.unit}`
+              }),
               h('span', {
                 class: 'meter-value',
+                dataset: { tone },
                 text: totals.unknown[n.key] ? '今日有缺失数据，余量无法确定' : remaining > 0 ? `${recorded ? '已记录，还剩' : '如果吃这一份，还剩'} ${remaining} ${n.unit}` : '达到今日建议上限'
               })
             ]),
-            h('div', { class: 'meter-track' }, [
-              h('div', { class: 'meter-fill', dataset: { tone }, style: { width: `${Math.min(100, Math.round(ratio * 100))}%` } })
-            ]),
+            h('p', { class: 'meter-verdict', dataset: { tone }, text: VERDICT[n.grade] || VERDICT.unknown }),
             h('p', {
-              class: 'photo-meta',
+              class: 'meter-sub',
               text: `今天已知记录 ${Math.round(usedBefore * 10) / 10} ${n.unit}，一天的参考上限是 ${limit.limit} ${n.unit}${totals.unknown[n.key] ? '；另有记录未标示此项' : ''}`
-            })
+            }),
+            h('div', { class: 'meter-track' }, [
+              h('div', {
+                class: 'meter-fill',
+                dataset: { tone },
+                style: { width: `${Math.min(100, Math.round(ratio * 100))}%` }
+              })
+            ])
           ]);
         }).filter(Boolean);
 
         if (!rows.length) return null;
         return h('section', { class: 'card' }, [
           h('h3', { class: 'card-title', text: '这份占今天多少' }),
+
+          serving
+            ? h('p', {
+                class: 'footnote',
+                text: netContent
+                  ? `${netContent}。下面按「这一份 ${serving} 克／毫升」折算，不是整包都吃完。`
+                  : `下面按「这一份 ${serving} 克／毫升」折算，不是整包都吃完。`
+              })
+            : null,
           ...rows
         ]);
+      }
+
+
+
+
+
+      function toneOf(ratio) {
+        if (ratio >= 1) return 'over';
+        if (ratio >= 0.6) return 'watch';
+        return 'ok';
       }
 
       function basisBlock(block) {
@@ -6481,12 +6941,10 @@ window.addEventListener('error', function (event) {
           const fresh = loadRecords();
           const list = recordsOfToday(fresh).slice().reverse();
           fill(view, [
-            topbar({
-              title: '今天的记录',
-              onBack: () => {
-                if (!ctx.back()) ctx.navigate('home', {}, { replace: true });
-              }
-            }),
+
+
+
+            topbar({ title: '今天的记录' }),
 
             h('section', { class: 'card' }, [
               h('h3', {
@@ -6584,12 +7042,15 @@ window.addEventListener('error', function (event) {
           const limit = DAILY_LIMITS[key];
           const used = Math.min(totals[key] || 0, limit.limit);
           const ratio = limit.limit > 0 ? used / limit.limit : 0;
-          const tone = ratio >= 1 ? 'high' : ratio >= 0.6 ? 'over' : 'ok';
+
+
+          const tone = ratio >= 1 ? 'over' : ratio >= 0.6 ? 'watch' : 'ok';
           return h('div', { class: 'meter' }, [
             h('div', { class: 'meter-head' }, [
-              h('span', { text: NUTRIENT_TITLE[key] }),
+              h('span', { class: 'meter-name', text: NUTRIENT_TITLE[key] }),
               h('span', {
                 class: 'meter-value',
+                dataset: { tone },
                 text: totals.unknown[key] ? '有缺失记录，余量未知' : ratio >= 1 ? '今天已经吃满了' : `还剩 ${Math.round((limit.limit - used) * 10) / 10} ${limit.unit}`
               })
             ]),
@@ -6597,7 +7058,7 @@ window.addEventListener('error', function (event) {
               h('div', { class: 'meter-fill', dataset: { tone }, style: { width: `${Math.min(100, Math.round(ratio * 100))}%` } })
             ]),
             h('p', {
-              class: 'photo-meta',
+              class: 'meter-sub',
               text: `今天已知记录 ${Math.round((totals[key] || 0) * 10) / 10} ${limit.unit}，参考上限 ${limit.limit} ${limit.unit}${totals.unknown[key] ? '；另有记录未标示此项' : ''}`
             })
           ]);
@@ -6651,18 +7112,48 @@ window.addEventListener('error', function (event) {
 
 
 
+
+
+
       /* import ../ui/dom.js */ const { h, button, topbar, toast, fill } = __require("src/ui/dom.js");
       /* import ../ui/icons.js */ const { icon } = __require("src/ui/icons.js");
       /* import ../data/nutrition.js */ const { AGE_GROUPS, CONCERNS, CONDITIONS } = __require("src/data/nutrition.js");
-      /* import ../data/allergens.js */ const { ALLERGEN_CHOICES, ALLERGEN_BY_ID } = __require("src/data/allergens.js");
+      /* import ../data/allergens.js */ const { ALLERGEN_BY_ID } = __require("src/data/allergens.js");
       /* import ../core/store.js */ const { savePrefs, saveProfile } = __require("src/core/store.js");
-      /* import ../recognize/config.js */ const { CONFIG } = __require("src/recognize/config.js");
       /* import ../core/speech.js */ const speech = __require("src/core/speech.js");
 
+
+
+
+
+
+
       const TEXT_SIZES = [
-        { id: 'large', label: '标准大字', note: '正文约 20 磅，适合大多数情况' },
-        { id: 'xlarge', label: '更大', note: '正文约 24 磅' },
-        { id: 'huge', label: '最大', note: '正文约 29 磅，结论字号超过 40 磅' }
+        { id: 'large', label: '标准大字', note: '字小一点，看着不挤' },
+        { id: 'xlarge', label: '更大', note: '字大一些，更省力' },
+        { id: 'huge', label: '最大', note: '字最大，一行放不下几个字' }
+      ];
+
+
+
+
+
+
+
+      const VOICE_CHOICES = [
+        { id: 'on', label: '要，念给我听', note: '看完标签自动念一遍结论' },
+        { id: 'off', label: '不用念', note: '只看文字，不出声' }
+      ];
+
+
+
+
+
+      const PROFILE_ROWS = [
+        { key: 'ageGroup', label: '年纪', value: readAge },
+        { key: 'concerns', label: '想注意', value: readConcerns },
+        { key: 'allergens', label: '过敏', value: readAllergens },
+        { key: 'conditions', label: '医生说过', value: readConditions }
       ];
 
 
@@ -6671,21 +7162,27 @@ window.addEventListener('error', function (event) {
 
 
       function renderSettings(view, _params, ctx) {
-        const prefs = ctx.state.prefs;
-        const profile = ctx.state.profile;
+
+
 
         const draw = () => {
+          const prefs = ctx.state.prefs;
+          const profile = ctx.state.profile;
+
           fill(view, [
-            topbar({
-              title: '设置',
-              onBack: () => {
-                if (!ctx.back()) ctx.navigate('home', {}, { replace: true });
-              }
-            }),
+
+
+
+            topbar({ title: '设置' }),
 
 
             h('section', { class: 'card' }, [
               h('h3', { class: 'card-title', text: '字要大一点吗？' }),
+
+
+
+              h('p', { class: 'footnote', text: '下面这句话会跟着变大变小，您看着舒服就行。' }),
+              h('p', { class: 'preview-sentence', text: '这个饼干里有花生，您对花生过敏，别吃。' }),
               h('ul', { class: 'option-list' },
                 TEXT_SIZES.map((size) =>
                   h('li', {}, [
@@ -6709,41 +7206,44 @@ window.addEventListener('error', function (event) {
                     ])
                   ])
                 )
-              ),
-              h('p', { class: 'footnote', text: '当前示例文字：这个饼干里有花生，您对花生过敏，别吃。' })
+              )
             ]),
 
 
             h('section', { class: 'card' }, [
               h('h3', { class: 'card-title', text: '语音播报' }),
               speech.isSupported()
-                ? h('ul', { class: 'option-list' }, [
-                    h('li', {}, [
-                      h('button', {
-                        class: 'option',
-                        type: 'button',
-                        'aria-pressed': profile.voiceOn ? 'true' : 'false',
-                        onClick: () => {
-                          const next = { ...ctx.state.profile, voiceOn: !profile.voiceOn };
-                          ctx.setState({ profile: next });
-                          saveProfile(next);
-                          if (next.voiceOn) {
-                            speech.unlock();
-                            speech.speak('好的，我会念给您听。');
-                          } else {
-                            speech.stop();
+                ? h('ul', { class: 'option-list' },
+                    VOICE_CHOICES.map((choice) => {
+                      const turnOn = choice.id === 'on';
+                      return h('li', {}, [
+                        h('button', {
+                          class: 'option',
+                          type: 'button',
+                          'aria-pressed': Boolean(profile.voiceOn) === turnOn ? 'true' : 'false',
+                          onClick: () => {
+                            const next = { ...ctx.state.profile, voiceOn: turnOn };
+                            ctx.setState({ profile: next });
+                            saveProfile(next);
+                            if (turnOn) {
+
+                              speech.unlock();
+                              speech.speak('好的，我会念给您听。');
+                            } else {
+                              speech.stop();
+                            }
+                            draw();
                           }
-                          draw();
-                        }
-                      }, [
-                        h('span', { class: 'option-mark', html: icon('check') }),
-                        h('span', { class: 'option-text' }, [
-                          h('span', { text: profile.voiceOn ? '念给我听（已打开）' : '不用念（已关闭）' }),
-                          h('span', { class: 'option-note', text: '打开后，看完标签会自动念一遍结论' })
+                        }, [
+                          h('span', { class: 'option-mark', html: icon('check') }),
+                          h('span', { class: 'option-text' }, [
+                            h('span', { text: choice.label }),
+                            h('span', { class: 'option-note', text: choice.note })
+                          ])
                         ])
-                      ])
-                    ])
-                  ])
+                      ]);
+                    })
+                  )
                 : h('p', { class: 'error-box', text: '这台设备的浏览器不支持语音朗读。结论会用更大的字显示，其余功能不受影响。' }),
               button({
                 label: '试听一句',
@@ -6764,15 +7264,10 @@ window.addEventListener('error', function (event) {
 
             h('section', { class: 'card' }, [
               h('h3', { class: 'card-title', text: '我的情况' }),
-              profileSummary(profile),
-              button({
-                label: '重新设置我的情况',
-                iconHtml: icon('sliders'),
-                variant: 'secondary',
-                block: true,
-                onClick: () => ctx.navigate('onboarding')
-              }),
-              h('p', { class: 'footnote', text: '这些内容只存在您的手机里，不会上传。' })
+
+
+              profileRows(profile, ctx),
+              h('p', { class: 'footnote', text: '点上面任意一行就能改那一项。这些内容只存在您的手机里，不会上传。' })
             ]),
 
 
@@ -6782,11 +7277,6 @@ window.addEventListener('error', function (event) {
               variant: 'ghost',
               block: true,
               onClick: () => ctx.navigate('help')
-            }),
-
-            h('p', {
-              class: 'footnote',
-              text: `当前识别通道：${describeChannel()}。答辩或断网时可以在首页直接使用内置演示用例。`
             })
           ]);
         };
@@ -6794,38 +7284,58 @@ window.addEventListener('error', function (event) {
         draw();
       }
 
-      function profileSummary(profile) {
-        const rows = [];
 
-        const age = AGE_GROUPS.find((a) => a.id === profile.ageGroup);
-        rows.push(['年纪', age ? age.label : '没有设置']);
 
-        const concerns = (profile.concerns || [])
-          .map((id) => CONCERNS.find((c) => c.id === id)?.label)
-          .filter(Boolean);
-        rows.push(['想注意', concerns.length ? concerns.join('、') : '没有设置']);
 
-        const allergens = (profile.allergens || [])
-          .filter((id) => id !== 'none')
-          .map((id) => ALLERGEN_BY_ID.get(id)?.short)
-          .filter(Boolean);
-        rows.push(['过敏', allergens.length ? allergens.join('、') : '没有设置（或都不过敏）']);
 
-        const conditions = (profile.conditions || [])
-          .filter((id) => id !== 'none')
-          .map((id) => CONDITIONS.find((c) => c.id === id)?.label)
-          .filter(Boolean);
-        rows.push(['医生说过', conditions.length ? conditions.join('、') : '没有设置']);
 
-        return h('table', { class: 'kv-table' }, [
-          h('tbody', {}, rows.map(([k, v]) => h('tr', {}, [h('th', { text: k }), h('td', { text: v })])))
-        ]);
+
+
+      function profileRows(profile, ctx) {
+        return h('ul', { class: 'setting-rows' },
+          PROFILE_ROWS.map((row) => {
+            const value = row.value(profile);
+            return h('li', {}, [
+              h('button', {
+                class: 'setting-row',
+                type: 'button',
+                'aria-label': value ? `改「${row.label}」，现在是 ${value}` : `设置「${row.label}」`,
+                onClick: () => ctx.navigate('onboarding', { step: row.key })
+              }, [
+                h('span', { class: 'setting-key', text: row.label }),
+                h('span', { class: 'setting-value', text: value || '没有设置' }),
+                h('span', { class: 'setting-go', html: icon('arrowRight'), 'aria-hidden': 'true' })
+              ])
+            ]);
+          })
+        );
       }
 
-      function describeChannel() {
-        if (CONFIG.vision.endpoint) return '真实多模态识别接口';
-        if (CONFIG.huaweiOcr.endpoint && CONFIG.huaweiOcr.ak) return '华为云 OCR 兜底通道';
-        return '模拟识别（尚未配置真实接口）';
+
+      function readAge(profile) {
+        return AGE_GROUPS.find((a) => a.id === profile.ageGroup)?.label || '';
+      }
+
+      function readConcerns(profile) {
+        return (profile.concerns || [])
+          .map((id) => CONCERNS.find((c) => c.id === id)?.label)
+          .filter(Boolean)
+          .join('、');
+      }
+
+      function readAllergens(profile) {
+        const ids = (profile.allergens || []).filter((id) => id !== 'none');
+        const names = ids.map((id) => ALLERGEN_BY_ID.get(id)?.short).filter(Boolean);
+        if (names.length) return names.join('、');
+
+        return (profile.allergens || []).includes('none') ? '都不过敏' : '';
+      }
+
+      function readConditions(profile) {
+        const ids = (profile.conditions || []).filter((id) => id !== 'none');
+        const names = ids.map((id) => CONDITIONS.find((c) => c.id === id)?.label).filter(Boolean);
+        if (names.length) return names.join('、');
+        return (profile.conditions || []).includes('none') ? '以上都没有' : '';
       }
 
 
@@ -6833,11 +7343,8 @@ window.addEventListener('error', function (event) {
         document.documentElement.dataset.textSize = TEXT_SIZES.some((s) => s.id === id) ? id : 'large';
       }
 
-      const TEXT_SIZE_CHOICES = ALLERGEN_CHOICES;
-
     __exports.renderSettings = renderSettings;
     __exports.applyTextSize = applyTextSize;
-    __exports.TEXT_SIZE_CHOICES = TEXT_SIZE_CHOICES;
     },
 
     // ── src/data/contrast-report.js
@@ -7251,7 +7758,7 @@ window.addEventListener('error', function (event) {
       /* import ./pages/settings.js */ const { renderSettings, applyTextSize } = __require("src/pages/settings.js");
       /* import ./pages/help.js */ const { renderHelp } = __require("src/pages/help.js");
       /* import ./pages/scan.js */ const { renderScan } = __require("src/pages/scan.js");
-      /* import ./ui/dom.js */ const { h, button, topbar } = __require("src/ui/dom.js");
+      /* import ./ui/dom.js */ const { h, button, topbar, tabbar } = __require("src/ui/dom.js");
       /* import ./ui/icons.js */ const { icon } = __require("src/ui/icons.js");
 
 
@@ -7383,11 +7890,14 @@ window.addEventListener('error', function (event) {
         define(name, (view, params, context) => {
           lastRoute = name;
           hideSpeakerUnless(name === 'result');
+          syncTabbar(name);
           return render(view, params, context);
         });
       }
 
       setNotFound((view, _params, context) => {
+
+        syncTabbar(null);
         view.replaceChildren(
           topbar({ title: '页面不存在' }),
           h('section', { class: 'card' }, [
@@ -7411,6 +7921,29 @@ window.addEventListener('error', function (event) {
       }
 
 
+      const TABBAR_ROUTES = ['home', 'records', 'settings'];
+
+
+
+
+
+
+
+
+
+
+
+      function syncTabbar(route) {
+        const bar = document.getElementById('tabbar');
+        if (!bar) return;
+        bar.hidden = !TABBAR_ROUTES.includes(route);
+        for (const link of bar.querySelectorAll('a.tab')) {
+          if (link.getAttribute('href') === `#/${route}`) link.setAttribute('aria-current', 'page');
+          else link.removeAttribute('aria-current');
+        }
+      }
+
+
 
       function boot() {
 
@@ -7422,6 +7955,18 @@ window.addEventListener('error', function (event) {
         savePrefs({ ...state.prefs, textSize: state.prefs.textSize });
 
         setView(document.getElementById('view'));
+        if (window.location.protocol === 'file:') {
+          document.getElementById('app').prepend(h('aside', { class: 'card', role: 'status' }, [
+            h('h2', { class: 'card-title', text: '新版 OCR 请从启动文件打开' }),
+            h('p', { text: '当前是双击 HTML 模式，使用基础文字识别。请双击同目录的“启动新版OCR.cmd”，浏览器会自动打开新版；打开后重新选择照片。' })
+          ]));
+        }
+
+
+
+
+        document.getElementById('tabbar')?.replaceWith(tabbar());
+
         init({
           start: state.profile.completed ? 'home' : 'onboarding',
           ctx

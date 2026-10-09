@@ -28,12 +28,10 @@ export function renderRecords(view, _params, ctx) {
     const fresh = loadRecords();
     const list = recordsOfToday(fresh).slice().reverse();
     fill(view, [
-      topbar({
-        title: '今天的记录',
-        onBack: () => {
-          if (!ctx.back()) ctx.navigate('home', {}, { replace: true });
-        }
-      }),
+      /* 顶栏不给「返回」：记录与首页、设置是底栏的平级目的地（见 app.js 的 syncTabbar）。
+         底栏导航模型里，目的地页面不该再放一个「返回」——从底栏点进来时，
+         「返回到哪」本来就没有确定答案。流程页保留返回，别一起改。 */
+      topbar({ title: '今天的记录' }),
 
       h('section', { class: 'card' }, [
         h('h3', {
@@ -131,12 +129,15 @@ function meterRows(totals) {
     const limit = DAILY_LIMITS[key];
     const used = Math.min(totals[key] || 0, limit.limit);
     const ratio = limit.limit > 0 ? used / limit.limit : 0;
-    const tone = ratio >= 1 ? 'high' : ratio >= 0.6 ? 'over' : 'ok';
+    // 与首页 / 结果页同一套三档：正常品牌绿、将满黄、吃满橙。
+    // 红色不参与——它属于过敏「别吃」那一级（原来吃满配的是红，已改）。
+    const tone = ratio >= 1 ? 'over' : ratio >= 0.6 ? 'watch' : 'ok';
     return h('div', { class: 'meter' }, [
       h('div', { class: 'meter-head' }, [
-        h('span', { text: NUTRIENT_TITLE[key] }),
+        h('span', { class: 'meter-name', text: NUTRIENT_TITLE[key] }),
         h('span', {
           class: 'meter-value',
+          dataset: { tone },
           text: totals.unknown[key] ? '有缺失记录，余量未知' : ratio >= 1 ? '今天已经吃满了' : `还剩 ${Math.round((limit.limit - used) * 10) / 10} ${limit.unit}`
         })
       ]),
@@ -144,7 +145,7 @@ function meterRows(totals) {
         h('div', { class: 'meter-fill', dataset: { tone }, style: { width: `${Math.min(100, Math.round(ratio * 100))}%` } })
       ]),
       h('p', {
-        class: 'photo-meta',
+        class: 'meter-sub',
         text: `今天已知记录 ${Math.round((totals[key] || 0) * 10) / 10} ${limit.unit}，参考上限 ${limit.limit} ${limit.unit}${totals.unknown[key] ? '；另有记录未标示此项' : ''}`
       })
     ]);

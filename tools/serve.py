@@ -165,7 +165,8 @@ def main() -> int:
     print('  食护家 FoodLensCare · 食品标签解读 H5')
     print('  ' + '─' * 46)
     print(f'  本机打开：  {local_url}')
-    print(f'  手机打开：  {lan_url}   ← 手机需与电脑同一 Wi-Fi')
+    if args.host not in ('127.0.0.1', 'localhost', '::1'):
+        print(f'  手机打开：  {lan_url}   ← 手机需与电脑同一 Wi-Fi')
     print('  ' + '─' * 46)
     print('  提示：手机浏览器「添加到主屏幕」后可全屏运行，更像一个 App。')
     if args.mobile:
@@ -173,7 +174,7 @@ def main() -> int:
     print('  按 Ctrl+C 停止服务。')
     print()
 
-    if not args.no_qr:
+    if not args.no_qr and args.host not in ('127.0.0.1', 'localhost', '::1'):
         print_qr(lan_url)
         print()
 

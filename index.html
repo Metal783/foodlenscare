@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=3" />
-<meta name="theme-color" content="#0F4C81" />
+<meta name="theme-color" content="#0B4A32" />
 <meta name="description" content="食护家 FoodLensCare —— 面向老年家庭的食品标签智能解读工具。拍一张照片，用一句听得懂的话告诉您这个能不能吃。" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
@@ -28,6 +28,12 @@
       <span>再念一遍</span>
     </button>
   </div>
+
+  <!-- 底部导航（T2）：常驻贴底通栏，只做页面切换、不放任何主动作（「每屏一个主动作」指内容区）。
+       显示范围由 src/app.js 的 syncTabbar() 控制：仅 首页/记录/设置 三页，
+       流程页（确认/进度/结果/画像/说明）一律隐藏。此节点是占位壳，
+       链接与图标由 src/ui/dom.js 的 tabbar() 在启动时填充（图标统一来自 ui/icons.js）。 -->
+  <nav id="tabbar" class="tabbar" aria-label="主要页面" hidden></nav>
 
   <div id="toast" class="toast" role="status" aria-live="assertive" hidden></div>
   <div id="aria-live" class="sr-only" aria-live="assertive"></div>

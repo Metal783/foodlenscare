@@ -82,6 +82,12 @@ export const RISK_LEVELS = {
  * @property {string} [allergenDeclaration] 包装上「致敏物质提示」原文
  * @property {Record<string, number|null>} nutritionPer100g
  * @property {Record<string, number>} confidence
+ * @property {Record<string,{value:number,confidence:number,text:string,warning:string,conflict?:boolean}>} [nutritionCandidates] 待核对的区域识别数值及原文
+ * @property {boolean} [ingredientsConfirmed] 配料已对照包装核对
+ * @property {boolean} [nutritionConfirmed] 已核对至少一项营养，只有确认值用于摄入计算
+ * @property {boolean} [nutritionPartial] 已核对的营养项目不完整
+ * @property {string[]} [missingFields] 未标示或未核对的营养项目
+ * @property {'g'|'ml'|null} [servingUnit] 每100克或每100毫升口径
  * @property {string} [channelLabel] 识别通道中文名
  * @property {string} [servingLabel] 份量口径描述
  * @property {number} [servingGrams]

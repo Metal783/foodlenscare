@@ -145,6 +145,34 @@ export function topbar({ title, onBack, right }) {
   ]);
 }
 
+/**
+ * 底部导航（T2）。只做页面切换，不放任何主动作——「每屏一个主动作」指的是内容区。
+ *
+ * - 标签固定 2 字（首页/记录/设置）：字号最大 1.8 倍时 5 字标签会把 130px 的项挤爆，
+ *   页内标题仍叫「今天的记录」，底栏里写短（见 底栏设计说明.md）。
+ * - 语义用 <nav> + <a href> + aria-current="page"：这是页面跳转，不是同页切换面板，
+ *   禁用 role="tablist"/"tab"——那是给切换面板用的，读屏会念错。
+ * - 图标是装饰（svg 自带 aria-hidden），可读文字在 <span> 里。
+ * - 显示/隐藏与选中态由 app.js 的 syncTabbar() 在路由层维护，不放点击回调：
+ *   老人可能从微信/短信直接打开 #/records，刷新后选中态必须正确。
+ */
+const TABBAR_TABS = [
+  { route: 'home', label: '首页', iconName: 'home' },
+  { route: 'records', label: '记录', iconName: 'clipboard' },
+  { route: 'settings', label: '设置', iconName: 'sliders' }
+];
+
+export function tabbar() {
+  return h('nav', { id: 'tabbar', class: 'tabbar', 'aria-label': '主要页面', hidden: true },
+    TABBAR_TABS.map(({ route, label, iconName }) =>
+      h('a', { class: 'tab', href: `#/${route}` }, [
+        h('span', { class: 'icon', html: icon(iconName), 'aria-hidden': 'true' }),
+        h('span', { text: label })
+      ])
+    )
+  );
+}
+
 /** 进度点：让老人知道「还有几步」，但每屏仍然只问一件事 */
 export function stepDots(total, current) {
   return h('ol', { class: 'step-dots', 'aria-label': `第 ${current} 步，共 ${total} 步` },

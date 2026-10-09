@@ -6,8 +6,8 @@ for path in sys.argv[1:]:
     im = Image.open(path).convert('RGB')
     w, h = im.size
     px = im.load()
-    # 背景色 #F4F7FA = (244,247,250)
-    bg = (244, 247, 250)
+    # 背景色 --c-surface-2 #F7FAF5 = (247,250,245)
+    bg = (247, 250, 245)
     threshold = 12
 
     def is_bg(c):

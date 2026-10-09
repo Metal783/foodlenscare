@@ -50,7 +50,10 @@ export function renderResult(view, params, ctx) {
   const meta = RISK_LEVELS[assessment.level] || RISK_LEVELS.gray;
   const label = photo.label;
 
-  /* 查看结果只播报；摄入记录必须由用户明确确认。 */
+  /* 查看结果只播报；摄入记录必须由用户明确确认。
+     （合并说明：此前这里会同步写入记录，于是「今天已吃进」把这一份算两次 ——
+     盐一份 60 mg 显示成「已吃进 60、还剩 1380」而非 1440。记录改由「我已吃了」
+     触发后，确认之前这一份不进当日累计，问题从根上消失。） */
   if (!result.spoken) {
     result.spoken = true;
     speakAndRecord(result, ctx.state.profile, { record: false });
@@ -182,9 +185,32 @@ function renderDeepLink(view, caseId, ctx) {
     .catch(() => ctx.navigate('home', {}, { replace: true }));
 }
 
+/**
+ * 单指标结论的短措辞。
+ *
+ * 规则层的 INTAKE_TONE_TEXT 是给「依据在哪」区用的长句
+ *（「已经达到或超过一天的建议上限」），卡片上放不下也不需要那么长。
+ * 这里每一句都以「这一份」开头：右上方那个数字讲的是「吃完之后还剩多少」（累计），
+ * 这一句讲的是「这一份自己占多少」（单份），基准不同，必须说清楚是哪一种。
+ */
+const VERDICT = {
+  over: '这一份就到了一整天的量',
+  high: '这一份占了今天的一大半',
+  notice: '这一份占了今天的一部分',
+  ok: '这一份占比不高',
+  unknown: '这一份暂时算不出来'
+};
+
+/**
+ * @param {object} assessment
+ * @param {object} result 记录态与照片都在这里；`consumptionRecordId` 决定这一份是否已计入
+ */
 function budgetCard(assessment, result) {
   const totals = todayTotals();
   const recorded = Boolean(result.consumptionRecordId && loadRecords().some((r) => r.id === result.consumptionRecordId));
+  // 份量口径的来源：这一份按包装标示折算，不是整包都吃完
+  const serving = assessment.quantity?.servingGrams;
+  const netContent = result.photo?.label?.netContent;
   const rows = assessment.nutrients.map((n) => {
     const limit = DAILY_LIMITS[n.key];
     if (!limit) return null;
@@ -192,31 +218,61 @@ function budgetCard(assessment, result) {
     const additional = recorded ? 0 : n.amount;
     const after = Math.min(limit.limit, usedBefore + additional);
     const ratio = limit.limit > 0 ? after / limit.limit : 0;
-    const tone = ratio >= 1 ? 'high' : ratio >= 0.6 ? 'over' : 'ok';
+    // 与首页同一套三档：正常品牌绿 / 将满黄 / 吃满橙。
+    // 红色不参与——它属于过敏「别吃」那一级（合并前这里「吃满」用的是红/high，已改）。
+    const tone = toneOf(ratio);
     const remaining = Math.max(0, Math.round((limit.limit - usedBefore - additional) * 10) / 10);
     return h('div', { class: 'meter' }, [
       h('div', { class: 'meter-head' }, [
-        h('span', { text: `${NUTRIENT_TITLE[n.key] || n.label}　这一份 ${n.amount} ${n.unit}` }),
+        h('span', {
+          class: 'meter-name',
+          text: `${NUTRIENT_TITLE[n.key] || n.label}　这一份 ${n.amount} ${n.unit}`
+        }),
         h('span', {
           class: 'meter-value',
+          dataset: { tone },
           text: totals.unknown[n.key] ? '今日有缺失数据，余量无法确定' : remaining > 0 ? `${recorded ? '已记录，还剩' : '如果吃这一份，还剩'} ${remaining} ${n.unit}` : '达到今日建议上限'
         })
       ]),
-      h('div', { class: 'meter-track' }, [
-        h('div', { class: 'meter-fill', dataset: { tone }, style: { width: `${Math.min(100, Math.round(ratio * 100))}%` } })
-      ]),
+      h('p', { class: 'meter-verdict', dataset: { tone }, text: VERDICT[n.grade] || VERDICT.unknown }),
       h('p', {
-        class: 'photo-meta',
+        class: 'meter-sub',
         text: `今天已知记录 ${Math.round(usedBefore * 10) / 10} ${n.unit}，一天的参考上限是 ${limit.limit} ${n.unit}${totals.unknown[n.key] ? '；另有记录未标示此项' : ''}`
-      })
+      }),
+      h('div', { class: 'meter-track' }, [
+        h('div', {
+          class: 'meter-fill',
+          dataset: { tone },
+          style: { width: `${Math.min(100, Math.round(ratio * 100))}%` }
+        })
+      ])
     ]);
   }).filter(Boolean);
 
   if (!rows.length) return null;
   return h('section', { class: 'card' }, [
     h('h3', { class: 'card-title', text: '这份占今天多少' }),
+    // 份量口径要说清楚：老人看到「还剩 12 g」会以为整包都能吃
+    serving
+      ? h('p', {
+          class: 'footnote',
+          text: netContent
+            ? `${netContent}。下面按「这一份 ${serving} 克／毫升」折算，不是整包都吃完。`
+            : `下面按「这一份 ${serving} 克／毫升」折算，不是整包都吃完。`
+        })
+      : null,
     ...rows
   ]);
+}
+
+/**
+ * 额度紧张度 → 三档。与首页、与 色板/色板定义-绿色主色.md 的「进度条配色」一致：
+ * 正常品牌绿、将满黄、吃满橙，**没有红**。
+ */
+function toneOf(ratio) {
+  if (ratio >= 1) return 'over';
+  if (ratio >= 0.6) return 'watch';
+  return 'ok';
 }
 
 function basisBlock(block) {

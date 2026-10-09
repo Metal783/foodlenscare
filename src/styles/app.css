@@ -55,6 +55,16 @@ body {
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
+/* 路由切换后会把焦点移到页面标题（供读屏播报，见 core/router.js 的 render()）。
+   那是程序性聚焦：标题被加上 tabindex="-1"，键盘 Tab 永远到不了它，
+   所以它既不需要、也不该有焦环——浏览器默认会画一个黑框，还会被参赛截图带进去。
+
+   ⚠️ 不要在这里补 :focus-visible 的黄环：实测（无头 Chrome 截图）页面首次加载时
+   程序性聚焦**同样匹配 :focus-visible**，补了黄环照样会印进截图。
+   压掉焦环不影响读屏播报——焦点本身还在。 */
+.view h1:focus,
+.view .question:focus { outline: none; }
+
 /* 图标随字号缩放，保证与文字同步放大 */
 .icon {
   width: 1.25em;
@@ -78,14 +88,24 @@ body {
   color: var(--c-brand-ink);
   font-weight: 700;
 }
+/* 方框与里面的字必须用**同一个倍率**整体缩放。
+   原来是「方框写死 36px + 字跟着 --fs-scale 放大」：到「更大 / 最大」档，
+   字顶出方框、越过圆角，看起来就是「食」字偏离了。
+   --zoom = 相对「标准大字」档的倍率（1 / 1.2 / 1.44，见 tokens.css），
+   所以括号里的 px 就是标准档的原始尺寸——标准档的观感一个像素都没变。 */
 .topbar .brand-mark {
-  width: 36px; height: 36px; flex: 0 0 auto;
+  width: calc(36px * var(--zoom));
+  height: calc(36px * var(--zoom));
+  flex: 0 0 auto;
   display: grid; place-items: center;
-  border-radius: 10px;
+  border-radius: calc(10px * var(--zoom));
   background: var(--c-brand);
   color: #fff;
   font-weight: 700;
-  font-size: calc(1.1 * var(--fs-scale) * 1rem);
+  /* line-height:1 配 place-items:center：单字在方框里按几何中心居中，
+     不再受字体 ascent/descent 不对称的影响 */
+  line-height: 1;
+  font-size: calc(22px * var(--zoom));
 }
 
 /* ---------- 卡片 ---------- */
@@ -183,8 +203,9 @@ body {
 }
 .shutter {
   width: 100%;
-  /* 用视口高度限制，避免在大字号下把按钮撑出屏幕 */
-  min-height: clamp(150px, 26vh, 230px);
+  /* 2026-10-09：取景框并进这张卡之后，视觉重心落在那块框上，
+     主按钮不再需要原来那么高。390×844 下 18vh ≈ 152px，仍远高于 96px 下限。 */
+  min-height: clamp(124px, 18vh, 176px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -192,7 +213,8 @@ body {
   gap: 10px;
   border: none;
   border-radius: var(--radius-l);
-  background: linear-gradient(160deg, #12639F 0%, #0F4C81 60%, #0A3560 100%);
+  /* 2026-10-09：原来是三层蓝渐变，两处都不合规——渐变在禁止项里，且品牌色不该硬编码 */
+  background: var(--c-brand);
   color: #fff;
   font-family: inherit;
   font-size: calc(1.45 * var(--fs-scale) * 1rem);
@@ -201,8 +223,143 @@ body {
   cursor: pointer;
 }
 .shutter .shutter-icon { font-size: 3.2em; line-height: 1; }
+.shutter .shutter-label { line-height: 1.25; }
 .shutter .shutter-hint { font-size: calc(0.85 * var(--fs-scale) * 1rem); font-weight: 500; opacity: 0.95; }
 .shutter:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* ---------- 首页取景框（对齐 stitch出稿/01-首页-v3.html） ----------
+   四角标与中间的相机圆标都是纯装饰，「框」本身不可点——真正可点的只有下面的
+   大按钮。别把它做成 button，否则会出现两个「主动作」，也违背自检项「一次一个动作」。
+   尺寸统一写成 calc(<标准档原始 px> * var(--zoom))：圆标里有图标，
+   只写死 px 会让图标在大字号档顶出圆框（同一个坑见 tokens.css 里 --zoom 的注释）。 */
+.viewfinder {
+  position: relative;
+  height: calc(148px * var(--zoom));
+  border-radius: var(--radius-l);
+  background: var(--c-surface-3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.vf-corner {
+  position: absolute;
+  width: calc(22px * var(--zoom));
+  height: calc(22px * var(--zoom));
+  border: 3px solid var(--c-brand);
+}
+.vf-corner.tl { top: 10px; left: 10px; border-right: 0; border-bottom: 0; border-top-left-radius: var(--radius-s); }
+.vf-corner.tr { top: 10px; right: 10px; border-left: 0; border-bottom: 0; border-top-right-radius: var(--radius-s); }
+.vf-corner.bl { bottom: 10px; left: 10px; border-right: 0; border-top: 0; border-bottom-left-radius: var(--radius-s); }
+.vf-corner.br { bottom: 10px; right: 10px; border-left: 0; border-top: 0; border-bottom-right-radius: var(--radius-s); }
+.vf-icon {
+  width: calc(64px * var(--zoom));
+  height: calc(64px * var(--zoom));
+  border-radius: 50%;
+  background: var(--c-brand-soft);
+  color: var(--c-brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* .icon 是 1.25em，所以 29 × 1.25 ≈ 36px */
+  font-size: calc(29px * var(--zoom));
+}
+.vf-text {
+  font-size: calc(1 * var(--fs-scale) * 1rem);
+  font-weight: 500;
+  color: var(--c-ink-2);
+}
+
+/* ---------- 卡片标题行（v3）：图标 + 标题 + 右侧链接 ---------- */
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.card-head .head-icon {
+  flex: 0 0 auto;
+  color: var(--c-brand);
+  font-size: calc(22px * var(--zoom));
+}
+.card-head .card-title { flex: 1 1 auto; min-width: 0; }
+.card-link {
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  /* 链接也是可点目标，别让它比 60px 小 */
+  min-height: var(--tap-min);
+  font-size: calc(0.9 * var(--fs-scale) * 1rem);
+  font-weight: 700;
+  color: var(--c-brand);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.card-link .icon-link {
+  width: 1.1em;
+  height: 1.1em;
+  display: inline-flex;
+}
+.card-link .icon-link .icon { vertical-align: middle; }
+.card-link:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-s); }
+
+/* ---------- 一句话预警行（v3） ----------
+   老人不用去读三条进度条，一眼就知道「今天还行不行」。
+   四个档位都用「颜色 + 文字 + 图标 + 标签」四重编码，颜色不是唯一载体。
+
+   配色只用风险五级里的绿 / 黄 / 橙 + 一个中性档，**没有红**：
+   红色在全站只有一个含义——过敏命中「别吃」（见 色板/色板定义-绿色主色.md 的铁律）。
+   橙色只表「要当心 / 超标」，所以「正常」用的是「可以吃」那一级的绿，不是品牌绿。 */
+.alert-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: var(--space-2);
+  border: 2px solid transparent;
+  border-radius: var(--radius-m);
+}
+.alert-row .alert-icon { flex: 0 0 auto; font-size: calc(22px * var(--zoom)); }
+.alert-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.alert-title { font-size: calc(1 * var(--fs-scale) * 1rem); font-weight: 700; }
+.alert-sub { font-size: calc(0.85 * var(--fs-scale) * 1rem); font-weight: 500; }
+.alert-tag {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: calc(0.85 * var(--fs-scale) * 1rem);
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+}
+
+/* 还没看过东西：中性档，不占用任何风险色 */
+.alert-row[data-tone='quiet'] { background: var(--c-surface-3); border-color: var(--c-line-soft); }
+.alert-row[data-tone='quiet'] .alert-icon { color: var(--c-brand); }
+.alert-row[data-tone='quiet'] .alert-title { color: var(--c-ink); }
+.alert-row[data-tone='quiet'] .alert-sub { color: var(--c-ink-2); }
+
+/* 绿 · 可以吃（三样都还有余量） */
+.alert-row[data-tone='ok'] { background: var(--c-risk-green-soft); border-color: var(--c-risk-green); }
+.alert-row[data-tone='ok'] .alert-icon,
+.alert-row[data-tone='ok'] .alert-title,
+.alert-row[data-tone='ok'] .alert-sub { color: var(--c-risk-green); }
+.alert-row[data-tone='ok'] .alert-tag { background: var(--c-risk-green); }
+
+/* 黄 · 留意一下（快吃到上限） */
+.alert-row[data-tone='watch'] { background: var(--c-risk-yellow-soft); border-color: var(--c-risk-yellow); }
+.alert-row[data-tone='watch'] .alert-icon,
+.alert-row[data-tone='watch'] .alert-title,
+.alert-row[data-tone='watch'] .alert-sub { color: var(--c-risk-yellow); }
+.alert-row[data-tone='watch'] .alert-tag { background: var(--c-risk-yellow); }
+
+/* 橙 · 要当心（到上限了） */
+.alert-row[data-tone='over'] { background: var(--c-risk-orange-soft); border-color: var(--c-risk-orange); }
+.alert-row[data-tone='over'] .alert-icon,
+.alert-row[data-tone='over'] .alert-title,
+.alert-row[data-tone='over'] .alert-sub { color: var(--c-risk-orange); }
+.alert-row[data-tone='over'] .alert-tag { background: var(--c-risk-orange); }
 
 /* ---------- 逐屏单问题（画像设置） ---------- */
 .step-dots {
@@ -254,15 +411,29 @@ body {
   border-radius: var(--radius-m);
   cursor: pointer;
 }
+/* 勾选框同理：方框与里面的对号一起按 --zoom 缩放。
+   原来是「方框写死 34px + font-size:1.2em（跟着选项文字放大）」，
+   最大字号下对号撑出框外、看起来偏在一边。括号里的 px 是标准档原尺寸。 */
 .option .option-mark {
   flex: 0 0 auto;
-  width: 34px; height: 34px;
+  position: relative;
+  width: calc(34px * var(--zoom));
+  height: calc(34px * var(--zoom));
   display: grid; place-items: center;
   border: 2px solid var(--c-line);
-  border-radius: 8px;
-  font-size: 1.2em;
+  border-radius: calc(8px * var(--zoom));
+  font-size: calc(26.4px * var(--zoom));   /* 里面的对号 svg = 1.25em = 33px */
   color: transparent;
   background: var(--c-surface-3);
+}
+/* 对号比勾选框的**内框**还大（33px 的 svg 装进 34−2×2=30px），而 grid / flex 的
+   center 在「装不下」时会退化成从左边开始排（实测因此右偏 1.5px，最大字号下还会
+   蹭出右边框）。改成绝对定位 + translate 居中：装得下装不下，几何中心都重合。 */
+.option .option-mark .icon {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 .option[aria-pressed='true'] {
   border-color: var(--c-brand);
@@ -281,6 +452,53 @@ body {
   font-weight: 500;
   color: var(--c-ink-3);
 }
+
+/* 字号档位的「活示例」：它自己不特殊，就是一个正文大小的句子，
+   跟着 --fs-scale 一起变。老人靠它判断档位差别，比「约 XX 磅」直观。 */
+.preview-sentence {
+  margin: 0;
+  padding: var(--space-2);
+  border: 2px solid var(--c-line-soft);
+  border-radius: var(--radius-m);
+  background: var(--c-surface-3);
+  color: var(--c-ink);
+  font-size: calc(1 * var(--fs-scale) * 1rem);
+  font-weight: 600;
+}
+
+/* 「我的情况」四行：行本身即入口，值仍然并排显示（原来是只读表格，看得到改不了）。
+   行高沿用 --tap-min（60px），不用 height，最大字号下允许自然长高。 */
+.setting-rows { list-style: none; margin: 0; padding: 0; }
+.setting-rows > li + li { border-top: 2px solid var(--c-line-soft); }
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: 10px 4px;
+  text-align: left;
+  font-family: inherit;
+  font-size: calc(1 * var(--fs-scale) * 1rem);
+  color: var(--c-ink);
+  background: none;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.setting-row .setting-key {
+  flex: 0 0 auto;
+  min-width: 4.6em;          /* 四行的值从同一竖线起排，像表格一样好扫读 */
+  color: var(--c-ink-3);
+  font-weight: 600;
+  font-size: calc(0.95 * var(--fs-scale) * 1rem);
+}
+.setting-row .setting-value { flex: 1 1 auto; min-width: 0; font-weight: 700; }
+.setting-row .setting-go { flex: 0 0 auto; display: flex; color: var(--c-brand-ink); }
+.setting-row .setting-go .icon { width: 1.1em; height: 1.1em; }
+.setting-row:active { background: var(--c-surface-3); }
+.setting-row:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .grid-2 {
   display: grid;
@@ -354,6 +572,12 @@ body {
 .risk-banner[data-level='green'] .risk-level-label  { background: var(--c-risk-green); }
 .risk-banner[data-level='gray'] .risk-level-label   { background: var(--c-risk-gray); }
 
+/* ---------- 额度条 ---------- */
+.meters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
 .meter {
   display: flex;
   flex-direction: column;
@@ -361,12 +585,25 @@ body {
 }
 .meter-head {
   display: flex; justify-content: space-between; align-items: baseline; gap: 8px 12px;
-  font-size: calc(0.95 * var(--fs-scale) * 1rem); font-weight: 600;
+  font-size: calc(1 * var(--fs-scale) * 1rem);
   flex-wrap: wrap;
 }
 /* 两段文字各自不折断，窄屏上整体换行即可，避免「已吃 0 / mg」这种割裂 */
 .meter-head > span { white-space: nowrap; }
-.meter-value { font-variant-numeric: tabular-nums; }
+.meter-name { font-weight: 600; color: var(--c-ink); }
+.meter-value { font-variant-numeric: tabular-nums; font-weight: 700; }
+/* 「还剩多少」的配色跟着紧张度走（v3）。没有 data-tone 的调用保持默认色 */
+.meter-value[data-tone='ok'] { color: var(--c-brand); }
+.meter-value[data-tone='watch'] { color: var(--c-risk-yellow); }
+.meter-value[data-tone='over'] { color: var(--c-risk-orange); }
+/* 单指标结论：这一份自己算什么档次（规则层已算好 grade，这里只做短措辞）。
+   与右上角「还剩多少」（累计口径）不是一回事，所以每句都以「这一份」开头。
+   只有出问题才上风险色，正常状态用中性色，避免整张卡花掉。 */
+.meter-verdict { margin: 0; font-size: calc(0.9 * var(--fs-scale) * 1rem); font-weight: 700; color: var(--c-ink-2); }
+.meter-verdict[data-tone='watch'] { color: var(--c-risk-yellow); }
+.meter-verdict[data-tone='over'] { color: var(--c-risk-orange); }
+/* 「今天已吃 X，上限 Y」——比进度条上的读数更能解释「还剩多少」是怎么来的 */
+.meter-sub { margin: 0; font-size: calc(0.85 * var(--fs-scale) * 1rem); color: var(--c-ink-2); }
 .meter-track {
   height: 18px;
   border-radius: 999px;
@@ -374,9 +611,13 @@ body {
   border: 2px solid var(--c-line-soft);
   overflow: hidden;
 }
+/* 进度条只在「出问题」时才上风险色：正常用品牌绿，将满用黄，吃满用橙。
+   红色不参与 —— 它属于过敏「别吃」那一级。
+   2026-10-09：原来 [data-tone='high'] 配的是 --c-risk-red，违反这条铁律，已改掉；
+   首页 / 结果页 / 记录页现在统一发 ok / watch / over 三个档。 */
 .meter-fill { height: 100%; background: var(--c-brand); }
+.meter-fill[data-tone='watch'] { background: var(--c-risk-yellow); }
 .meter-fill[data-tone='over'] { background: var(--c-risk-orange); }
-.meter-fill[data-tone='high'] { background: var(--c-risk-red); }
 
 /* 依据展开：每条结论都可追溯 */
 details.basis {
@@ -415,7 +656,7 @@ details.basis[open] > summary::after { content: '▴'; }
   font-weight: 700;
   margin-right: 6px;
 }
-.basis-tag[data-kind='rule']     { background: #DDEBF7; color: #0A3560; }
+.basis-tag[data-kind='rule']     { background: var(--c-brand-soft); color: var(--c-brand-ink); }
 .basis-tag[data-kind='model']    { background: #EFE4F7; color: #4A2070; }
 .basis-tag[data-kind='conflict'] { background: #FBE0DC; color: #7A1B12; }
 .basis-src { color: var(--c-ink-3); font-size: calc(0.85 * var(--fs-scale) * 1rem); display: block; }
@@ -514,13 +755,64 @@ details.basis[open] > summary::after { content: '▴'; }
   display: flex;
   justify-content: center;
   padding: var(--space-2) var(--space-2) calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
-  background: linear-gradient(to top, var(--c-surface-2) 72%, rgba(244, 247, 250, 0));
+  background: linear-gradient(to top, var(--c-surface-2) 72%, rgba(247, 250, 245, 0));
   pointer-events: none;
   z-index: 30;
 }
 /* 必须显式处理：display:flex 会盖掉 hidden 属性的默认 display:none */
 .speaker-bar[hidden] { display: none; }
 .speaker-bar > * { pointer-events: auto; width: 100%; }
+
+/* ---------- 底部导航（T2）：只做页面切换，不含任何主动作 ---------- */
+/* 「每屏一个主动作」指的是内容区，导航栏不计入。形态：常驻贴底通栏（不要悬浮
+   胶囊、不要滚动到底才出现）。显示/隐藏由 app.js 的 syncTabbar() 在路由层控制：
+   仅 首页/记录/设置 三页，流程页（确认/进度/结果/画像/说明）一律隐藏。
+   ⚠️ 隐式依赖：.speaker-bar 与 .tabbar 同为 bottom:0 的 fixed 元素，同时显示会
+   重叠。目前不冲突只是因为「语音条只在结果页出现」且「结果页不显示底栏」——
+   以后要给结果页加底栏，必须先处理这条。
+   定位沿用 .speaker-bar 的 left:50% + translateX(-50%) + width:min(480px,100%)：
+   PC 上自动跟着 .app-shell 的 480px 居中，不需要媒体查询。
+   注意：不要给它的祖先元素加 transform，否则 iOS Safari 上 fixed 定位会飘。 */
+.tabbar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: min(480px, 100%);
+  z-index: 15;
+  display: flex;
+  background: var(--c-surface);
+  border-top: 2px solid var(--c-line);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+/* 同 .speaker-bar：display:flex 会盖掉 hidden 属性的默认 display:none */
+.tabbar[hidden] { display: none; }
+
+.tabbar .tab {
+  flex: 1 1 0;
+  min-height: 68px;             /* 不用 height：最大字号下允许自然长高 */
+  padding: 8px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  text-decoration: none;
+  color: var(--c-ink-2);
+  font-size: calc(1 * var(--fs-scale) * 1rem);   /* 与正文同档，20px 起 */
+}
+/* 图标固定 24px，不随字号缩放：若用 em，1.8 倍字号时会变 36px，把 68px 的项撑破。
+   （需要「方框与里面的字一起放大」的装饰不用 em，用 tokens.css 的 --zoom。） */
+.tabbar .tab .icon {
+  width: 24px;
+  height: 24px;
+}
+/* 选中态 = 颜色 + 加粗，不只靠颜色（无障碍：颜色不得是唯一信息载体） */
+.tabbar .tab[aria-current='page'] {
+  color: var(--c-brand-ink);
+  font-weight: 700;
+}
+.tabbar .tab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 /* ---------- 轻提示（非弹窗、不打断、不诱导） ---------- */
 .toast {
@@ -531,7 +823,7 @@ details.basis[open] > summary::after { content: '▴'; }
   max-width: min(480px, 92vw);
   padding: 10px 16px;
   border-radius: 999px;
-  background: #16202B;
+  background: var(--c-ink);
   color: #fff;
   font-size: calc(0.95 * var(--fs-scale) * 1rem);
   font-weight: 600;

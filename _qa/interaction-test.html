@@ -6,10 +6,12 @@
 <!--
   这个文件不是应用的一部分，只是 tools/check-interaction.py 用的测试载体。
   它直接复用 src/ 下的全部源码（因此永远和被测代码同源、同步），
-  在页面里用真实 DOM 事件驱动按钮，再把结果写进 <pre id="probe"> 供 dump-dom 读取。
+  在页面里用真实 DOM 事件驱动按钮，再把结果写进 #probe 供 dump-dom 读取。
 
   为什么不用 iframe：iframe 的 load 事件与模块求值顺序会相互竞争，
   偶尔会在应用挂载前就开测，导致测试自己偶发失败。
+
+  为什么页面里有一张看不见的「闸门图片」：见下面 <img id="probe-gate"> 处的注释。
 -->
 <link rel="stylesheet" href="/src/styles/tokens.css" />
 <link rel="stylesheet" href="/src/styles/app.css" />
@@ -17,7 +19,7 @@
   #probe {
     position: fixed; left: 0; top: 0; right: 0; bottom: 0;
     margin: 0; padding: 10px; overflow: auto;
-    background: #fff; color: #16202B;
+    background: #fff; color: #191D1A;
     font: 13px/1.55 monospace; white-space: pre-wrap; z-index: 9999;
   }
 </style>
@@ -34,23 +36,52 @@
     </button>
   </div>
 
+  <!-- 底栏占位：与 index.html 保持一致。app.js 启动时会把它替换成带图标的完整结构；
+       少了这个节点，syncTabbar() 会直接 return，底栏的显示/选中态就永远测不到。 -->
+  <nav id="tabbar" class="tabbar" aria-label="主要页面" hidden></nav>
+
   <div id="toast" class="toast" role="status" aria-live="assertive" hidden></div>
   <div id="aria-live" class="sr-only" aria-live="assertive"></div>
+
+  <!--
+    闸门：这张图必须最后加载完，「load 事件」才会触发。
+    它的地址是本测试服务的一个特殊端点，服务端会把请求挂住不返回；
+    等测试跑完（flush）时页面再请求 /__qa-gate-open，服务端才把它回出去。
+    这样 --dump-dom（在 load 那一刻取 DOM）拿到的就是测试跑完后的结果，
+    而不是 probe 还写着 pending 的半成品。
+
+    背景：--virtual-time-budget 在 Chrome 132 之后已失效（old headless 被移除），
+    没有这道闸门时测试会永远「跑不完」。详见 tools/check-interaction.py 顶部说明。
+  -->
+  <img id="probe-gate" src="/__qa-gate.svg" alt="" aria-hidden="true"
+       style="position:absolute;width:1px;height:1px;opacity:0" />
 
   <pre id="probe">pending</pre>
 
   <!-- 先挂错误捕获，避免脚本自身抛错时一片沉默 -->
   <script>
     window.__errors = [];
+
+    /* 放行闸门：只请求端点，不关心返回内容 */
+    window.__releaseGate = function () {
+      try {
+        fetch('/__qa-gate-open', { cache: 'no-store', keepalive: true }).catch(function () {});
+      } catch (error) {
+        /* 直接用浏览器打开本文件时没有这个端点，忽略即可 */
+      }
+    };
+
     window.addEventListener('error', (e) => {
       window.__errors.push('ERROR: ' + e.message + ' @ ' + (e.filename || '') + ':' + (e.lineno || ''));
       const p = document.getElementById('probe');
       if (p) p.textContent = window.__errors.join('\n');
+      window.__releaseGate();
     });
     window.addEventListener('unhandledrejection', (e) => {
       window.__errors.push('REJECT: ' + ((e.reason && (e.reason.stack || e.reason.message)) || e.reason));
       const p = document.getElementById('probe');
       if (p) p.textContent = window.__errors.join('\n');
+      window.__releaseGate();
     });
   </script>
 
@@ -68,6 +99,8 @@
     const bad = (name, detail) => { fail += 1; log('FAIL  ' + name + (detail ? '  →  ' + detail : '')); };
     const flush = () => {
       out.textContent = lines.join('\n') + '\n\n小计：通过 ' + pass + '，失败 ' + fail;
+      // 报告写完之后再放行闸门：load 一触发，dump-dom 就立刻取 DOM
+      window.__releaseGate();
     };
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -121,46 +154,216 @@
         location.hash = '#/home';
         await wait(500);
 
-        /* ---- 1. 「设置」按钮 ---- */
-        const settingsBtn = findButton('设置');
-        if (!settingsBtn) {
-          bad('首页找到「设置」按钮', '没找到');
+        /* ---- 1. 首页顶栏不再放「设置」：设置入口只在底栏（v3 结构，2026-10-09） ---- */
+        if (findButton('设置')) {
+          bad('首页顶栏没有「设置」按钮', '仍然存在：底栏已经有「设置」，两个入口重复');
         } else {
-          tap(settingsBtn);
+          ok('首页顶栏没有「设置」按钮');
+        }
+
+        /* 底栏成了唯一入口，所以这一步更要测：老人在首页找不到设置入口就改不了画像 */
+        const bar0 = document.getElementById('tabbar');
+        const settingsTab = bar0 && bar0.querySelector('a.tab[href="#/settings"]');
+        if (!settingsTab) {
+          bad('底栏有「设置」项', '没找到 #tabbar a[href="#/settings"]');
+        } else {
+          tap(settingsTab);
           await waitFor(() => viewText().includes('字要大一点'), 3000);
           if (location.hash.includes('settings') && viewText().includes('字要大一点')) {
-            ok('点「设置」→ 进入设置页', location.hash);
+            ok('点底栏「设置」→ 进入设置页', location.hash);
           } else {
-            bad('点「设置」→ 进入设置页', 'hash=' + location.hash);
+            bad('点底栏「设置」→ 进入设置页', 'hash=' + location.hash);
           }
         }
 
-        /* ---- 2. 「返回」按钮 ---- */
-        const backBtn = findButton('返回');
-        if (backBtn) {
-          tap(backBtn);
-          await waitFor(() => viewText().includes('拍一张照片'), 3000);
-          if (viewText().includes('拍一张照片')) {
-            ok('点「返回」→ 回到首页');
-          } else {
-            bad('点「返回」→ 回到首页', 'hash=' + location.hash);
-          }
+        /* ---- 2. 设置是底栏的平级目的地：顶栏不该有「返回」，底栏「设置」应选中 ---- */
+        if (findButton('返回')) {
+          bad('设置页顶栏没有「返回」按钮', '仍然存在：底栏目的地页面再放返回，老人不知道会退回哪里');
         } else {
-          bad('设置页找到「返回」按钮', '没找到');
+          ok('设置页顶栏没有「返回」按钮');
         }
 
-        /* ---- 3. 演示用例 → 结果页 ---- */
-        const demoBtn = findButton('含花生的饼干');
-        if (!demoBtn) {
-          bad('首页找到演示用例按钮', '没找到');
+        const tabbar = document.getElementById('tabbar');
+        if (!tabbar || tabbar.hidden) {
+          bad('设置页显示底栏', tabbar ? '底栏仍是 hidden' : '页面里没有 #tabbar 节点');
         } else {
-          tap(demoBtn);
-          const level = await waitFor(() => document.querySelector('[data-level]'), 4000);
-          if (level) {
-            ok('点演示用例 → 出结果页', '等级=' + level.dataset.level);
+          const current = tabbar.querySelector('a.tab[aria-current="page"]');
+          if (current && current.getAttribute('href') === '#/settings') {
+            ok('底栏可见且「设置」为选中态');
           } else {
-            bad('点演示用例 → 出结果页', 'hash=' + location.hash + ' 页面=' + viewText().slice(0, 80));
+            bad('底栏「设置」为选中态', 'current=' + (current ? current.getAttribute('href') : 'null'));
           }
+
+          /* 底栏是页面切换，不是「返回」：点「首页」必须真的回到首页 */
+          const homeTab = tabbar.querySelector('a.tab[href="#/home"]');
+          if (!homeTab) {
+            bad('底栏有「首页」项', '没找到 a.tab[href="#/home"]');
+          } else {
+            tap(homeTab);
+            const backHome = await waitFor(() => viewText().includes('拍一张照片'), 3000);
+            if (backHome) {
+              ok('点底栏「首页」→ 回到首页', 'hash=' + location.hash);
+            } else {
+              bad('点底栏「首页」→ 回到首页', 'hash=' + location.hash);
+            }
+          }
+        }
+
+        /* ---- 2b. P0 回归：「我的情况」四行都可点，改一项不会清空其它项 ----
+           这条守的是一个真实的数据丢失缺陷：draft 若不从现有画像预填，
+           「只想改过敏、其它问题全跳过」会把年纪、关注点、慢病一次清空。 */
+        const savedProfile = JSON.parse(JSON.stringify(app.state.profile));
+        app.state.profile = {
+          completed: true,
+          ageGroup: 'age70',
+          concerns: ['sugar'],
+          allergens: ['peanut'],
+          conditions: [],
+          voiceOn: true
+        };
+        location.hash = '#/settings';
+        await waitFor(() => viewText().includes('我的情况'), 3000);
+
+        const profileRows = [...view.querySelectorAll('.setting-row')];
+        if (profileRows.length === 4) {
+          ok('设置页「我的情况」是四行可点项',
+             profileRows.map((r) => r.querySelector('.setting-key').textContent).join(' / '));
+        } else {
+          bad('设置页「我的情况」是四行可点项', '实际 ' + profileRows.length + ' 行');
+        }
+
+        const allergyRow = profileRows.find((r) => (r.textContent || '').includes('过敏'));
+        if (!allergyRow) {
+          bad('找到「过敏」那一行', '没找到 .setting-row');
+        } else {
+          tap(allergyRow);
+          await waitFor(() => viewText().includes('您吃东西过敏吗'), 3000);
+          if (location.hash.includes('step=allergens') && viewText().includes('改好了')) {
+            ok('点「过敏」→ 进入单问题模式', location.hash);
+          } else {
+            bad('点「过敏」→ 进入单问题模式',
+                'hash=' + location.hash + ' | 页面=' + JSON.stringify(viewText().slice(0, 100)));
+          }
+
+          const peanutOption = [...view.querySelectorAll('button.option')]
+            .find((b) => (b.textContent || '').includes('花生'));
+          if (peanutOption && peanutOption.getAttribute('aria-pressed') === 'true') {
+            ok('单问题模式预填了已选的过敏原');
+          } else {
+            bad('单问题模式预填了已选的过敏原',
+                peanutOption ? 'aria-pressed=' + peanutOption.getAttribute('aria-pressed') : '没找到花生选项');
+          }
+
+          const saveBtn = findButton('改好了');
+          if (!saveBtn) {
+            bad('单问题模式有「改好了」按钮', '没找到');
+          } else {
+            tap(saveBtn);
+            await waitFor(() => viewText().includes('我的情况'), 3000);
+            const after = app.state.profile;
+            const kept = after.completed === true && after.ageGroup === 'age70' &&
+                         (after.concerns || []).join(',') === 'sugar';
+            if (kept) {
+              ok('单问题模式保存后，其它项保持不变',
+                 'ageGroup=' + after.ageGroup + ' concerns=' + (after.concerns || []).join('、'));
+            } else {
+              bad('单问题模式保存后，其它项保持不变', JSON.stringify(after));
+            }
+          }
+        }
+        /* ---- 2c. 三档字号下，方块与里面的字 / 对号必须等比缩放 ----
+           曾经的问题：方框写死 36px（品牌方块）/ 34px（勾选框），里面的字与对号却
+           跟着字号放大，「更大 / 最大」时字顶出方框、对号撑到框外，看着像「偏离」。
+           判据用「尺寸 ÷ 该档倍率」，三档必须一致——比写死期望值更稳。 */
+        const FS_SCALE = { large: 1.25, xlarge: 1.5, huge: 1.8 };
+        const textSizeBefore = document.documentElement.dataset.textSize;
+        const geom = [];
+        for (const size of Object.keys(FS_SCALE)) {
+          document.documentElement.dataset.textSize = size;
+          const brand = view.querySelector('.topbar .brand-mark');
+          const mark = view.querySelector('.option .option-mark');
+          const check = mark && mark.querySelector('.icon');
+          if (!brand || !mark || !check) break;
+          const fs = FS_SCALE[size];
+          const brandBox = brand.getBoundingClientRect();
+          const markBox = mark.getBoundingClientRect();
+          const checkBox = check.getBoundingClientRect();
+          const textRange = document.createRange();
+          textRange.selectNodeContents(brand);
+          geom.push({
+            size,
+            brand: brandBox.width / fs,
+            text: textRange.getBoundingClientRect().height / fs,
+            mark: markBox.width / fs,
+            check: checkBox.width / fs,
+            offset: Math.abs((checkBox.left + checkBox.width / 2) - (markBox.left + markBox.width / 2))
+          });
+        }
+        document.documentElement.dataset.textSize = textSizeBefore;
+
+        if (geom.length < Object.keys(FS_SCALE).length) {
+          bad('三档字号下装饰等比缩放', '没量到 .brand-mark / .option-mark，量到 ' + geom.length + ' 档');
+        } else {
+          const metricName = { brand: '绿色方块', text: '「食」字', mark: '勾选框', check: '对号' };
+          const detail = geom
+            .map((g) => `${g.size}→方块${g.brand.toFixed(1)}/字${g.text.toFixed(1)}/框${g.mark.toFixed(1)}/号${g.check.toFixed(1)}`)
+            .join('；');
+          const drifted = Object.keys(metricName).filter((key) => {
+            const values = geom.map((g) => g[key]);
+            return Math.max(...values) - Math.min(...values) > 1.5;
+          });
+          if (drifted.length) {
+            bad('三档字号下装饰等比缩放',
+                drifted.map((k) => metricName[k]).join('、') + ' 没有跟着字号等比 → ' + detail);
+          } else {
+            ok('三档字号下方块 / 勾选框与里面的字、对号等比缩放', detail);
+          }
+
+          const worstOffset = Math.max(...geom.map((g) => g.offset));
+          const offsetDetail = geom.map((g) => `${g.size}:${g.offset.toFixed(2)}px`).join('；');
+          if (worstOffset <= 1) {
+            ok('三档字号下对号都居中在勾选框里', offsetDetail);
+          } else {
+            bad('三档字号下对号都居中在勾选框里', '最大偏移 ' + worstOffset.toFixed(2) + 'px → ' + offsetDetail);
+          }
+        }
+
+        app.state.profile = savedProfile;
+
+        /* 回到首页 */
+        location.hash = '#/home';
+        await waitFor(() => viewText().includes('拍一张照片'), 3000);
+
+        /* ---- 3a. 「一句话预警行」必须存在且带档位（v3 结构的核心那一条） ---- */
+        const alertRow = view.querySelector('.alert-row');
+        if (!alertRow) {
+          bad('首页有「一句话预警行」', '没找到 .alert-row');
+        } else {
+          const alertTone = alertRow.getAttribute('data-tone');
+          const alertTitle = alertRow.querySelector('.alert-title');
+          if (alertTone && alertTitle && alertTitle.textContent.trim()) {
+            ok('首页「一句话预警行」带档位与结论文案',
+               'tone=' + alertTone + ' 「' + alertTitle.textContent.trim() + '」');
+          } else {
+            bad('首页「一句话预警行」内容完整',
+                'tone=' + alertTone + ' title=' + (alertTitle ? alertTitle.textContent : 'null'));
+          }
+        }
+
+        /* ---- 3b. 首页不再放演示用例卡（2026-10-09 决定），改用深链进结果页 ----
+           深链是同一套内置用例的另一个入口，顺带把这条路也测了。 */
+        if (findButton('演示用例')) {
+          bad('首页没有演示用例卡', '仍然存在：按决定已移出界面（数据仍留在 demo.js / sample-labels.js）');
+        } else {
+          ok('首页没有演示用例卡');
+        }
+
+        location.hash = '#/result?case=peanut-cookie';
+        const level = await waitFor(() => document.querySelector('[data-level]'), 6000);
+        if (level) {
+          ok('深链 #/result?case= 能出结果页', '等级=' + level.dataset.level);
+        } else {
+          bad('深链 #/result?case= 能出结果页', 'hash=' + location.hash + ' 页面=' + viewText().slice(0, 80));
         }
 
         /* ---- 4. 结果页的「依据」可展开、语音条出现 ---- */

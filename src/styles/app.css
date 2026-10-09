@@ -88,14 +88,24 @@ body {
   color: var(--c-brand-ink);
   font-weight: 700;
 }
+/* 方框与里面的字必须用**同一个倍率**整体缩放。
+   原来是「方框写死 36px + 字跟着 --fs-scale 放大」：到「更大 / 最大」档，
+   字顶出方框、越过圆角，看起来就是「食」字偏离了。
+   --zoom = 相对「标准大字」档的倍率（1 / 1.2 / 1.44，见 tokens.css），
+   所以括号里的 px 就是标准档的原始尺寸——标准档的观感一个像素都没变。 */
 .topbar .brand-mark {
-  width: 36px; height: 36px; flex: 0 0 auto;
+  width: calc(36px * var(--zoom));
+  height: calc(36px * var(--zoom));
+  flex: 0 0 auto;
   display: grid; place-items: center;
-  border-radius: 10px;
+  border-radius: calc(10px * var(--zoom));
   background: var(--c-brand);
   color: #fff;
   font-weight: 700;
-  font-size: calc(1.1 * var(--fs-scale) * 1rem);
+  /* line-height:1 配 place-items:center：单字在方框里按几何中心居中，
+     不再受字体 ascent/descent 不对称的影响 */
+  line-height: 1;
+  font-size: calc(22px * var(--zoom));
 }
 
 /* ---------- 卡片 ---------- */
@@ -265,15 +275,29 @@ body {
   border-radius: var(--radius-m);
   cursor: pointer;
 }
+/* 勾选框同理：方框与里面的对号一起按 --zoom 缩放。
+   原来是「方框写死 34px + font-size:1.2em（跟着选项文字放大）」，
+   最大字号下对号撑出框外、看起来偏在一边。括号里的 px 是标准档原尺寸。 */
 .option .option-mark {
   flex: 0 0 auto;
-  width: 34px; height: 34px;
+  position: relative;
+  width: calc(34px * var(--zoom));
+  height: calc(34px * var(--zoom));
   display: grid; place-items: center;
   border: 2px solid var(--c-line);
-  border-radius: 8px;
-  font-size: 1.2em;
+  border-radius: calc(8px * var(--zoom));
+  font-size: calc(26.4px * var(--zoom));   /* 里面的对号 svg = 1.25em = 33px */
   color: transparent;
   background: var(--c-surface-3);
+}
+/* 对号比勾选框的**内框**还大（33px 的 svg 装进 34−2×2=30px），而 grid / flex 的
+   center 在「装不下」时会退化成从左边开始排（实测因此右偏 1.5px，最大字号下还会
+   蹭出右边框）。改成绝对定位 + translate 居中：装得下装不下，几何中心都重合。 */
+.option .option-mark .icon {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 .option[aria-pressed='true'] {
   border-color: var(--c-brand);
@@ -292,6 +316,53 @@ body {
   font-weight: 500;
   color: var(--c-ink-3);
 }
+
+/* 字号档位的「活示例」：它自己不特殊，就是一个正文大小的句子，
+   跟着 --fs-scale 一起变。老人靠它判断档位差别，比「约 XX 磅」直观。 */
+.preview-sentence {
+  margin: 0;
+  padding: var(--space-2);
+  border: 2px solid var(--c-line-soft);
+  border-radius: var(--radius-m);
+  background: var(--c-surface-3);
+  color: var(--c-ink);
+  font-size: calc(1 * var(--fs-scale) * 1rem);
+  font-weight: 600;
+}
+
+/* 「我的情况」四行：行本身即入口，值仍然并排显示（原来是只读表格，看得到改不了）。
+   行高沿用 --tap-min（60px），不用 height，最大字号下允许自然长高。 */
+.setting-rows { list-style: none; margin: 0; padding: 0; }
+.setting-rows > li + li { border-top: 2px solid var(--c-line-soft); }
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: 10px 4px;
+  text-align: left;
+  font-family: inherit;
+  font-size: calc(1 * var(--fs-scale) * 1rem);
+  color: var(--c-ink);
+  background: none;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.setting-row .setting-key {
+  flex: 0 0 auto;
+  min-width: 4.6em;          /* 四行的值从同一竖线起排，像表格一样好扫读 */
+  color: var(--c-ink-3);
+  font-weight: 600;
+  font-size: calc(0.95 * var(--fs-scale) * 1rem);
+}
+.setting-row .setting-value { flex: 1 1 auto; min-width: 0; font-weight: 700; }
+.setting-row .setting-go { flex: 0 0 auto; display: flex; color: var(--c-brand-ink); }
+.setting-row .setting-go .icon { width: 1.1em; height: 1.1em; }
+.setting-row:active { background: var(--c-surface-3); }
+.setting-row:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .grid-2 {
   display: grid;

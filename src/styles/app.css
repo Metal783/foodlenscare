@@ -533,6 +533,57 @@ details.basis[open] > summary::after { content: '▴'; }
 .speaker-bar[hidden] { display: none; }
 .speaker-bar > * { pointer-events: auto; width: 100%; }
 
+/* ---------- 底部导航（T2）：只做页面切换，不含任何主动作 ---------- */
+/* 「每屏一个主动作」指的是内容区，导航栏不计入。形态：常驻贴底通栏（不要悬浮
+   胶囊、不要滚动到底才出现）。显示/隐藏由 app.js 的 syncTabbar() 在路由层控制：
+   仅 首页/记录/设置 三页，流程页（确认/进度/结果/画像/说明）一律隐藏。
+   ⚠️ 隐式依赖：.speaker-bar 与 .tabbar 同为 bottom:0 的 fixed 元素，同时显示会
+   重叠。目前不冲突只是因为「语音条只在结果页出现」且「结果页不显示底栏」——
+   以后要给结果页加底栏，必须先处理这条。
+   定位沿用 .speaker-bar 的 left:50% + translateX(-50%) + width:min(480px,100%)：
+   PC 上自动跟着 .app-shell 的 480px 居中，不需要媒体查询。
+   注意：不要给它的祖先元素加 transform，否则 iOS Safari 上 fixed 定位会飘。 */
+.tabbar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: min(480px, 100%);
+  z-index: 15;
+  display: flex;
+  background: var(--c-surface);
+  border-top: 2px solid var(--c-line);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+/* 同 .speaker-bar：display:flex 会盖掉 hidden 属性的默认 display:none */
+.tabbar[hidden] { display: none; }
+
+.tabbar .tab {
+  flex: 1 1 0;
+  min-height: 68px;             /* 不用 height：最大字号下允许自然长高 */
+  padding: 8px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  text-decoration: none;
+  color: var(--c-ink-2);
+  font-size: calc(1 * var(--fs-scale) * 1rem);   /* 与正文同档，20px 起 */
+}
+/* 图标固定 24px，不随字号缩放：若用 em，1.8 倍字号时会变 36px，把 68px 的项撑破。
+   （需要「方框与里面的字一起放大」的装饰不用 em，用 tokens.css 的 --zoom。） */
+.tabbar .tab .icon {
+  width: 24px;
+  height: 24px;
+}
+/* 选中态 = 颜色 + 加粗，不只靠颜色（无障碍：颜色不得是唯一信息载体） */
+.tabbar .tab[aria-current='page'] {
+  color: var(--c-brand-ink);
+  font-weight: 700;
+}
+.tabbar .tab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
 /* ---------- 轻提示（非弹窗、不打断、不诱导） ---------- */
 .toast {
   position: fixed;

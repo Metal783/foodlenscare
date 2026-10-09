@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192" role="img" aria-label="食护家 FoodLensCare">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#12639F"/>
-      <stop offset="0.6" stop-color="#0F4C81"/>
-      <stop offset="1" stop-color="#0A3560"/>
+      <stop offset="0" stop-color="#0E5A3E"/>
+      <stop offset="0.6" stop-color="#0B4A32"/>
+      <stop offset="1" stop-color="#073724"/>
     </linearGradient>
   </defs>
   <rect width="192" height="192" rx="42" fill="url(#bg)"/>

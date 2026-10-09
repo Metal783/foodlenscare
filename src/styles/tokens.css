@@ -18,28 +18,40 @@
   /* ---- 文字缩放系数：由 data-text-size 驱动，只作用于文字 ---- */
   --fs-scale: 1.25;
 
-  /* ---- 品牌与语义色（均为浅底深字，正文对比度 ≥ 7:1） ---- */
-  --c-brand: #0F4C81;
-  --c-brand-ink: #0A3560;
-  --c-brand-soft: #E8F1FA;
-  --c-ink: #16202B;
-  --c-ink-2: #3A4653;
-  --c-ink-3: #5A6673;
-  --c-line: #C9D3DE;
-  --c-line-soft: #E3E9F0;
-  --c-surface: #FFFFFF;
-  --c-surface-2: #F4F7FA;
-  --c-surface-3: #EAF0F6;
+  /* ---- 品牌与语义色（均为浅底深字，正文对比度 ≥ 7:1） ----
+     2026-10-09 主色定案为绿。完整色板与实测见 色板/色板定义-绿色主色.md。
 
-  /* ---- 风险五级：color + label + icon + speech 四重编码 ---- */
-  --c-risk-red: #B3261E;      /* 明确命中过敏成分 */
+     品牌绿是深青绿，只用于「结构 / 交互」：主按钮底、顶栏标题、链接、底栏选中态。
+     它**绝不能**用于表达「安全 / 可以吃」这类等级判定，也绝不能进结果页的结论区
+     —— 那里的绿色属于下面的 --c-risk-green。两者靠三样东西分开：
+       CIE L*   27.29 vs 39.72
+       色相     157°（偏青） vs 125°（偏黄）
+       形态     深底白字 vs 浅底深字
+     */
+  --c-brand: #0B4A32;
+  --c-brand-ink: #073724;
+  --c-brand-soft: #D3E8DC;
+  --c-ink: #191D1A;
+  --c-ink-2: #414941;
+  --c-ink-3: #5C6660;
+  --c-line: #C0C9BE;
+  --c-line-soft: #E4EAE6;
+  --c-surface: #FFFFFF;
+  --c-surface-2: #F7FAF5;
+  --c-surface-3: #F1F4EF;
+
+  /* ---- 风险五级：color + label + icon + speech 四重编码 ----
+     ⚠️ 红色全站只有一个含义：过敏命中 → 别吃。
+        任何其它警示（糖超标、盐超标、识别失败）都不许用红，改用橙色。
+        进度条「吃满」也用橙色，不用红色。 */
+  --c-risk-red: #B3261E;      /* 明确命中过敏成分 —— 全站唯一用红的地方 */
   --c-risk-red-soft: #FBE9E7;
-  --c-risk-orange: #9A4A00;   /* 糖/钠显著超出当日剩余额度 */
+  --c-risk-orange: #9A4A00;   /* 糖/钠显著超出当日剩余额度（也用于进度条吃满） */
   --c-risk-orange-soft: #FDF0E2;
-  --c-risk-yellow: #7A5A00;   /* 一般性营养结构提示 */
+  --c-risk-yellow: #7A5A00;   /* 一般性营养结构提示（也用于进度条将满） */
   --c-risk-yellow-soft: #FCF4DC;
-  --c-risk-green: #1B5E3A;    /* 未发现与画像明显冲突 */
-  --c-risk-green-soft: #E6F2EA;
+  --c-risk-green: #256B2B;    /* 未发现与画像明显冲突 —— 只属于结果页结论区 */
+  --c-risk-green-soft: #EBF5E6;
   --c-risk-gray: #4A5560;     /* 信息不足，请补拍 */
   --c-risk-gray-soft: #EDF0F3;
 

@@ -192,7 +192,8 @@ body {
   gap: 10px;
   border: none;
   border-radius: var(--radius-l);
-  background: linear-gradient(160deg, #12639F 0%, #0F4C81 60%, #0A3560 100%);
+  /* 2026-10-09：原来是三层蓝渐变，两处都不合规——渐变在禁止项里，且品牌色不该硬编码 */
+  background: var(--c-brand);
   color: #fff;
   font-family: inherit;
   font-size: calc(1.45 * var(--fs-scale) * 1rem);
@@ -415,7 +416,7 @@ details.basis[open] > summary::after { content: '▴'; }
   font-weight: 700;
   margin-right: 6px;
 }
-.basis-tag[data-kind='rule']     { background: #DDEBF7; color: #0A3560; }
+.basis-tag[data-kind='rule']     { background: var(--c-brand-soft); color: var(--c-brand-ink); }
 .basis-tag[data-kind='model']    { background: #EFE4F7; color: #4A2070; }
 .basis-tag[data-kind='conflict'] { background: #FBE0DC; color: #7A1B12; }
 .basis-src { color: var(--c-ink-3); font-size: calc(0.85 * var(--fs-scale) * 1rem); display: block; }
@@ -514,7 +515,7 @@ details.basis[open] > summary::after { content: '▴'; }
   display: flex;
   justify-content: center;
   padding: var(--space-2) var(--space-2) calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
-  background: linear-gradient(to top, var(--c-surface-2) 72%, rgba(244, 247, 250, 0));
+  background: linear-gradient(to top, var(--c-surface-2) 72%, rgba(247, 250, 245, 0));
   pointer-events: none;
   z-index: 30;
 }
@@ -531,7 +532,7 @@ details.basis[open] > summary::after { content: '▴'; }
   max-width: min(480px, 92vw);
   padding: 10px 16px;
   border-radius: 999px;
-  background: #16202B;
+  background: var(--c-ink);
   color: #fff;
   font-size: calc(0.95 * var(--fs-scale) * 1rem);
   font-weight: 600;

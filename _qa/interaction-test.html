@@ -6,10 +6,12 @@
 <!--
   这个文件不是应用的一部分，只是 tools/check-interaction.py 用的测试载体。
   它直接复用 src/ 下的全部源码（因此永远和被测代码同源、同步），
-  在页面里用真实 DOM 事件驱动按钮，再把结果写进 <pre id="probe"> 供 dump-dom 读取。
+  在页面里用真实 DOM 事件驱动按钮，再把结果写进 #probe 供 dump-dom 读取。
 
   为什么不用 iframe：iframe 的 load 事件与模块求值顺序会相互竞争，
   偶尔会在应用挂载前就开测，导致测试自己偶发失败。
+
+  为什么页面里有一张看不见的「闸门图片」：见下面 <img id="probe-gate"> 处的注释。
 -->
 <link rel="stylesheet" href="/src/styles/tokens.css" />
 <link rel="stylesheet" href="/src/styles/app.css" />
@@ -37,20 +39,45 @@
   <div id="toast" class="toast" role="status" aria-live="assertive" hidden></div>
   <div id="aria-live" class="sr-only" aria-live="assertive"></div>
 
+  <!--
+    闸门：这张图必须最后加载完，「load 事件」才会触发。
+    它的地址是本测试服务的一个特殊端点，服务端会把请求挂住不返回；
+    等测试跑完（flush）时页面再请求 /__qa-gate-open，服务端才把它回出去。
+    这样 --dump-dom（在 load 那一刻取 DOM）拿到的就是测试跑完后的结果，
+    而不是 probe 还写着 pending 的半成品。
+
+    背景：--virtual-time-budget 在 Chrome 132 之后已失效（old headless 被移除），
+    没有这道闸门时测试会永远「跑不完」。详见 tools/check-interaction.py 顶部说明。
+  -->
+  <img id="probe-gate" src="/__qa-gate.svg" alt="" aria-hidden="true"
+       style="position:absolute;width:1px;height:1px;opacity:0" />
+
   <pre id="probe">pending</pre>
 
   <!-- 先挂错误捕获，避免脚本自身抛错时一片沉默 -->
   <script>
     window.__errors = [];
+
+    /* 放行闸门：只请求端点，不关心返回内容 */
+    window.__releaseGate = function () {
+      try {
+        fetch('/__qa-gate-open', { cache: 'no-store', keepalive: true }).catch(function () {});
+      } catch (error) {
+        /* 直接用浏览器打开本文件时没有这个端点，忽略即可 */
+      }
+    };
+
     window.addEventListener('error', (e) => {
       window.__errors.push('ERROR: ' + e.message + ' @ ' + (e.filename || '') + ':' + (e.lineno || ''));
       const p = document.getElementById('probe');
       if (p) p.textContent = window.__errors.join('\n');
+      window.__releaseGate();
     });
     window.addEventListener('unhandledrejection', (e) => {
       window.__errors.push('REJECT: ' + ((e.reason && (e.reason.stack || e.reason.message)) || e.reason));
       const p = document.getElementById('probe');
       if (p) p.textContent = window.__errors.join('\n');
+      window.__releaseGate();
     });
   </script>
 
@@ -68,6 +95,8 @@
     const bad = (name, detail) => { fail += 1; log('FAIL  ' + name + (detail ? '  →  ' + detail : '')); };
     const flush = () => {
       out.textContent = lines.join('\n') + '\n\n小计：通过 ' + pass + '，失败 ' + fail;
+      // 报告写完之后再放行闸门：load 一触发，dump-dom 就立刻取 DOM
+      window.__releaseGate();
     };
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 

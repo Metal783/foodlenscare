@@ -25,7 +25,7 @@ import { renderRecords } from './pages/records.js';
 import { renderSettings, applyTextSize } from './pages/settings.js';
 import { renderHelp } from './pages/help.js';
 import { renderScan } from './pages/scan.js';
-import { h, button, topbar } from './ui/dom.js';
+import { h, button, topbar, tabbar } from './ui/dom.js';
 import { icon } from './ui/icons.js';
 
 /* ------------------------------------------------------------ 全局状态 */
@@ -157,11 +157,14 @@ for (const [name, render] of Object.entries(ROUTES)) {
   define(name, (view, params, context) => {
     lastRoute = name;
     hideSpeakerUnless(name === 'result');
+    syncTabbar(name);
     return render(view, params, context);
   });
 }
 
 setNotFound((view, _params, context) => {
+  // 未知路由：底栏一并收起，别让老人在「页面不存在」上还能乱跳
+  syncTabbar(null);
   view.replaceChildren(
     topbar({ title: '页面不存在' }),
     h('section', { class: 'card' }, [
@@ -184,6 +187,29 @@ function hideSpeakerUnless(keep) {
   if (bar && !keep) bar.hidden = true;
 }
 
+/** 底栏只在三个「可驻留」页面出现；流程页（确认/进度/结果/画像/说明）走完即结束，不给导航 */
+const TABBAR_ROUTES = ['home', 'records', 'settings'];
+
+/**
+ * 底部导航的显示与选中态。
+ *
+ * 状态放在路由层而不是点击回调：老人可能从微信/短信里直接打开 #/records，
+ * 刷新后选中态必须正确，靠点击事件维护状态会漏（套路同 hideSpeakerUnless）。
+ *
+ * ⚠️ 隐式依赖（必须记住）：.speaker-bar（语音条）和 .tabbar 都是 bottom:0 的
+ * fixed 元素，同时显示会重叠。现在没撞上只是因为「语音条只在结果页出现」
+ * 且「结果页不显示底栏」。以后谁要给结果页加底栏，必须先处理这条。
+ */
+function syncTabbar(route) {
+  const bar = document.getElementById('tabbar');
+  if (!bar) return;
+  bar.hidden = !TABBAR_ROUTES.includes(route);
+  for (const link of bar.querySelectorAll('a.tab')) {
+    if (link.getAttribute('href') === `#/${route}`) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  }
+}
+
 /* ---------------------------------------------------------------- 启动 */
 
 function boot() {
@@ -196,6 +222,11 @@ function boot() {
   savePrefs({ ...state.prefs, textSize: state.prefs.textSize });
 
   setView(document.getElementById('view'));
+
+  // 底部导航（T2）：index.html 里是占位 <nav>，这里换成带图标的完整结构
+  // （图标统一来自 ui/icons.js，不在 HTML 里复制第二份 SVG）
+  document.getElementById('tabbar')?.replaceWith(tabbar());
+
   init({
     start: state.profile.completed ? 'home' : 'onboarding',
     ctx

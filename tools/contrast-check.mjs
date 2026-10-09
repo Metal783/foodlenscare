@@ -4,49 +4,51 @@ import { dirname, join } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
-/* ------------------------------------------------------------------ 色值 */
+/* ------------------------------------------------------------------ 色值
+   注意：这里是 src/styles/tokens.css 的**手写镜像**，改色板必须两边一起改。
+   完整色板与依据见 色板/色板定义-绿色主色.md。 */
 const TOKENS = {
-  '--c-brand': '#0F4C81',
-  '--c-brand-ink': '#0A3560',
-  '--c-brand-soft': '#E8F1FA',
-  '--c-ink': '#16202B',
-  '--c-ink-2': '#3A4653',
-  '--c-ink-3': '#5A6673',
-  '--c-line': '#C9D3DE',
-  '--c-line-soft': '#E3E9F0',
+  '--c-brand': '#0B4A32',
+  '--c-brand-ink': '#073724',
+  '--c-brand-soft': '#D3E8DC',
+  '--c-ink': '#191D1A',
+  '--c-ink-2': '#414941',
+  '--c-ink-3': '#5C6660',
+  '--c-line': '#C0C9BE',
+  '--c-line-soft': '#E4EAE6',
   '--c-surface': '#FFFFFF',
-  '--c-surface-2': '#F4F7FA',
-  '--c-surface-3': '#EAF0F6',
+  '--c-surface-2': '#F7FAF5',
+  '--c-surface-3': '#F1F4EF',
   '--c-risk-red': '#B3261E',
   '--c-risk-red-soft': '#FBE9E7',
   '--c-risk-orange': '#9A4A00',
   '--c-risk-orange-soft': '#FDF0E2',
   '--c-risk-yellow': '#7A5A00',
   '--c-risk-yellow-soft': '#FCF4DC',
-  '--c-risk-green': '#1B5E3A',
-  '--c-risk-green-soft': '#E6F2EA',
+  '--c-risk-green': '#256B2B',
+  '--c-risk-green-soft': '#EBF5E6',
   '--c-risk-gray': '#4A5560',
   '--c-risk-gray-soft': '#EDF0F3',
   '风险红底白字': ['#B3261E', '#FFFFFF'],
   '风险橙底白字': ['#9A4A00', '#FFFFFF'],
   '风险黄底白字': ['#7A5A00', '#FFFFFF'],
-  '风险绿底白字': ['#1B5E3A', '#FFFFFF'],
+  '风险绿底白字': ['#256B2B', '#FFFFFF'],
   '风险灰底白字': ['#4A5560', '#FFFFFF'],
   '结论区 红底深字': ['#FBE9E7', '#5E120C'],
   '结论区 橙底深字': ['#FDF0E2', '#4A2400'],
   '结论区 黄底深字': ['#FCF4DC', '#3D2D00'],
-  '结论区 绿底深字': ['#E6F2EA', '#0C3722'],
+  '结论区 绿底深字': ['#EBF5E6', '#0C3722'],
   '结论区 灰底深字': ['#EDF0F3', '#23292E'],
-  '正文 深字白底': ['#FFFFFF', '#16202B'],
-  '正文 深字浅灰底': ['#F4F7FA', '#16202B'],
-  '次要文字 白底': ['#FFFFFF', '#3A4653'],
-  '注释文字 白底': ['#FFFFFF', '#5A6673'],
-  '注释文字 浅灰底': ['#F4F7FA', '#5A6673'],
-  '页头标题 白底': ['#FFFFFF', '#0A3560'],
-  '主按钮 白字蓝底': ['#0F4C81', '#FFFFFF'],
-  '次按钮 蓝字白底': ['#FFFFFF', '#0A3560'],
-  '语音按钮 深字浅黄底': ['#FFE9A8', '#0A3560'],
-  '提示底色深字': ['#16202B', '#FFFFFF']
+  '正文 深字白底': ['#FFFFFF', '#191D1A'],
+  '正文 深字浅灰底': ['#F7FAF5', '#191D1A'],
+  '次要文字 白底': ['#FFFFFF', '#414941'],
+  '注释文字 白底': ['#FFFFFF', '#5C6660'],
+  '注释文字 浅灰底': ['#F7FAF5', '#5C6660'],
+  '页头标题 白底': ['#FFFFFF', '#073724'],
+  '主按钮 白字品牌绿底': ['#0B4A32', '#FFFFFF'],
+  '次按钮 品牌绿字白底': ['#FFFFFF', '#073724'],
+  '语音按钮 深字浅黄底': ['#FFE9A8', '#073724'],
+  '提示底色深字': ['#191D1A', '#FFFFFF']
 };
 
 const CANDIDATES = ['--c-brand', '--c-brand-ink', '--c-ink', '--c-ink-2', '--c-ink-3', '--c-surface', '--c-surface-2'];
@@ -83,7 +85,7 @@ for (const [name, value] of Object.entries(TOKENS)) {
     results.push({ name, fg: value[1], bg: value[0], ratio });
   } else if (CANDIDATES.includes(name)) {
     // 令牌两两对关键底色做一次核查
-    for (const bg of ['#FFFFFF', '#F4F7FA']) {
+    for (const bg of ['#FFFFFF', '#F7FAF5']) {
       results.push({ name: `${name} on ${bg}`, fg: value, bg, ratio: contrastRatio(value, bg) });
     }
   }

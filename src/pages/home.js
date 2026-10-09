@@ -116,7 +116,8 @@ export function renderHome(view, _params, ctx) {
 
   fill(view, [
     topbar({
-      title: '食护家 FoodLensCare',
+      // 首页只显示中文品牌名；英文项目名不进界面
+      title: '食护家',
       right: h('button', {
         class: 'btn btn-ghost',
         type: 'button',

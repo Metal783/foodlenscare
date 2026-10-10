@@ -20,6 +20,14 @@ const KEY_RECOGNIZER = 'flc.recognizer.v1';
  * @property {string[]} allergens 过敏成分 id，可包含 'none'
  * @property {string[]} conditions 慢性病 id，可包含 'none'
  * @property {boolean} voiceOn
+ * @property {string} name 本人填写的姓名或称呼
+ * @property {number|null} age 具体年龄
+ * @property {string} gender 性别，可留空
+ * @property {number|null} weight 体重，可留空
+ * @property {'elder'|'child'} role 当前展示身份，不决定服务端权限
+ * @property {string} otherConditions 其他疾病，本人填写
+ * @property {string} otherAllergens 其他过敏原，本人填写
+ * @property {string} emergencyPhone 本人配置的求助号码
  */
 
 /** @returns {Profile} */
@@ -30,7 +38,9 @@ export function emptyProfile() {
     concerns: [],
     allergens: [],
     conditions: [],
-    voiceOn: true
+    voiceOn: true,
+    name: '', age: null, gender: '', weight: null, role: 'elder',
+    otherConditions: '', otherAllergens: '', emergencyPhone: ''
   };
 }
 
@@ -46,7 +56,7 @@ function safeParse(raw, fallback) {
 
 function read(key, fallback) {
   try {
-    return safeParse(window.localStorage.getItem(key), fallback);
+    return safeParse(window.localStorage.getItem(scopedKey(key)), fallback);
   } catch {
     return fallback;
   }
@@ -54,12 +64,15 @@ function read(key, fallback) {
 
 function write(key, value) {
   try {
-    window.localStorage.setItem(key, JSON.stringify(value));
+    window.localStorage.setItem(scopedKey(key), JSON.stringify(value));
     return true;
   } catch {
     return false;
   }
 }
+
+/** 游客沿用旧键，登录后按账号隔离，避免共用电脑看到另一位家人的画像。 */
+function scopedKey(key) { return window.flcOwner && window.flcOwner !== 'guest' ? `${key}.${window.flcOwner}` : key; }
 
 /* ------------------------------------------------------------------ 画像 */
 
@@ -75,7 +88,7 @@ export function saveProfile(profile) {
 
 export function resetProfile() {
   try {
-    window.localStorage.removeItem(KEY_PROFILE);
+    window.localStorage.removeItem(scopedKey(KEY_PROFILE));
   } catch {
     /* 忽略：隐私模式下不可写 */
   }
@@ -142,6 +155,7 @@ export function addRecord(record) {
 export function removeRecord(id) {
   const records = loadRecords().filter((r) => r.id !== id);
   saveRecords(records);
+  unlinkConsumption(new Set([id]));
   return records;
 }
 
@@ -155,8 +169,20 @@ export function removeRecord(id) {
  *     同一个商品会给出不同的结论，答辩现场很难解释。
  */
 export function clearRecords() {
+  unlinkConsumption(new Set(loadRecords().map(r => r.id)));
   saveRecords([]);
   return [];
+}
+
+/** 摄入撤销也标记对应识别记录待同步，避免下次从账号恢复已撤销的食用量。 */
+function unlinkConsumption(ids) {
+  if (!ids.size) return;
+  const historyKey = `flc.history.v3.${window.flcOwner || 'guest'}`;
+  try {
+    const history = JSON.parse(window.localStorage.getItem(historyKey) || '[]');
+    window.localStorage.setItem(historyKey, JSON.stringify(history.map(record => ids.has(record.consumptionRecordId)
+      ? { ...record, consumptionRecordId: null, consumption: null, synced: false } : record)));
+  } catch { /* 没有识别历史的旧版记录仍可独立撤销。 */ }
 }
 
 export function recordsOfToday(records = loadRecords()) {

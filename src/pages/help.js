@@ -153,8 +153,8 @@ export function renderHelp(view, _params, ctx) {
     h('section', { class: 'card' }, [
       h('h2', { class: 'card-title', text: '隐私与边界' }),
       h('ul', { class: 'ingredient-lines' }, [
-        h('li', {}, [h('span', { text: `画像与记录只存在本机浏览器里，目前共 ${loadRecords().length} 条记录，不上传、不共享。` })]),
-        h('li', {}, [h('span', { text: '不收集与饮食提醒无关的任何信息，没有账号体系，没有埋点统计。' })]),
+        h('li', {}, [h('span', { text: `本机已食用记录共 ${loadRecords().length} 条。游客资料在本机保存；登录后可保存到本人账号，家人查看需要老人授权。` })]),
+        h('li', {}, [h('span', { text: '第三版提供本机/局域网测试账号，没有接入真实短信或微信验证，也没有埋点统计。' })]),
         h('li', {}, [h('span', { text: '只做日常饮食提醒，不做疾病诊断，不替代医生或营养师的意见。' })]),
         h('li', {}, [h('span', { text: '信息不足时主动要求补拍，不编造答案。' })])
       ])

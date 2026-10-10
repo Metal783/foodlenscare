@@ -8,9 +8,9 @@ const here = dirname(fileURLToPath(import.meta.url));
    注意：这里是 src/styles/tokens.css 的**手写镜像**，改色板必须两边一起改。
    完整色板与依据见 色板/色板定义-绿色主色.md。 */
 const TOKENS = {
-  '--c-brand': '#0B4A32',
-  '--c-brand-ink': '#073724',
-  '--c-brand-soft': '#D3E8DC',
+  '--c-brand': '#004726',
+  '--c-brand-ink': '#003B20',
+  '--c-brand-soft': '#E8F5E9',
   '--c-ink': '#191D1A',
   '--c-ink-2': '#414941',
   '--c-ink-3': '#5C6660',
@@ -44,14 +44,24 @@ const TOKENS = {
   '次要文字 白底': ['#FFFFFF', '#414941'],
   '注释文字 白底': ['#FFFFFF', '#5C6660'],
   '注释文字 浅灰底': ['#F7FAF5', '#5C6660'],
-  '页头标题 白底': ['#FFFFFF', '#073724'],
-  '主按钮 白字品牌绿底': ['#0B4A32', '#FFFFFF'],
-  '次按钮 品牌绿字白底': ['#FFFFFF', '#073724'],
-  '语音按钮 深字浅黄底': ['#FFE9A8', '#073724'],
+  '页头标题 白底': ['#FFFFFF', '#003B20'],
+  '主按钮 白字品牌绿底': ['#004726', '#FFFFFF'],
+  '次按钮 品牌绿字白底': ['#FFFFFF', '#003B20'],
+  '语音按钮 深字浅黄底': ['#FFE9A8', '#003B20'],
   '提示底色深字': ['#191D1A', '#FFFFFF']
+  , '第三版默认标签': ['#E8F5E9', '#003B20']
+  , '设计稿联系家人': ['#B0F0BE', '#003B20']
+  , '设计稿求助入口': ['#FFDBD6', '#7C241B']
+  , '设计稿语音头像': ['#FFCC73', '#754000']
+  , '设计稿浅色字段': ['#F1F4EF', '#191D1A']
+  , '设计稿共享说明': ['#E8F5E9', '#004726']
+  , '第三版过敏标签': ['#FBE9E7', '#B3261E']
+  , '第三版需留意标签': ['#FDF0E2', '#9A4A00']
+  , '第三版待核对标签': ['#EDF0F3', '#4A5560']
 };
 
-const CANDIDATES = ['--c-brand', '--c-brand-ink', '--c-ink', '--c-ink-2', '--c-ink-3', '--c-surface', '--c-surface-2'];
+// surface 是背景令牌，不把白色块对白色块误报成白字对白底。
+const CANDIDATES = ['--c-brand', '--c-brand-ink', '--c-ink', '--c-ink-2', '--c-ink-3'];
 
 function hexToRgb(hex) {
   const clean = hex.replace('#', '');
@@ -106,6 +116,7 @@ for (const row of sorted) {
 const failing = sorted.filter((r) => r.ratio < 4.5);
 console.log('\n低于 4.5:1 的项目数：', failing.length);
 for (const row of failing) console.log('  -', row.name, row.ratio.toFixed(2));
+if (failing.length) process.exitCode = 1;
 
 /* --------------------------------------------------- 生成数据文件（可选） */
 

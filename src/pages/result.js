@@ -18,6 +18,7 @@ import { loadRecords, todayTotals } from '../core/store.js';
 import { speakAndRecord, processDemoCase, evaluateLabel, recordResult } from '../core/flow.js';
 import { reviewLabel } from '../core/label-review.js';
 import * as speech from '../core/speech.js';
+import { updateHistory, syncHistory } from '../core/history.js';
 
 const NUTRIENT_TITLE = {
   sodium: '盐（钠）',
@@ -106,6 +107,9 @@ export function renderResult(view, params, ctx) {
 
     /* ---------- 看见的照片与识别通道 ---------- */
     photoCard(photo, label),
+
+    result.historyId ? button({ label: '查看这次的识别记录', variant: 'secondary', block: true,
+      onClick: () => ctx.navigate('record-detail', { id: result.historyId }) }) : null,
 
     label.channel === 'paddleOcr' && !result.consumptionRecordId ? reviewCard(result, ctx) : null,
     !label.readingOnly && (assessment.level !== 'gray' || label.nutritionConfirmed) ? consumptionCard(result, ctx) : null,
@@ -430,6 +434,10 @@ function reviewCard(result, ctx) {
             nutrients: Object.fromEntries(Object.entries(inputs).map(([key, input]) => [key, input.value])), unit: unit.value || (Object.values(inputs).every(i=>i.value === '') ? 'g' : '') });
           result.photo.label = next;
           result.assessment = evaluateLabel(next, ctx.state.profile);
+          if (result.historyId) {
+            updateHistory(result.historyId, { label: next, assessment: result.assessment, profileSnapshot: ctx.state.profile });
+            syncHistory().catch(() => {});
+          }
           result.spoken = false;
           ctx.navigate('result', {}, { replace: true, force: true });
         } catch (cause) { error.textContent = cause.message; error.hidden = false; }

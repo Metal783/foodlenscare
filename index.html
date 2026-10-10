@@ -2,8 +2,9 @@
 <html lang="zh-CN" data-text-size="large">
 <head>
 <meta charset="utf-8" />
+<meta name="app-version" content="3.0.1-20261010" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=3" />
-<meta name="theme-color" content="#0B4A32" />
+<meta name="theme-color" content="#004726" />
 <meta name="description" content="食护家 FoodLensCare —— 面向老年家庭的食品标签智能解读工具。拍一张照片，用一句听得懂的话告诉您这个能不能吃。" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
@@ -44,6 +45,34 @@
     </p>
   </noscript>
 
-  <script type="module" src="./src/app.js"></script>
+  <script>
+    (async () => {
+      // 双击源码入口时转到同一目录的最新版单文件，避免模块被 file 协议拦截。
+      if (location.protocol === 'file:') {
+        location.replace('./FoodLensCare-standalone.html' + location.search + location.hash);
+        return;
+      }
+      // 已装旧缓存的设备先升级缓存控制器，再加载模块，避免首开混入旧模块。
+      if (navigator.serviceWorker?.controller) {
+        try {
+          const registration = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
+          const updating = registration.installing || registration.waiting ||
+            (registration.active?.state === 'activating' ? registration.active : null);
+          if (updating && updating.state !== 'activated') {
+            await Promise.race([
+              new Promise(resolve => updating.addEventListener('statechange', () => {
+                if (updating.state === 'activated' || updating.state === 'redundant') resolve();
+              })),
+              new Promise(resolve => setTimeout(resolve, 5000))
+            ]);
+          }
+        } catch { /* 断网时继续使用最近成功缓存的应用。 */ }
+      }
+      const entry = document.createElement('script');
+      entry.type = 'module';
+      entry.src = './src/app.js';
+      document.body.appendChild(entry);
+    })();
+  </script>
 </body>
 </html>

@@ -9,6 +9,22 @@ const wrap = (paths, extra = '') =>
   `stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" ${extra}>${paths}</svg>`;
 
 export const ICONS = {
+  brand: '<svg class="icon brand-logo" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path d="M8 34 28 9q4-5 8 0l20 25" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path d="M12 38h40c-1 13-9 19-20 19S13 51 12 38Z" fill="currentColor"/><path d="M29 38c-1-10-8-15-15-14 1 8 6 12 15 14Zm3-1c-3-12 2-20 11-21 1 10-3 17-11 21Z" fill="#79A887"/><path d="M29 55h6v5h-6z" fill="currentColor"/></svg>',
+  person: wrap('<circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/>'),
+  phone: wrap('<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 5h4M11 19h2"/>'),
+  call: wrap('<path d="m7 3 3 5-3 3a15 15 0 0 0 6 6l3-3 5 3-1 4C10 23 1 14 3 4z"/>'),
+  mic: wrap('<rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/>'),
+  emergency: wrap('<path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9" stroke-width="3.5"/>'),
+  play: wrap('<path d="m7 3 14 9-14 9z"/>'),
+  send: wrap('<path d="m3 10 19-8-8 20-3-9zM11 13 22 2"/>'),
+  heart: wrap('<path d="M20.5 5.5a5 5 0 0 0-8.5 1 5 5 0 0 0-8.5-1C-1 10 6 16 12 21c6-5 13-11 8.5-15.5Z"/>'),
+  chevron: wrap('<path d="m9 5 7 7-7 7"/>'),
+  gear: wrap('<path d="M9 3h6l1 3 3 1 2 4-2 2v3l-3 1-1 4H9l-1-4-3-1v-3L3 11l2-4 3-1z"/><circle cx="12" cy="12" r="3"/>'),
+  bars: wrap('<path d="M5 20v-6M10 20V7M15 20V3M20 20v-9" stroke-width="3"/>'),
+  bell: wrap('<path d="M6 9a6 6 0 0 1 12 0v6l2 3H4l2-3zM10 21h4"/>'),
+  wave: wrap('<path d="M3 10v4M7 6v12M11 2v20M15 6v12M19 9v6M23 11v2"/>'),
+  wechat: '<svg class="icon" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="M13 3C6 3 1 7.5 1 13c0 3.3 1.8 6.2 4.8 8l-1 4 4.5-2.2 3.7.3c-.7-1.3-1-2.6-1-4.1 0-5 4.5-9 10-9h.2C21 6 17.5 3 13 3Zm-4 7a1.6 1.6 0 1 1 0 3.2A1.6 1.6 0 0 1 9 10Zm8 0a1.6 1.6 0 1 1 0 3.2A1.6 1.6 0 0 1 17 10Z"/><path d="M31 19c0-4.4-4-8-9-8s-9 3.6-9 8 4 8 9 8l3-.4 3.5 1.8-.7-3A7.8 7.8 0 0 0 31 19Zm-12-3a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4Zm6 0a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4Z"/></svg>',
+  people: wrap('<circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6M19 20v-2a6 6 0 0 0-3-5"/>'),
   camera: wrap(
     '<path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h1.2l1-1.6A1 1 0 0 1 8.6 4h6.8a1 1 0 0 1 .9.4l1 1.6h1.2A2.5 2.5 0 0 1 21 8.5v9A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/>' +
       '<circle cx="12" cy="13" r="3.6"/>'

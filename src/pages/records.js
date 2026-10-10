@@ -14,6 +14,7 @@ import {
   loadRecords, removeRecord, clearRecords, recordsOfToday, todayTotals, localDateKey
 } from '../core/store.js';
 import * as speech from '../core/speech.js';
+import { syncHistory } from '../core/history.js';
 
 const NUTRIENT_TITLE = { sodium: '盐（钠）', sugar: '糖', saturatedFat: '油（饱和脂肪）' };
 
@@ -68,6 +69,7 @@ export function renderRecords(view, _params, ctx) {
             block: true,
             onClick: () => {
               clearRecords();
+              syncHistory().catch(() => {});
               toast('记录已经清空了，额度也一起归零。');
               draw();
             }
@@ -116,6 +118,7 @@ function recordItem(record, ctx, onChanged) {
         'aria-label': `删除记录：${record.productName}`,
         onClick: () => {
           removeRecord(record.id);
+          syncHistory().catch(() => {});
           toast('已经删掉了。');
           onChanged();
         }

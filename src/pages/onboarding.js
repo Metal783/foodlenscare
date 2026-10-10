@@ -18,6 +18,7 @@ import { AGE_GROUPS, CONCERNS, CONDITIONS } from '../data/nutrition.js';
 import { ALLERGEN_CHOICES } from '../data/allergens.js';
 import * as speech from '../core/speech.js';
 import { saveProfile } from '../core/store.js';
+import { currentAccount, updateAccount } from '../core/service.js';
 
 const TOTAL_STEPS = 5;
 
@@ -109,6 +110,7 @@ export function renderOnboarding(view, params, ctx) {
       voiceOn: draft.voiceOn
     };
     saveProfile(profile);
+    if (currentAccount()) updateAccount({ profile }).catch(error => toast(`本机已保存，同步失败：${error.message}`));
     ctx.setState({ profile });
     if (profile.voiceOn && !speech.isSupported()) {
       toast('这台设备的浏览器不支持语音朗读，文字会加大显示。', 3600);
@@ -238,7 +240,7 @@ export function renderOnboarding(view, params, ctx) {
       h('p', {
         class: 'footnote',
         text:
-          '这些问题只存在您自己的手机里，不会上传，也不会分享给别人。' +
+          '游客资料只保存在当前设备；登录后保存到本人账号，家人查看饮食设置需您授权。' +
           '以后想改哪一项，到「设置」里点那一条就行。'
       })
     ]);

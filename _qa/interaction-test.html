@@ -155,7 +155,7 @@
         await wait(500);
 
         /* ---- 1. 首页顶栏不再放「设置」：设置入口只在底栏（v3 结构，2026-10-09） ---- */
-        if (findButton('设置')) {
+        if (view.querySelector('.topbar button')?.textContent.includes('设置')) {
           bad('首页顶栏没有「设置」按钮', '仍然存在：底栏已经有「设置」，两个入口重复');
         } else {
           ok('首页顶栏没有「设置」按钮');
@@ -277,10 +277,13 @@
            判据用「尺寸 ÷ 该档倍率」，三档必须一致——比写死期望值更稳。 */
         const FS_SCALE = { large: 1.25, xlarge: 1.5, huge: 1.8 };
         const textSizeBefore = document.documentElement.dataset.textSize;
+        const fontPanel = view.querySelector('.settings-expander');
+        if (fontPanel) fontPanel.open = true;
         const geom = [];
         for (const size of Object.keys(FS_SCALE)) {
           document.documentElement.dataset.textSize = size;
-          const brand = view.querySelector('.topbar .brand-mark');
+          const brand = view.querySelector('.design-brand .brand-logo');
+          const brandText = view.querySelector('.design-brand > span:last-child');
           const mark = view.querySelector('.option .option-mark');
           const check = mark && mark.querySelector('.icon');
           if (!brand || !mark || !check) break;
@@ -289,7 +292,7 @@
           const markBox = mark.getBoundingClientRect();
           const checkBox = check.getBoundingClientRect();
           const textRange = document.createRange();
-          textRange.selectNodeContents(brand);
+          textRange.selectNodeContents(brandText);
           geom.push({
             size,
             brand: brandBox.width / fs,
@@ -302,9 +305,9 @@
         document.documentElement.dataset.textSize = textSizeBefore;
 
         if (geom.length < Object.keys(FS_SCALE).length) {
-          bad('三档字号下装饰等比缩放', '没量到 .brand-mark / .option-mark，量到 ' + geom.length + ' 档');
+          bad('三档字号下装饰等比缩放', '没量到品牌标志 / 勾选框，量到 ' + geom.length + ' 档');
         } else {
-          const metricName = { brand: '绿色方块', text: '「食」字', mark: '勾选框', check: '对号' };
+          const metricName = { brand: '品牌标志', text: '品牌文字', mark: '勾选框', check: '对号' };
           const detail = geom
             .map((g) => `${g.size}→方块${g.brand.toFixed(1)}/字${g.text.toFixed(1)}/框${g.mark.toFixed(1)}/号${g.check.toFixed(1)}`)
             .join('；');

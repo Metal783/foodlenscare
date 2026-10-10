@@ -23,6 +23,9 @@ import { todayTotals } from '../core/store.js';
 import { DAILY_LIMITS } from '../data/nutrition.js';
 import { pickPhoto, reportFailure } from '../core/flow.js';
 import * as speech from '../core/speech.js';
+import { currentAccount, receivedMessages } from '../core/service.js';
+import { card, note, linkButton, phoneLink, familyData, brandHeader } from '../ui/care.js';
+import { messageCard } from './voices.js';
 
 /** 三条额度的顺序与显示名（与 v3 一致：盐、糖、油） */
 const METER_KEYS = ['sodium', 'sugar', 'saturatedFat'];
@@ -42,8 +45,26 @@ const METER_SHORT = { sodium: '盐', sugar: '糖分', saturatedFat: '油' };
  * @param {import('../core/router.js').RouteContext} ctx
  */
 export function renderHome(view, _params, ctx) {
+  let alive = true;
   const profile = ctx.state.profile;
   const totals = todayTotals();
+  const messages = h('section', { class: 'card home-voice' }, [h('div', { class: 'home-voice-empty' }, [h('span', { class: 'voice-sender-icon', html: icon('people') }), note(currentAccount() ? '正在查看最近的关怀……' : '绑定家人，收听关怀语音'), h('button', { class: 'round-play', type: 'button', 'aria-label': '查看关怀语音', html: icon('play'), onClick: () => ctx.navigate('voices') })])]);
+  const contactTiles = main => h('div', { class: 'contact-tiles' }, [
+    h('div', { class: 'contact-tile family-contact' }, [main ? phoneLink(main.member.phone, `呼叫${main.relation || '家人'}`) : button({ label: '呼叫家人', iconHtml: icon('call'), variant: 'secondary', block: true, onClick: () => ctx.navigate('family') }), note(main ? `${main.member.name}（直接电话）` : '添加联系人')]),
+    h('div', { class: 'contact-tile emergency-contact' }, [profile.emergencyPhone ? phoneLink(profile.emergencyPhone, '紧急求助', 'emergency') : button({ label: '紧急求助', iconHtml: icon('emergency'), variant: 'secondary', block: true, onClick: () => ctx.navigate('emergency') }), note(profile.emergencyPhone ? '拨打已设置的求助号码' : '先设置求助号码')])]);
+  const contacts = h('section', { class: 'card home-contacts' }, [h('h2', { class: 'card-title' }, [h('span', { class: 'guard-icon', html: icon('shield') }), h('span', { text: '子女连线协同守护' })]), contactTiles(null)]);
+  if (currentAccount()) {
+    Promise.all([familyData(), receivedMessages()]).then(([families, incoming]) => {
+      if (!alive || !messages.isConnected) return;
+      const names = Object.fromEntries(families.map(f => [f.member.id, f.member.name]));
+      const latest = incoming.filter(m => m.recipient === currentAccount()?.id)[0];
+      if (latest) fill(messages, [messageCard(latest, names, { compact: true })]);
+      else fill(messages, [h('div', { class: 'home-voice-empty' }, [h('span', { class: 'voice-sender-icon', html: icon('people') }), note('还没有收到关怀语音'), h('button', { class: 'round-play', type: 'button', 'aria-label': '查看关怀语音', html: icon('play'), onClick: () => ctx.navigate('voices') })])]);
+      const children = families.filter(f => f.amElder && f.status === 'bound');
+      const main = children.find(f => f.is_primary) || children[0];
+      fill(contacts, [h('h2', { class: 'card-title' }, [h('span', { class: 'guard-icon', html: icon('shield') }), h('span', { text: '子女连线协同守护' })]), contactTiles(main)]);
+    }).catch(error => { if (alive && messages.isConnected) fill(messages, [note(error.message), linkButton('重看关怀语音', 'voices', ctx)]); });
+  }
 
   // 接住「按钮真的被点到了」这件事：系统相机可能有一两秒才弹出来，
   // 中间完全没有反馈会让人以为没按上，于是又去戳一下。
@@ -73,36 +94,26 @@ export function renderHome(view, _params, ctx) {
 
   fill(view, [
     // 顶栏只放品牌名：设置入口在底栏，不再重复一个按钮
-    topbar({ title: '食护家' }),
+    brandHeader(),
+    messages,
 
     /* ---------- 1 · 取景框 + 首页唯一的主动作 ---------- */
-    h('section', { class: 'card' }, [
+    h('section', { class: 'card camera-card' }, [
       // 取景框是「示意」不是「可点」：告诉老人把包装放进这个范围，
       // 真正可点的只有下面那个大按钮。四个角标纯装饰。
-      h('div', { class: 'viewfinder' }, [
+      h('button', { class: 'viewfinder shutter camera-target', type: 'button', onClick: () => grab('camera'), 'aria-label': '拍一张食品包装的照片' }, [
         h('span', { class: 'vf-corner tl', 'aria-hidden': 'true' }),
         h('span', { class: 'vf-corner tr', 'aria-hidden': 'true' }),
         h('span', { class: 'vf-corner bl', 'aria-hidden': 'true' }),
         h('span', { class: 'vf-corner br', 'aria-hidden': 'true' }),
-        h('span', { class: 'vf-icon', html: icon('camera'), 'aria-hidden': 'true' }),
-        h('span', { class: 'vf-text', text: '把包装背面放进框里' })
-      ]),
-
-      h('button', {
-        class: 'shutter',
-        type: 'button',
-        onClick: () => grab('camera'),
-        'aria-label': '拍一张食品包装的照片'
-      }, [
-        h('span', { class: 'shutter-icon', html: icon('camera'), 'aria-hidden': 'true' }),
-        h('span', { class: 'shutter-label', text: '拍一张照片' }),
-        shutterSub
+        h('span', { class: 'vf-icon', html: icon('clipboard'), 'aria-hidden': 'true' }),
+        h('span', { class: 'vf-text', text: '对准食品背面标签' }), h('span', { class: 'shutter-label', text: '拍一张照片' }), shutterSub
       ]),
 
       button({
         label: '从相册里选一张',
         iconHtml: icon('album'),
-        variant: 'secondary',
+        variant: 'ghost',
         block: true,
         onClick: () => grab('album')
       }),
@@ -123,7 +134,8 @@ export function renderHome(view, _params, ctx) {
     ]),
 
     /* ---------- 2 · 今日摄入概览 ---------- */
-    overviewCard(totals),
+    contacts,
+    h('details', { class: 'home-intake' }, [h('summary', { text: '今日摄入概览' }), overviewCard(totals)]),
 
     h('p', {
       class: 'footnote',
@@ -137,6 +149,7 @@ export function renderHome(view, _params, ctx) {
   if (!speech.isSupported() && profile.voiceOn) {
     toast('这台设备的浏览器不支持语音朗读，结论会加大显示。', 3200);
   }
+  return () => { alive = false; };
 }
 
 /**
@@ -178,8 +191,8 @@ function alertRow(totals) {
     return h('div', { class: 'alert-row', dataset: { tone: 'quiet' } }, [
       h('span', { class: 'alert-icon', html: icon('camera'), 'aria-hidden': 'true' }),
       h('span', { class: 'alert-body' }, [
-        h('span', { class: 'alert-title', text: '今天还没看过东西' }),
-        h('span', { class: 'alert-sub', text: '拍一张就能看到还剩多少' })
+        h('span', { class: 'alert-title', text: '今天还没有确认食用记录' }),
+        h('span', { class: 'alert-sub', text: '确认吃过后，才统计已知摄入量' })
       ])
     ]);
   }

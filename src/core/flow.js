@@ -16,6 +16,7 @@ import { evaluate } from './rules.js';
 import { addRecord, loadRecords, todayTotals, scaleNutrients } from './store.js';
 import * as speech from './speech.js';
 import { toast } from '../ui/dom.js';
+import { saveRecognition, updateHistory, syncHistory } from './history.js';
 
 const MAX_SIDE = 2000;
 
@@ -29,6 +30,7 @@ const MAX_SIDE = 2000;
  * @property {string|null} fallbackReason
  * @property {number} elapsedMs
  * @property {string} [demoCaseId]
+ * @property {string} [historyId] 结果关联的持久识别记录编号
  */
 
 /**
@@ -160,7 +162,14 @@ export async function processPhoto(file, origin, profile, options = {}) {
   };
 
   const assessment = evaluateLabel(outcome.label, profile);
-  return { photo, assessment };
+  const result = { photo, assessment };
+  if (options.signal?.aborted) throw new DOMException('读取已取消', 'AbortError');
+  try {
+    await saveRecognition(result, profile, options.signal);
+    // 自动同步只保存到本人账号；家人读取仍由老人授权决定。
+    syncHistory().catch(() => {});
+  } catch (error) { if (error.name === 'AbortError') throw error; toast(`本次结果可以查看，但历史没有保存：${error.message}`, 5000); }
+  return result;
 }
 
 /**
@@ -244,6 +253,10 @@ export function recordResult(result, options = {}) {
     previewUrl: photo.previewUrl || null
   });
   result.consumptionRecordId = item.id;
+  if (result.historyId) {
+    updateHistory(result.historyId, { consumptionRecordId: item.id, consumption: item, label: photo.label, assessment });
+    syncHistory().catch(() => {});
+  }
   return item;
 }
 

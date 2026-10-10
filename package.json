@@ -1,6 +1,6 @@
 {
   "name": "foodlenscare",
-  "version": "0.2.0",
+  "version": "3.0.1",
   "private": true,
   "type": "module",
   "description": "食品标签识别与人工核对",

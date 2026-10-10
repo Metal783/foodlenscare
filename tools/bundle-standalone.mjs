@@ -305,14 +305,15 @@ function buildHtml({ registry, css, bodyHtml, fileCount, totalBytes }) {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=3" />
-<meta name="theme-color" content="#0B4A32" />
+<meta name="theme-color" content="#004726" />
+<meta name="app-version" content="3.0.1-20261010" />
 <meta name="description" content="食护家 FoodLensCare —— 面向老年家庭的食品标签智能解读工具。拍一张照片，用一句听得懂的话告诉您这个能不能吃。" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="format-detection" content="telephone=no" />
 <title>食护家 FoodLensCare</title>
 <!--
-  食护家 FoodLensCare · 食品标签初版 · 单文件版
+  食护家 FoodLensCare · 第三版 · 单文件版
   2026 年第十四届全国大学生数字媒体科技作品及创意竞赛 · 自主选题类 · 移动与网络应用开发
 
   这是「双击就能打开」的独立版本：${fileCount} 个源模块、约 ${Math.round(totalBytes / 1024)} KB 业务代码
@@ -322,7 +323,7 @@ function buildHtml({ registry, css, bodyHtml, fileCount, totalBytes }) {
   生成方式：node tools/bundle-standalone.mjs
   对应源码：index.html + src/（多文件开发版，二者页面结构与样式完全一致）
 
-  数据与隐私：画像与记录只保存在本机浏览器（localStorage），不上传、不共享。
+  数据与隐私：游客资料和照片本机保存。家庭同步需要启动第三版服务，并由老人授权。
   边界声明：本工具只做日常饮食提醒，不做疾病诊断，也不替代医生或营养师的意见。
   判断依据：GB 7718-2025、GB 28050-2025、GB 2760、
            《中国居民膳食营养素参考摄入量（2023 版）》《中国居民膳食指南（2022）》。

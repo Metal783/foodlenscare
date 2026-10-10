@@ -25,12 +25,20 @@ import { renderRecords } from './pages/records.js';
 import { renderSettings, applyTextSize } from './pages/settings.js';
 import { renderHelp } from './pages/help.js';
 import { renderScan } from './pages/scan.js';
-import { h, button, topbar, tabbar } from './ui/dom.js';
+import { h, button, topbar, tabbar, toast } from './ui/dom.js';
 import { icon } from './ui/icons.js';
+import { connect, currentAccount, receivedMessages } from './core/service.js';
+import { renderWelcome, renderIdentity, renderProfile, renderFamily, renderFamilyRelation, renderChildHome, renderChildSettings, renderLegal, renderPrivacy, renderGuide, renderEmergency } from './pages/care.js';
+import { renderHistory, renderRecordDetail, renderResumeRecord } from './pages/history.js';
+import { renderVoices } from './pages/voices.js';
+import { syncHistory } from './core/history.js';
 
 /* ------------------------------------------------------------ 全局状态 */
 
 const state = {
+  /** @type {Object|null} 登录账号；权限仍由服务端校验 */
+  account: null,
+  selectedElder: null,
   profile: loadProfile(),
   prefs: loadPrefs(),
   /** 待处理的照片（确认页用） */
@@ -142,20 +150,35 @@ function currentRoute() {
 /* ---------------------------------------------------------------- 路由 */
 
 const ROUTES = {
-  home: renderHome,
+  home: (view, params, ctx) => state.profile.role === 'child' ? renderChildHome(view, params, ctx) : renderHome(view, params, ctx),
   onboarding: renderOnboarding,
   confirm: renderConfirm,
   progress: renderProgress,
   result: renderResult,
-  records: renderRecords,
-  settings: renderSettings,
+  records: renderHistory,
+  intake: renderRecords,
+  settings: (view, params, ctx) => state.profile.role === 'child' ? renderChildSettings(view, params, ctx) : renderSettings(view, params, ctx),
   help: renderHelp,
   scan: renderScan,
+  welcome: renderWelcome,
+  identity: renderIdentity,
+  profile: renderProfile,
+  family: renderFamily,
+  'family-relation': renderFamilyRelation,
+  'record-detail': renderRecordDetail,
+  'resume-record': renderResumeRecord,
+  voices: renderVoices,
+  legal: renderLegal,
+  privacy: renderPrivacy,
+  guide: renderGuide,
+  emergency: renderEmergency,
 };
 
 for (const [name, render] of Object.entries(ROUTES)) {
   define(name, (view, params, context) => {
     lastRoute = name;
+    view.dataset.page = name;
+    view.dataset.role = state.profile.role || 'elder';
     hideSpeakerUnless(name === 'result');
     syncTabbar(name);
     return render(view, params, context);
@@ -188,7 +211,7 @@ function hideSpeakerUnless(keep) {
 }
 
 /** 底栏只在三个「可驻留」页面出现；流程页（确认/进度/结果/画像/说明）走完即结束，不给导航 */
-const TABBAR_ROUTES = ['home', 'records', 'settings'];
+const TABBAR_ROUTES = ['home', 'records', 'settings', 'family', 'intake'];
 
 /**
  * 底部导航的显示与选中态。
@@ -201,18 +224,28 @@ const TABBAR_ROUTES = ['home', 'records', 'settings'];
  * 且「结果页不显示底栏」。以后谁要给结果页加底栏，必须先处理这条。
  */
 function syncTabbar(route) {
+  document.getElementById('tabbar')?.replaceWith(tabbar(state.profile.role));
   const bar = document.getElementById('tabbar');
   if (!bar) return;
   bar.hidden = !TABBAR_ROUTES.includes(route);
   for (const link of bar.querySelectorAll('a.tab')) {
-    if (link.getAttribute('href') === `#/${route}`) link.setAttribute('aria-current', 'page');
+    if (link.getAttribute('href') === `#/${route === 'intake' ? 'records' : route}`) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   }
 }
 
 /* ---------------------------------------------------------------- 启动 */
 
-function boot() {
+async function boot() {
+  const connection = await connect();
+  state.account = connection.account;
+  state.profile = loadProfile();
+  state.prefs = loadPrefs();
+  if (state.account) {
+    state.profile = { ...state.profile, ...state.account.profile, role: state.account.role };
+    saveProfile(state.profile);
+    state.prefs = { ...state.prefs, ...state.account.prefs };
+  }
   // URL 参数可以预设画像与清空当日记录（演示与自动化用），必须在挂路由之前处理
   applyResetFromUrl();
   applyProfileFromUrl();
@@ -235,11 +268,13 @@ function boot() {
   document.getElementById('tabbar')?.replaceWith(tabbar());
 
   init({
-    start: state.profile.completed ? 'home' : 'onboarding',
+    start: state.profile.completed ? 'home' : 'welcome',
     ctx
   });
 
   registerServiceWorker();
+  startVoiceNotices();
+  if (state.account) syncHistory().then(() => { if (['home', 'records'].includes(currentRoute())) ctx.rerender(); }).catch(() => {});
 
   // 开发与自检便利：控制台可直接跑规则层自测
   window.FoodLensCare = {
@@ -261,15 +296,46 @@ function boot() {
   };
 }
 
+/** 应用内状态通知。旧回执不重复提示，退出/换账号后不展示上一账号消息。 */
+function startVoiceNotices() {
+  if (typeof window.setInterval !== 'function') return;
+  let running = false; const seen = new Map(); let lastOwner;
+  const poll = async () => {
+    const account = currentAccount();
+    if (!account || running || document.hidden) return;
+    running = true;
+    try {
+      const messages = await receivedMessages();
+      if (currentAccount()?.id !== account.id) return;
+      const first = lastOwner !== account.id;
+      if (first) { seen.clear(); lastOwner = account.id; }
+      for (const message of messages.filter(m => m.sender === account.id)) {
+        const value = message.playedAt ? 'played' : message.deliveredAt ? 'delivered' : 'sent';
+        const previous = seen.get(message.id);
+        if (!first && previous && previous !== value) {
+          if (value === 'played' && state.prefs.playNotice !== false) toast('家人已播放您的关怀语音。', 5000);
+          else if (value === 'delivered' && state.prefs.deliveryNotice !== false) toast('您的关怀语音已送达家人。', 5000);
+        }
+        seen.set(message.id, value);
+      }
+    } catch { /* 网络暂时不可用时留待下一轮，避免不断打断老人。 */ }
+    finally { running = false; }
+  };
+  poll(); setInterval(poll, 15000);
+}
+
 /** PWA：注册 Service Worker，保证二次打开无需网络（答辩现场防断网） */
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   if (window.location.protocol === 'file:') return;
-  window.addEventListener('load', () => {
+  const register = () => {
     navigator.serviceWorker
-      .register('./sw.js')
+      .register('./sw.js', { updateViaCache: 'none' })
       .catch((error) => console.info('[FoodLensCare] Service Worker 未注册：', error?.message));
-  });
+  };
+  // 登录状态查询可能晚于 load 完成，不能错过缓存注册时机。
+  if (document.readyState === 'complete') register();
+  else window.addEventListener('load', register, { once: true });
 }
 
 if (document.readyState === 'loading') {

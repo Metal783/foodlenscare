@@ -18,6 +18,8 @@ import { AGE_GROUPS, CONCERNS, CONDITIONS } from '../data/nutrition.js';
 import { ALLERGEN_BY_ID } from '../data/allergens.js';
 import { savePrefs, saveProfile } from '../core/store.js';
 import * as speech from '../core/speech.js';
+import { currentAccount, updateAccount } from '../core/service.js';
+import { card, note, person, linkButton, familyData, brandHeader, pageIntro, menuRow, toggle, statusTag } from '../ui/care.js';
 
 /**
  * 三档字号：只说体感，不说「磅」。
@@ -59,126 +61,41 @@ const PROFILE_ROWS = [
  * @param {import('../core/router.js').RouteContext} ctx
  */
 export function renderSettings(view, _params, ctx) {
-  /* prefs / profile 必须每次重绘都从 ctx.state 现取。
-     setState 换的是**新对象**，如果在函数入口捕获一次，切换档位后
-     aria-pressed 仍然读旧值——表现就是「点了没反应」。 */
+  let alive = true;
+  const familySummary = note('查看家人和共享设置');
+  if (currentAccount()) familyData().then(families => { if (alive) familySummary.textContent = `已绑定 ${families.filter(f => f.amElder && f.status === 'bound').length} 位家人 · 联系与共享`; }).catch(() => {});
   const draw = () => {
     const prefs = ctx.state.prefs;
     const profile = ctx.state.profile;
-
-    fill(view, [
-      /* 顶栏不给「返回」：设置与首页、记录是底栏的平级目的地（见 app.js 的 syncTabbar）。
-         底栏导航模型里，目的地页面再放一个「返回」，老人不知道会退回哪里。
-         流程页（确认 / 进度 / 结果 / 画像 / 说明）仍然保留返回，别一起改。 */
-      topbar({ title: '设置' }),
-
-      /* ---------------- 字体大小 ---------------- */
-      h('section', { class: 'card' }, [
-        h('h3', { class: 'card-title', text: '字要大一点吗？' }),
-        /* 示例句从卡片底部搬到选项**上面**（搬，不是新增：原来那句脚注就是它）。
-           改动档位时它立刻跟着变大变小，比「正文约 20 磅」直观得多。
-           卡片高度要盯住：这一卡原本就有 425px，别再往里加东西。 */
-        h('p', { class: 'footnote', text: '下面这句话会跟着变大变小，您看着舒服就行。' }),
-        h('p', { class: 'preview-sentence', text: '这个饼干里有花生，您对花生过敏，别吃。' }),
-        h('ul', { class: 'option-list' },
-          TEXT_SIZES.map((size) =>
-            h('li', {}, [
-              h('button', {
-                class: 'option',
-                type: 'button',
-                'aria-pressed': prefs.textSize === size.id ? 'true' : 'false',
-                onClick: () => {
-                  const next = { ...ctx.state.prefs, textSize: size.id };
-                  ctx.setState({ prefs: next });
-                  savePrefs(next);
-                  applyTextSize(size.id);
-                  draw();
-                }
-              }, [
-                h('span', { class: 'option-mark', html: icon('check') }),
-                h('span', { class: 'option-text' }, [
-                  h('span', { text: size.label }),
-                  h('span', { class: 'option-note', text: size.note })
-                ])
-              ])
-            ])
-          )
-        )
-      ]),
-
-      /* ---------------- 语音播报 ---------------- */
-      h('section', { class: 'card' }, [
-        h('h3', { class: 'card-title', text: '语音播报' }),
-        speech.isSupported()
-          ? h('ul', { class: 'option-list' },
-              VOICE_CHOICES.map((choice) => {
-                const turnOn = choice.id === 'on';
-                return h('li', {}, [
-                  h('button', {
-                    class: 'option',
-                    type: 'button',
-                    'aria-pressed': Boolean(profile.voiceOn) === turnOn ? 'true' : 'false',
-                    onClick: () => {
-                      const next = { ...ctx.state.profile, voiceOn: turnOn };
-                      ctx.setState({ profile: next });
-                      saveProfile(next);
-                      if (turnOn) {
-                        // 借这次点击完成语音权限解锁。
-                        speech.unlock();
-                        speech.speak('好的，我会念给您听。');
-                      } else {
-                        speech.stop();
-                      }
-                      draw();
-                    }
-                  }, [
-                    h('span', { class: 'option-mark', html: icon('check') }),
-                    h('span', { class: 'option-text' }, [
-                      h('span', { text: choice.label }),
-                      h('span', { class: 'option-note', text: choice.note })
-                    ])
-                  ])
-                ]);
-              })
-            )
-          : h('p', { class: 'error-box', text: '这台设备的浏览器不支持语音朗读。结论会用更大的字显示，其余功能不受影响。' }),
-        button({
-          label: '试听一句',
-          iconHtml: icon('speaker'),
-          variant: 'secondary',
-          block: true,
-          onClick: () => {
-            if (!speech.isSupported()) {
-              toast('这台设备不支持语音朗读。', 2600);
-              return;
-            }
-            speech.unlock();
-            speech.speak('这个饼干里有花生，您对花生过敏，别吃。');
-          }
-        })
-      ]),
-
-      /* ---------------- 我的情况 ---------------- */
-      h('section', { class: 'card' }, [
-        h('h3', { class: 'card-title', text: '我的情况' }),
-        /* 四行都可点：点哪一行就只改哪一项。
-           以前是「只读表格 + 一个大按钮」，看到填错了也只能把五屏重走一遍。 */
-        profileRows(profile, ctx),
-        h('p', { class: 'footnote', text: '点上面任意一行就能改那一项。这些内容只存在您的手机里，不会上传。' })
-      ]),
-
-      /* ---------------- 适老化自检与说明 ---------------- */
-      button({
-        label: '这个软件是怎么做适老化的',
-        iconHtml: icon('info'),
-        variant: 'ghost',
-        block: true,
-        onClick: () => ctx.navigate('help')
-      })
-    ]);
+    const fonts = h('details', { class: 'settings-expander font-options' }, [h('summary', { text: '字要大一点吗？' }),
+      h('p', { class: 'preview-sentence', text: '这个饼干里有花生，您对花生过敏，别吃。' }),
+      h('ul', { class: 'option-list' }, TEXT_SIZES.map(size => h('li', {}, [h('button', { class: 'option', type: 'button', 'aria-pressed': prefs.textSize === size.id ? 'true' : 'false', onClick: () => {
+        const next = { ...ctx.state.prefs, textSize: size.id }; ctx.setState({ prefs: next }); savePrefs(next); applyTextSize(size.id);
+        if (currentAccount()) updateAccount({ prefs: next }).catch(error => toast(`本机已保存，同步失败：${error.message}`));
+        draw(); view.querySelector('.settings-expander').open = true;
+      } }, [h('span', { class: 'option-mark', html: icon('check') }), h('span', { class: 'option-text' }, [h('span', { text: size.label }), h('span', { class: 'option-note', text: size.note })])])])))]);
+    const voiceChange = async enabled => {
+      const next = { ...ctx.state.profile, voiceOn: enabled };
+      if (currentAccount()) await updateAccount({ profile: next });
+      saveProfile(next); ctx.setState({ profile: next });
+      if (enabled) { speech.unlock(); speech.speak('好的，我会念给您听。'); } else speech.stop();
+    };
+    fill(view, [brandHeader(), pageIntro('我的设置'),
+      h('section', { class: 'card profile-summary' }, [h('button', { class: 'profile-summary-open', type: 'button', onClick: () => ctx.navigate('profile', { edit: '1' }) }, [person(profile, currentAccount()?.phone), h('span', { html: icon('chevron') })]),
+        h('div', { class: 'profile-summary-tags' }, [...(profile.concerns || []).map(id => statusTag(CONCERNS.find(c => c.id === id)?.label || id)), h('button', { class: 'text-link', type: 'button', text: '编辑资料', onClick: () => ctx.navigate('profile', { edit: '1' }) })])]),
+      card('看得清，听得懂', [menuRow('字体大小', 'textSize', () => { fonts.open = !fonts.open; }, { value: { large: '大字', xlarge: '更大', huge: '最大' }[prefs.textSize] || '大字' }), fonts,
+        h('div', { class: 'notification-row' }, [h('span', { html: icon('speaker') }), toggle('语音播报', !!profile.voiceOn, voiceChange, '自动朗读食品识别结果')]),
+        h('details', { class: 'settings-expander voice-extra' }, [h('summary', { text: '试听与更多朗读设置' }), note(speech.isSupported() ? '结论会在结果页自动朗读，也可随时重听。' : '这台设备不支持语音朗读，结论仍会以文字显示。'),
+          ...VOICE_CHOICES.map(choice => button({ label: choice.label, variant: 'secondary', block: true, onClick: () => voiceChange(choice.id === 'on').catch(error => toast(error.message)) })),
+          button({ label: '试听一句', iconHtml: icon('speaker'), variant: 'secondary', block: true, onClick: () => { speech.unlock(); if (!speech.speak('这个饼干里有花生，您对花生过敏，别吃。')) toast('这台设备不支持语音朗读。'); } })])]),
+      card('基础信息', [menuRow('基础信息', 'person', () => ctx.navigate('profile', { edit: '1' }), { detail: '查看并修改姓名、手机号等信息' }),
+        h('details', { class: 'settings-expander' }, [h('summary', { text: '我的情况 · 分项修改' }), profileRows(profile, ctx), note('只改选中的一项，其余设置保留。')])]),
+      h('section', { class: 'card family-settings-entry' }, [menuRow('子女守护', 'shield', () => ctx.navigate('family')), familySummary]),
+      card('隐私与帮助', [menuRow('隐私与共享权限', 'shield', () => ctx.navigate('privacy')), menuRow('帮助与使用指南', 'info', () => ctx.navigate('guide')),
+        h('details', { class: 'settings-expander' }, [h('summary', { text: '更多设置' }), menuRow('求助号码设置', 'call', () => ctx.navigate('emergency')), menuRow('身份说明与切换', 'refresh', () => ctx.navigate('identity', { switch: '1' })), menuRow('适老化说明', 'textSize', () => ctx.navigate('help'))])]),
+      note('食护家 Foodlenscare · 第三版 3.0.0')]);
   };
-
-  draw();
+  draw(); return () => { alive = false; };
 }
 
 /**

@@ -111,6 +111,7 @@ export const CONDITIONS = [
   { id: 'hypertension', label: '高血压', emoji: '🩺', nutrients: ['sodium'] },
   { id: 'diabetes', label: '糖尿病', emoji: '🩸', nutrients: ['sugar'] },
   { id: 'hyperlipidemia', label: '高血脂', emoji: '🫀', nutrients: ['saturatedFat', 'fat'] },
+  { id: 'coronary', label: '冠心病', emoji: '🫀', nutrients: [] },
   { id: 'none', label: '以上都没有', emoji: '✅', nutrients: [] }
 ];
 

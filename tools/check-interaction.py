@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import functools
+import os
 import http.server
 import re
 import shutil
@@ -76,6 +77,13 @@ def main() -> int:
     if not HARNESS.exists():
         print(f'缺少测试台：{HARNESS}')
         return 1
+
+    # 第三版照片持久化用 IndexedDB，虚拟时钟不能可靠等待磁盘事务。
+    # 优先使用已有 Playwright 的真实时钟，不增加应用运行依赖。
+    playwright_path = Path(os.environ.get('FLC_PLAYWRIGHT_PATH', str(Path.home() / '.cache' / 'codex-runtimes' / 'codex-primary-runtime' / 'dependencies' / 'node' / 'node_modules' / 'playwright')))
+    if '--verify-guards' not in sys.argv and playwright_path.exists() and shutil.which('node'):
+        environment = {**os.environ, 'FLC_PLAYWRIGHT_PATH': str(playwright_path)}
+        return subprocess.run(['node', str(ROOT / 'tools' / 'check-interaction-browser.cjs')], env=environment).returncode
 
     browser = find_browser()
     report = ''

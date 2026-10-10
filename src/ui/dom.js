@@ -162,9 +162,19 @@ const TABBAR_TABS = [
   { route: 'settings', label: '设置', iconName: 'sliders' }
 ];
 
-export function tabbar() {
-  return h('nav', { id: 'tabbar', class: 'tabbar', 'aria-label': '主要页面', hidden: true },
-    TABBAR_TABS.map(({ route, label, iconName }) =>
+export function tabbar(role = 'elder') {
+  const tabs = role === 'child' ? [
+    { route: 'home', label: '首页', iconName: 'home' },
+    { route: 'records', label: '记录', iconName: 'clipboard' },
+    { route: 'family', label: '家人', iconName: 'people' },
+    { route: 'settings', label: '我的', iconName: 'person' }
+  ] : [
+    { route: 'records', label: '健康记录', iconName: 'bars' },
+    { route: 'home', label: '拍照识别', iconName: 'camera' },
+    { route: 'settings', label: '我的设置', iconName: 'gear' }
+  ];
+  return h('nav', { id: 'tabbar', class: 'tabbar', dataset: { role }, 'aria-label': '主要页面', hidden: true },
+    tabs.map(({ route, label, iconName }) =>
       h('a', { class: 'tab', href: `#/${route}` }, [
         h('span', { class: 'icon', html: icon(iconName), 'aria-hidden': 'true' }),
         h('span', { text: label })

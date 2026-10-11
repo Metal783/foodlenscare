@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""第三版本机/局域网服务：SQLite 持久保存，所有共享读取均在服务端检查授权。
+"""第四版本机/局域网服务：SQLite 持久保存，所有共享读取均在服务端检查授权。
 
 测试验证码返回页面，仅用于本机/可信局域网演示，不是短信验证服务。
 不提供公网部署模式；生产认证应替换为真实微信/短信服务。
@@ -59,7 +59,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, '.js': 'text/javascript', '.mjs': 'text/javascript', '.wasm': 'application/wasm'}
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=str(ROOT), **kwargs)
+        super().__init__(*args, directory=str(ROOT / 'dist'), **kwargs)
 
     def end_headers(self):
         self.send_header('Cache-Control', 'no-store')
@@ -91,11 +91,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         # 按最终解析路径检查，编码后的 ../ 也不能绕过；HEAD 和 GET 使用同一限制。
         path = urlsplit(self.path).path
         translated = Path(self.translate_path(path)).resolve()
-        if not translated.is_relative_to(ROOT):
+        public_root = (ROOT / 'dist').resolve()
+        if not translated.is_relative_to(public_root):
             self.send_error(404)
             return None
-        relative = translated.relative_to(ROOT).as_posix()
-        allowed = relative in ('.', 'index.html', 'sw.js', 'manifest.webmanifest', 'FoodLensCare-standalone.html') or relative.startswith(('src/', 'assets/'))
+        relative = translated.relative_to(public_root).as_posix()
+        allowed = relative in ('.', 'index.html', 'favicon.svg', 'sw.js') or relative.startswith(('assets/', 'audio/'))
         if not allowed or translated.is_dir() and relative != '.':
             self.send_error(404)
             return None
@@ -164,7 +165,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def route(self, db, method, path, query, data):
         cookie = None
         if path == '/api/status' and method == 'GET':
-            return {'mode': 'local-test', 'sms': False, 'wechat': False, 'version': '3.0.1', 'revision': '20261010-2'}, None
+            return {'mode': 'local-test', 'sms': False, 'wechat': False, 'version': '4.0.0', 'revision': '20261011-6'}, None
         if path == '/api/auth/code' and method == 'POST':
             phone = str(data.get('phone', ''))
             if not re.fullmatch(r'1[3-9]\d{9}', phone):
@@ -219,18 +220,49 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 member = public_user(db.execute('SELECT * FROM users WHERE id=?', (other,)).fetchone())
                 result.append({**dict(row), 'member': member, 'amElder': row['elder'] == uid})
             return {'families': result, 'syncedAt': timestamp()}, None
+        if path == '/api/family/invite' and method == 'GET':
+            invitation = db.execute('SELECT * FROM invites WHERE inviter=? AND role=? AND used=0 AND expires>? ORDER BY expires DESC LIMIT 1', (uid, user['role'], time.time())).fetchone()
+            return {'code': invitation['code'] if invitation else '', 'expiresAt': invitation['expires'] * 1000 if invitation else 0}, None
         if path == '/api/family/invite' and method == 'POST':
             role = data.get('role', user['role'])
-            if role not in ('elder', 'child'):
+            if role not in ('elder', 'child') or role != user['role']:
                 raise APIError('请先选择身份。')
-            code = secrets.token_hex(4).upper()
-            db.execute('INSERT INTO invites VALUES(?,?,?,?,0)', (code, uid, role, time.time() + 86400))
-            return {'code': code, 'expiresIn': 86400}, None
+            code = f'{secrets.randbelow(1000000):06}'
+            while db.execute('SELECT 1 FROM invites WHERE code=?', (code,)).fetchone():
+                code = f'{secrets.randbelow(1000000):06}'
+            db.execute('UPDATE invites SET used=1 WHERE inviter=? AND role=? AND used=0', (uid, role))
+            expires = time.time() + 300
+            db.execute('INSERT INTO invites VALUES(?,?,?,?,0)', (code, uid, role, expires))
+            return {'code': code, 'expiresIn': 300, 'expiresAt': expires * 1000}, None
         if path == '/api/family/share-all' and method == 'POST':
             # 一次事务更新所有本人作为老人的关系，不会出现只改了一半的开关。
             allowed = int(data.get('records_allowed') is True)
             db.execute("UPDATE families SET records_allowed=?,updated=? WHERE elder=? AND status='bound'", (allowed, timestamp(), uid))
             return {'ok': True}, None
+        if path == '/api/family/lookup' and method == 'GET':
+            invitation = db.execute('SELECT * FROM invites WHERE code=? AND used=0 AND expires>?', (query.get('code', [''])[0].strip().upper(), time.time())).fetchone()
+            if not invitation or invitation['inviter'] == uid:
+                raise APIError('绑定码无效、已使用或不能绑定自己。')
+            person = public_user(db.execute('SELECT * FROM users WHERE id=?', (invitation['inviter'],)).fetchone())
+            person['phone'] = person['phone'][:3] + ' **** ' + person['phone'][-4:]
+            return {'member': person, 'role': invitation['role']}, None
+        if path == '/api/auth/change-phone' and method == 'POST':
+            phone, code = str(data.get('phone', '')), str(data.get('code', ''))
+            stored = db.execute('SELECT * FROM codes WHERE phone=?', (phone,)).fetchone()
+            if not stored or stored['expires'] < time.time() or stored['attempts'] >= 5:
+                raise APIError('验证码已失效，请重新获取。', 401)
+            if not secrets.compare_digest(stored['code'], digest(code)):
+                db.execute('UPDATE codes SET attempts=attempts+1 WHERE phone=?', (phone,))
+                db.commit()
+                raise APIError('验证码不正确。', 401)
+            conflict = db.execute('SELECT id FROM users WHERE phone=? AND id<>?', (phone, uid)).fetchone()
+            if conflict:
+                raise APIError('新手机号已有账号，不能合并两个账号。')
+            profile = json.loads(user['profile'])
+            profile['phone'] = phone
+            db.execute('UPDATE users SET phone=?,profile=? WHERE id=?', (phone, json.dumps(profile, ensure_ascii=False), uid))
+            db.execute('DELETE FROM codes WHERE phone=?', (phone,))
+            return {'user': public_user(db.execute('SELECT * FROM users WHERE id=?', (uid,)).fetchone(), True)}, None
         if path == '/api/family/join' and method == 'POST':
             invitation = db.execute('SELECT * FROM invites WHERE code=? AND used=0 AND expires>?', (str(data.get('code', '')).strip().upper(), time.time())).fetchone()
             if not invitation or invitation['inviter'] == uid:
@@ -240,17 +272,33 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if existing:
                 raise APIError('已经绑定或等待老人确认。')
             relation_id = identifier()
-            db.execute('INSERT INTO families(id,elder,child,updated) VALUES(?,?,?,?)', (relation_id, elder, child, timestamp()))
+            db.execute('INSERT INTO families(id,elder,child,relation,updated) VALUES(?,?,?,?,?)', (relation_id, elder, child, str(data.get('relation', '家人'))[:30], timestamp()))
             db.execute('UPDATE invites SET used=1 WHERE code=?', (invitation['code'],))
             return {'id': relation_id, 'status': 'pending'}, None
+        match = re.fullmatch(r'/api/family/([a-f0-9]+)/relation-request', path)
+        if match and method == 'POST':
+            row = self.family(db, uid, match[1])
+            if row['child'] != uid or row['status'] != 'bound':
+                raise APIError('只有已绑定的子女可以申请关系更正。', 403)
+            relation = str(data.get('relation', '')).strip()
+            if relation not in ('女儿', '儿子', '其他'):
+                raise APIError('请选择正确关系。')
+            db.execute('UPDATE families SET requested_relation=?,updated=? WHERE id=?', (relation, timestamp(), row['id']))
+            return {'ok': True}, None
         match = re.fullmatch(r'/api/family/([a-f0-9]+)', path)
         if match and method in ('PATCH', 'DELETE'):
             row = self.family(db, uid, match[1])
             if method == 'DELETE':
-                db.execute("UPDATE families SET status='removed',records_allowed=0,profile_allowed=0,updated=? WHERE id=?", (timestamp(), row['id']))
+                db.execute("UPDATE families SET status='removed',records_allowed=0,profile_allowed=0,is_primary=0,requested_relation='',updated=? WHERE id=?", (timestamp(), row['id']))
+                if row['is_primary']:
+                    replacement = db.execute("SELECT id FROM families WHERE elder=? AND status='bound' ORDER BY updated DESC LIMIT 1", (row['elder'],)).fetchone()
+                    if replacement:
+                        db.execute('UPDATE families SET is_primary=1 WHERE id=?', (replacement['id'],))
                 return {'ok': True}, None
             if row['elder'] != uid:
                 raise APIError('共享范围只能由老人本人决定。', 403)
+            if row['status'] == 'removed':
+                raise APIError('已经解除绑定，请重新发送绑定申请。', 403)
             new_status = data.get('status', row['status'])
             if new_status not in ('bound', 'pending', 'rejected'):
                 raise APIError('绑定状态不正确。')
@@ -258,11 +306,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             profile_allowed = int(data.get('profile_allowed', row['profile_allowed']) is True or data.get('profile_allowed', row['profile_allowed']) == 1)
             if new_status != 'bound':
                 records_allowed = profile_allowed = 0
-            primary = int(bool(data.get('is_primary', row['is_primary'])))
+            primary = int(new_status == 'bound' and bool(data.get('is_primary', row['is_primary'])))
             if primary:
                 db.execute('UPDATE families SET is_primary=0 WHERE elder=?', (uid,))
             relation = str(data.get('relation', row['relation']))[:30]
             db.execute('UPDATE families SET status=?,records_allowed=?,profile_allowed=?,is_primary=?,relation=?,updated=? WHERE id=?', (new_status, records_allowed, profile_allowed, primary, relation, timestamp(), row['id']))
+            if data.get('resolve_relation'):
+                db.execute("UPDATE families SET requested_relation='' WHERE id=?", (row['id'],))
             return {'ok': True}, None
         if path == '/api/records' and method == 'POST':
             record = data.get('record')
@@ -284,6 +334,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 record = json.loads(row['data'])
                 if not profile_access:
                     record.pop('profileSnapshot', None)
+                    record.pop('healthSnapshot', None)
                     record.pop('consumption', None)
                     # 依据中可能带有私人过敏/慢病信息，未获资料授权时只返回食品摘要。
                     assessment = record.get('assessment', {})
@@ -329,22 +380,26 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 class FamilyServer(http.server.ThreadingHTTPServer):
     daemon_threads = True
 
-def create_server(host='127.0.0.1', port=5183, database=None):
+def create_server(host='127.0.0.1', port=5184, database=None):
     database = Path(database) if database else ROOT / '_local' / 'family.sqlite3'
     database.parent.mkdir(parents=True, exist_ok=True)
     with closing(sqlite3.connect(database)) as db, db:
         db.executescript(SCHEMA)
+        if 'requested_relation' not in [r[1] for r in db.execute('PRAGMA table_info(families)')]:
+            db.execute("ALTER TABLE families ADD COLUMN requested_relation TEXT NOT NULL DEFAULT ''")
         db.execute('PRAGMA journal_mode=WAL')
+        # 旧版24小时邀请不继续沿用，后续生成统一为5分钟。
+        db.execute('UPDATE invites SET used=1 WHERE used=0 AND expires>?', (time.time() + 300,))
     server = FamilyServer((host, port), Handler)
     server.database = str(database)
     return server
 
 def main():
-    parser = argparse.ArgumentParser(description='食护家第三版本机/局域网测试服务')
+    parser = argparse.ArgumentParser(description='食护家第四版本机/局域网测试服务')
     parser.add_argument('--host', default='127.0.0.1')
-    parser.add_argument('--port', type=int, default=5183)
+    parser.add_argument('--port', type=int, default=5184)
     parser.add_argument('--open', action='store_true')
-    parser.add_argument('--database', help='指定测试数据库文件；默认保存于第三版/_local')
+    parser.add_argument('--database', help='指定测试数据库文件；默认保存于第四版/_local')
     args = parser.parse_args()
     for port in range(args.port, args.port + 20):
         try:
@@ -354,13 +409,20 @@ def main():
             continue
     else:
         raise SystemExit('没有可用端口。')
-    url = f'http://127.0.0.1:{port}/?v=20261010-2'
-    print(f'第三版已启动：{url}', flush=True)
+    url = f'http://127.0.0.1:{port}/?v=20261011-6'
+    print(f'第四版已启动：{url}', flush=True)
     print('测试验证码会显示在页面，本服务仅供本机/可信局域网使用。', flush=True)
     print('手机录音要求 HTTPS 安全访问；电脑 localhost 可直接录音。', flush=True)
     if args.host == '0.0.0.0':
-        from serve import local_ip
-        print(f'局域网访问：http://{local_ip()}:{port}/?v=20261010-2', flush=True)
+        import socket
+        def local_ip():
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+                try:
+                    probe.connect(('192.0.2.1', 80))
+                    return probe.getsockname()[0]
+                except OSError:
+                    return '127.0.0.1'
+        print(f'局域网访问：http://{local_ip()}:{port}/?v=20261011-6', flush=True)
     if args.open:
         webbrowser.open(url)
     try:

@@ -1,78 +1,16 @@
-﻿<!DOCTYPE html>
-<html lang="zh-CN" data-text-size="large">
-<head>
-<meta charset="utf-8" />
-<meta name="app-version" content="3.0.1-20261010" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=3" />
-<meta name="theme-color" content="#004726" />
-<meta name="description" content="食护家 FoodLensCare —— 面向老年家庭的食品标签智能解读工具。拍一张照片，用一句听得懂的话告诉您这个能不能吃。" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="mobile-web-app-capable" content="yes" />
-<meta name="format-detection" content="telephone=no" />
-<title>食护家 FoodLensCare</title>
-<link rel="manifest" href="./manifest.webmanifest" />
-<link rel="icon" href="./assets/icons/icon.svg" type="image/svg+xml" />
-<link rel="apple-touch-icon" href="./assets/icons/icon.svg" />
-<link rel="stylesheet" href="./src/styles/tokens.css" />
-<link rel="stylesheet" href="./src/styles/app.css" />
-</head>
-<body>
-  <!-- 全局：无广告、无弹窗、无诱导按键；每屏只呈现一个动作 -->
-  <div id="app" class="app-shell">
-    <main id="view" class="view" role="main" aria-live="polite"></main>
-  </div>
-
-  <!-- 全局语音播报控制条：任何页面都能一键重听，无需寻找入口 -->
-  <div id="speaker" class="speaker-bar" hidden>
-    <button id="speaker-btn" class="btn btn-speak" type="button" aria-label="重新朗读结论">
-      <span class="btn-icon" aria-hidden="true">🔊</span>
-      <span>再念一遍</span>
-    </button>
-  </div>
-
-  <!-- 底部导航（T2）：常驻贴底通栏，只做页面切换、不放任何主动作（「每屏一个主动作」指内容区）。
-       显示范围由 src/app.js 的 syncTabbar() 控制：仅 首页/记录/设置 三页，
-       流程页（确认/进度/结果/画像/说明）一律隐藏。此节点是占位壳，
-       链接与图标由 src/ui/dom.js 的 tabbar() 在启动时填充（图标统一来自 ui/icons.js）。 -->
-  <nav id="tabbar" class="tabbar" aria-label="主要页面" hidden></nav>
-
-  <div id="toast" class="toast" role="status" aria-live="assertive" hidden></div>
-  <div id="aria-live" class="sr-only" aria-live="assertive"></div>
-
-  <noscript>
-    <p style="padding:24px;font-size:22px;line-height:1.6">
-      本应用需要开启浏览器 JavaScript 才能运行。请在手机浏览器的设置中开启 JavaScript 后重新打开本页面。
-    </p>
-  </noscript>
-
-  <script>
-    (async () => {
-      // 双击源码入口时转到同一目录的最新版单文件，避免模块被 file 协议拦截。
-      if (location.protocol === 'file:') {
-        location.replace('./FoodLensCare-standalone.html' + location.search + location.hash);
-        return;
-      }
-      // 已装旧缓存的设备先升级缓存控制器，再加载模块，避免首开混入旧模块。
-      if (navigator.serviceWorker?.controller) {
-        try {
-          const registration = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
-          const updating = registration.installing || registration.waiting ||
-            (registration.active?.state === 'activating' ? registration.active : null);
-          if (updating && updating.state !== 'activated') {
-            await Promise.race([
-              new Promise(resolve => updating.addEventListener('statechange', () => {
-                if (updating.state === 'activated' || updating.state === 'redundant') resolve();
-              })),
-              new Promise(resolve => setTimeout(resolve, 5000))
-            ]);
-          }
-        } catch { /* 断网时继续使用最近成功缓存的应用。 */ }
-      }
-      const entry = document.createElement('script');
-      entry.type = 'module';
-      entry.src = './src/app.js';
-      document.body.appendChild(entry);
-    })();
-  </script>
-</body>
+<!doctype html>
+<html lang="<!-- figma:lang -->">
+  <head>
+    <!-- figma:head-start -->
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><!-- figma:title --></title>
+    <!-- figma:head-end -->
+  </head>
+  <body>
+    <!-- figma:body-start -->
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <!-- figma:body-end -->
+  </body>
 </html>

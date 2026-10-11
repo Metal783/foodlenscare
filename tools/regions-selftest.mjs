@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { labelFromRegions } from '../src/recognize/parse-regions.js';
-import { reviewLabel } from '../src/core/label-review.js';
-import { evaluate } from '../src/core/rules.js';
-import { todayTotals,scaleNutrients } from '../src/core/store.js';
+import { labelFromRegions } from '../src/legacy/recognize/parse-regions.js';
+import { reviewLabel } from '../src/legacy/core/label-review.js';
+import { evaluate } from '../src/legacy/core/rules.js';
+import { todayTotals,scaleNutrients } from '../src/legacy/core/store.js';
 let passed=0;
 const test=(name,fn)=>{fn();passed++;console.log('PASS '+name);};
 const box=(text,x,y,score=0.95)=>({text,score,poly:[[x,y],[x+100,y],[x+100,y+20],[x,y+20]]});

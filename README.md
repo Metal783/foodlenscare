@@ -12,7 +12,7 @@
 git clone --branch version-4 --single-branch https://github.com/Metal783/foodlenscare.git foodlenscare-v4
 ```
 
-仓库包含已构建的 `dist`、完整本机OCR资源与启动文件，下载解压后可直接按下面说明启动；无需 Git LFS。正式数据库、测试截图、本机依赖和环境配置均不上传。首次启动建立新的空数据库；本地已有的 `_local` 数据不受上传影响。
+仓库包含已构建的 `dist`、一套共享的 `public` 公共资源（含完整本机OCR）与启动文件，下载解压后可直接按下面说明启动；无需 Git LFS。正式数据库、测试截图、本机依赖和环境配置均不上传。首次启动建立新的空数据库；本地已有的 `_local` 数据不受上传影响。
 
 ## 运行
 
@@ -52,7 +52,7 @@ git clone --branch version-4 --single-branch https://github.com/Metal783/foodlen
 
 ## 数据
 
-登录后的资料、识别记录、照片和语音由这台电脑的 `_local/family.sqlite3` 保存。关闭服务后，可备份整个 `_local` 文件夹。家庭服务只公开 `dist` 中的公共前端文件；数据库、源码和工具不提供网页下载。
+登录后的资料、识别记录、照片和语音由这台电脑的 `_local/family.sqlite3` 保存。关闭服务后，可备份整个 `_local` 文件夹。家庭服务提供 `dist` 中的构建页面与 `public` 中的图标、音频和OCR资源；请求地址保持原样，`public` 不再重复复制进 `dist`。数据库、源码、工具与目录列表不提供网页下载。
 
 游客与账号隔离：游客资料/元数据保留在当前浏览器会话，照片与完整记录写入 IndexedDB，按游客会话编号隔离。不会自动并入登录账号。第三版已有数据库没有自动复制到第四版，原始私人数据保持在第三版目录。
 
@@ -69,9 +69,9 @@ npm.cmd run build
 python -X utf8 tools/family_server.py --open
 ```
 
-修改源码后需要重新构建，启动文件读取的是 `dist`。本机服务和前端保持同源；没有把私人接口开放跨源。
+修改源码后需要重新构建。启动需要保留 `dist`、`public` 和 `tools/family_server.py`；公共资源只存一份，不能单独搬走 `dist`。`npm.cmd run preview` 也通过Python启动完整服务。本机服务和前端保持同源；没有把私人接口开放跨源。
 
-开发时先启动 Python 服务，再运行 `npm.cmd run dev`，开发服务器默认把 `/api` 代理到 `http://127.0.0.1:5184`；服务改用其他端口时，用 `FLC_API_URL` 指定实际地址。依赖以根目录 `package-lock.json` 为准。原包依赖锁与一次性接入脚本存放在 `tools/migration-reference`，仅供查阅，不要重新运行。
+开发时先启动 Python 服务，再运行 `npm.cmd run dev`，开发服务器默认把 `/api` 代理到 `http://127.0.0.1:5184`；服务改用其他端口时，用 `FLC_API_URL` 指定实际地址。依赖以根目录 `package-lock.json` 为准。已删除一次性迁移脚本与旧Figma构建工具；当前构建不依赖 `.figma` 配置。
 
 检查：
 

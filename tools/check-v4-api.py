@@ -77,10 +77,18 @@ with tempfile.TemporaryDirectory(prefix='flc-v4-api-') as temp:
         _,family=api(child,'/family');check(family['families'][0]['id']==family_id,'更换手机号后家庭关系仍可读取')
         _,code=api(child,'/auth/code',{'phone':'13800280003'})
         status,_=api(child,'/auth/change-phone',{'phone':'13800280003','code':code['testCode']});check(status==400,'不将两个手机号已有账号合并')
-        for path in ('/_local/family.sqlite3','/tools/family_server.py','/src/backend.ts','/public/assets/dd0c1.png'):
+        for path in ('/_local/family.sqlite3','/tools/family_server.py','/src/backend.ts','/public/assets/dd0c1.png', '/assets/%2e%2e/_local/family.sqlite3', '/assets/paddle/%2e%2e/%2e%2e/tools/family_server.py', '/assets/paddle/'):
             try:other.open(origin+path);status=200
             except urllib.error.HTTPError as e:status=e.code
-            check(status==404,'仅公开dist资源：'+path)
+            check(status==404,'不公开私人文件或目录：'+path)
+        for path in ('/assets/17d08.svg', '/assets/paddle/manifest.json', '/audio/care-demo-12s.wav', '/favicon.svg'):
+            with other.open(origin+path) as response:
+                check(response.status==200 and bool(response.read()), '单份公共资源正常提供：'+path)
+        with other.open(urllib.request.Request(origin+'/assets/paddle/ort-wasm-simd-threaded.jsep.wasm', method='HEAD')) as response:
+            check(response.status==200 and response.headers['Content-Type']=='application/wasm' and int(response.headers['Content-Length'])==25014754, 'OCR引擎HEAD保持类型与完整长度')
+        try:other.open(urllib.request.Request(origin+'/_local/family.sqlite3', method='HEAD'));status=200
+        except urllib.error.HTTPError as e:status=e.code
+        check(status==404, 'HEAD也不能下载私人数据库')
         api(elder,'/family/'+family_id,None,'DELETE');_,family=api(child,'/family');check(not family['families'],'老人端也可以解除绑定')
         api(child,'/auth/logout',{});status,_=api(child,'/family/invite',{'role':'child'});check(status==401,'退出后不能生成邀请码')
     finally:server.shutdown();server.server_close();thread.join()

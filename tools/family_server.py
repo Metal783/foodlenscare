@@ -87,17 +87,34 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return
         super().do_GET()
 
+    def translate_path(self, path):
+        translated = Path(super().translate_path(path)).resolve()
+        build_root = (ROOT / 'dist').resolve()
+        if translated.is_relative_to(build_root):
+            relative = translated.relative_to(build_root).as_posix()
+            if not translated.is_file() and (relative == 'favicon.svg' or relative.startswith(('assets/', 'audio/'))):
+                resource_root = (ROOT / 'public').resolve()
+                resource = (resource_root / relative).resolve()
+                if resource.is_relative_to(resource_root):
+                    return str(resource)
+        return str(translated)
+
     def send_head(self):
         # 按最终解析路径检查，编码后的 ../ 也不能绕过；HEAD 和 GET 使用同一限制。
         path = urlsplit(self.path).path
         translated = Path(self.translate_path(path)).resolve()
-        public_root = (ROOT / 'dist').resolve()
-        if not translated.is_relative_to(public_root):
+        build_root = (ROOT / 'dist').resolve()
+        resource_root = (ROOT / 'public').resolve()
+        if translated.is_relative_to(build_root):
+            relative = translated.relative_to(build_root).as_posix()
+            allowed = relative in ('.', 'index.html', 'favicon.svg', 'sw.js', 'robots.txt') or relative.startswith(('assets/', 'audio/'))
+        elif translated.is_relative_to(resource_root):
+            relative = translated.relative_to(resource_root).as_posix()
+            allowed = relative == 'favicon.svg' or relative.startswith(('assets/', 'audio/'))
+        else:
             self.send_error(404)
             return None
-        relative = translated.relative_to(public_root).as_posix()
-        allowed = relative in ('.', 'index.html', 'favicon.svg', 'sw.js') or relative.startswith(('assets/', 'audio/'))
-        if not allowed or translated.is_dir() and relative != '.':
+        if not allowed or translated.is_dir() and not (translated == build_root):
             self.send_error(404)
             return None
         return super().send_head()
@@ -165,7 +182,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def route(self, db, method, path, query, data):
         cookie = None
         if path == '/api/status' and method == 'GET':
-            return {'mode': 'local-test', 'sms': False, 'wechat': False, 'version': '4.0.0', 'revision': '20261011-6'}, None
+            return {'mode': 'local-test', 'sms': False, 'wechat': False, 'version': '4.0.0', 'revision': '20261011-7'}, None
         if path == '/api/auth/code' and method == 'POST':
             phone = str(data.get('phone', ''))
             if not re.fullmatch(r'1[3-9]\d{9}', phone):
@@ -409,7 +426,7 @@ def main():
             continue
     else:
         raise SystemExit('没有可用端口。')
-    url = f'http://127.0.0.1:{port}/?v=20261011-6'
+    url = f'http://127.0.0.1:{port}/?v=20261011-7'
     print(f'第四版已启动：{url}', flush=True)
     print('测试验证码会显示在页面，本服务仅供本机/可信局域网使用。', flush=True)
     print('手机录音要求 HTTPS 安全访问；电脑 localhost 可直接录音。', flush=True)
@@ -422,7 +439,7 @@ def main():
                     return probe.getsockname()[0]
                 except OSError:
                     return '127.0.0.1'
-        print(f'局域网访问：http://{local_ip()}:{port}/?v=20261011-6', flush=True)
+        print(f'局域网访问：http://{local_ip()}:{port}/?v=20261011-7', flush=True)
     if args.open:
         webbrowser.open(url)
     try:

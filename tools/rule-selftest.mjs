@@ -15,11 +15,11 @@
  * 改一行阈值就应该能立刻验证有没有把结论改坏。
  */
 
-import { evaluate, matchAllergens, RISK_LEVELS } from '../src/core/rules.js';
-import { SAMPLE_CASES } from '../src/data/sample-labels.js';
-import { splitIngredientLines, parseLabelText, parseNutrition } from '../src/recognize/parse-label.js';
-import { collectAdditives } from '../src/data/additives.js';
-import { DAILY_LIMITS } from '../src/data/nutrition.js';
+import { evaluate, matchAllergens, RISK_LEVELS } from '../src/legacy/core/rules.js';
+import { SAMPLE_CASES } from '../src/legacy/data/sample-labels.js';
+import { splitIngredientLines, parseLabelText, parseNutrition } from '../src/legacy/recognize/parse-label.js';
+import { collectAdditives } from '../src/legacy/data/additives.js';
+import { DAILY_LIMITS } from '../src/legacy/data/nutrition.js';
 
 /* ------------------------------------------------------------ 迷你断言 */
 

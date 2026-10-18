@@ -1,40 +1,19 @@
-# 食护家 FoodLensCare · Git 忽略规则
-
-# ---- Python（工具脚本）----
-__pycache__/
-*.py[cod]
-*.egg-info/
-.pytest_cache/
-.venv/
-venv/
-
-# ---- Node（仅构建 OCR 资源需要依赖）----
 node_modules/
-npm-debug.log*
-pnpm-debug.log*
-
-# ---- 自动化检查的中间产物 ----
-# 截图/探针脚本会在这些位置写临时文件
-_qa/*.out
-_qa/*.err
-_qa/*.raw.png
-_qa/_*.html
-_qa/_sandbox/
-_qa/_sbx*/
-_qa/_msg*.txt
-_qa/_commitmsg.txt
-
-# ---- 本地接口配置 ----
-# 前端不写密钥，配置仅放在未公开的本地环境。
-.env
-.env.local
-
-# ---- 编辑器与系统 ----
-.vscode/
-.idea/
-*.swp
-Thumbs.db
-desktop.ini
-.DS_Store
 _local/
+_qa/
+.env
+.env.*
+_qa/*sqlite*
 __pycache__/
+*.pyc
+*.log
+无用/
+android/.gradle/
+android/.kotlin/
+android/**/build/
+android/local.properties
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+*.keystore
+*.jks

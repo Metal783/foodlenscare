@@ -1,0 +1,127 @@
+/** Second-stage UI checks with isolated data and mocked model replies. */
+process.env.PW_TEST_SCREENSHOT_NO_FONTS_READY = '1';
+const { chromium } = require(process.env.FLC_PLAYWRIGHT_PATH || 'C:/Users/lenovo/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const { spawn } = require('node:child_process');
+const fs = require('node:fs'), os = require('node:os'), path = require('node:path'), assert = require('node:assert/strict');
+(async () => {
+  const root = path.resolve(__dirname, '..'), temp = fs.mkdtempSync(path.join(os.tmpdir(), 'flc-insights-ui-'));
+  const server = spawn('python', ['-B', '-X', 'utf8', 'tools/family_server.py', '--port', '0', '--database', path.join(temp, 'test.sqlite3')], { cwd: root, windowsHide: true, env: { ...process.env, DEEPSEEK_API_KEY: '' } });
+  let browser;
+  try {
+    const origin = await new Promise((resolve, reject) => { const timer = setTimeout(() => reject(Error('startup timeout')), 15000); server.stdout.on('data', data => { const m = data.toString().match(/http:\/\/127\.0\.0\.1:\d+/); if (m) { clearTimeout(timer); resolve(m[0]); } }); });
+    browser = await chromium.launch({ executablePath: process.env.FLC_BROWSER || 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', headless: true });
+    const elder = await browser.newContext({ viewport: { width: 430, height: 932 } }), child = await browser.newContext({ viewport: { width: 430, height: 932 } });
+    const api = async (ctx, url, body, method = 'POST') => { const r = await ctx.request.fetch(origin + '/api' + url, { method, data: body, headers: { 'Content-Type': 'application/json' } }); assert(r.ok(), url + ':' + await r.text()); return r.json(); };
+    const login = async (ctx, phone, role) => { const code = await api(ctx, '/auth/code', { phone }); await api(ctx, '/auth/login', { phone, code: code.testCode }); return (await api(ctx, '/me', { role, profile: { name: '回顾测试' + role, phone, completed: true, diseases: ['PRIVATE-HEALTH'], allergens: [] } }, 'PATCH')).user; };
+    const user = await login(elder, '13800940001', 'elder'); await login(child, '13800940002', 'child');
+    for (const id of ['one', 'two']) await api(elder, '/records', { record: { id, at: new Date().toISOString(), productName: '回顾测试食品', label: { ingredientText: '小麦粉、白砂糖、食盐', declaredPer: 'per100g', servingLabel: '每100克', nutritionPer100g: { sodium: 220 }, confidence: { sodium: .99 } }, assessment: { level: 'gray' } } });
+    const invitation = await api(elder, '/family/invite', {}), family = await api(child, '/family/join', { code: invitation.code });
+    await api(elder, '/family/' + family.id, { status: 'bound', records_allowed: true, profile_allowed: false }, 'PATCH');
+    const ep = await elder.newPage(), cp = await child.newPage(), errors = [], calls = [];
+    for (const p of [ep, cp]) p.on('pageerror', e => errors.push(e.message));
+    await ep.goto(origin); await cp.goto(origin);
+    assert(await cp.getByRole('button', { name: '起草关怀留言', exact: true }).isDisabled());
+    await ep.getByRole('button', { name: '我的设置', exact: true }).click();
+    const toggle = () => ep.getByRole('switch', { name: '允许家人AI整理记录', exact: true });
+    await toggle().click(); const grant = ep.getByRole('dialog', { name: '家人AI整理授权' });
+    assert(await grant.getByRole('button', { name: '同意并开启家人AI整理' }).isDisabled());
+    await grant.getByRole('button', { name: '关闭家人AI整理授权' }).click();
+    assert.equal((await api(elder, '/me', undefined, 'GET')).user.prefs.familyAssistantConsent, undefined);
+    await toggle().click(); await grant.getByRole('checkbox').check(); await grant.getByRole('button', { name: '同意并开启家人AI整理' }).click();
+    await grant.waitFor({ state: 'hidden' });
+    await cp.getByRole('button', { name: '起草关怀留言', exact: true }).click({ timeout: 15000 });
+    await cp.getByRole('dialog', { name: '关怀草稿', exact: true }).getByRole('region', { name: '记录摘要' }).waitFor();
+    await cp.getByRole('button', { name: '关闭关怀草稿', exact: true }).click();
+    console.log('PASS 老人独立授权、取消不保存、子女按钮随授权同步，健康资料未共享也可整理非健康摘要');
+
+    await ep.getByRole('button', { name: '健康记录', exact: true }).click();
+    await ep.getByRole('button', { name: '查看近7天识别回顾', exact: true }).click();
+    const review = ep.getByRole('dialog', { name: '近7天识别回顾', exact: true });
+    await review.getByRole('region', { name: '记录摘要' }).waitFor();
+    assert((await review.innerText()).includes('2 条识别记录')); assert(await review.getByRole('button', { name: '生成识别回顾', exact: true }).isDisabled());
+    await review.getByRole('checkbox').check(); await review.getByRole('button', { name: '生成识别回顾', exact: true }).click();
+    await review.getByRole('alert').getByText(/配置 DeepSeek API Key/).waitFor();
+    assert(await review.getByRole('region', { name: '记录摘要' }).isVisible());
+    let delay = false, release;
+    const mock = async route => {
+      if (route.request().method() !== 'POST') return route.continue();
+      const request = route.request().postDataJSON(); calls.push(request);
+      assert.deepEqual(Object.keys(request).sort(), ['consent', 'elder', 'mode', 'tone']); assert.equal(request.consent, true);
+      const preview = await api(elder, '/record-insights?elder=' + request.elder, undefined, 'GET');
+      if (delay) { delay = false; await new Promise(resolve => { release = resolve; }); }
+      try { await route.fulfill({ json: { ...preview, result: { answer: request.mode === 'care' ? '最近看过的食品包装，我们有空一起核对。也记得休息，想聊的时候随时找我。' : '这些是保存的识别记录，可以继续核对标签，不能据此推断实际食用。', details: ['只记录包装上的线索，不判断摄入或病情。'], generatedAt: new Date().toISOString() } } }); } catch { /* Intentional revocation aborts waiting pages. */ }
+    };
+    await elder.route('**/api/record-insights', mock); await child.route('**/api/record-insights', mock);
+    await review.getByRole('button', { name: '生成识别回顾', exact: true }).click();
+    await review.getByRole('region', { name: 'AI识别回顾' }).waitFor();
+    await ep.evaluate(() => { window.testSpeech = ''; speechSynthesis.speak = u => { window.testSpeech = u.text; window.testUtterance = u; }; });
+    await review.getByRole('button', { name: '朗读回顾', exact: true }).click(); assert((await ep.evaluate(() => window.testSpeech)).includes('识别记录'));
+    assert((await ep.evaluate(() => window.testSpeech)).includes('不判断摄入或病情'));
+    await review.getByRole('button', { name: '停止朗读', exact: true }).click();
+    await review.getByRole('button', { name: '朗读回顾', exact: true }).click();
+    await ep.evaluate(() => window.dispatchEvent(new Event('foodlenscare:stop-audio')));
+    await review.getByRole('button', { name: '朗读回顾', exact: true }).waitFor();
+    delay = true; release = undefined;
+    await review.getByRole('button', { name: '生成识别回顾', exact: true }).click({ timeout: 10000 });
+    while (!release) await ep.waitForTimeout(20);
+    assert.equal(await review.getByRole('region', { name: 'AI识别回顾' }).count(), 0);
+    await review.getByRole('button', { name: '取消本次等待', exact: true }).click(); release(); release = undefined;
+    await ep.waitForTimeout(100);
+    assert(await review.getByRole('region', { name: '记录摘要' }).isVisible());
+    assert.equal(await review.getByRole('region', { name: 'AI识别回顾' }).count(), 0);
+    await ep.keyboard.press('Escape'); assert.equal(await review.count(), 0);
+    console.log('PASS 回顾：真实摘要/显式生成/未配置提示、朗读含说明/停止/音频互斥、取消等待保留摘要并丢弃迟到结果');
+
+    await cp.getByRole('button', { name: '起草关怀留言', exact: true }).click();
+    const care = cp.getByRole('dialog', { name: '关怀草稿', exact: true }); await care.getByRole('region', { name: '记录摘要' }).waitFor();
+    await care.getByRole('combobox', { name: '草稿语气' }).selectOption('warm'); await care.getByRole('checkbox').check();
+    await care.getByRole('button', { name: '生成关怀草稿', exact: true }).click();
+    const editable = care.getByRole('textbox', { name: '核对并编辑草稿' }); await editable.waitFor();
+    assert.equal(calls.at(-1).tone, 'warm'); assert(await care.getByRole('button', { name: '带着草稿录音' }).isDisabled());
+    await cp.evaluate(() => { speechSynthesis.speak = u => { window.testUtterance = u; }; });
+    await care.getByRole('button', { name: '朗读草稿', exact: true }).click();
+    await care.getByRole('button', { name: '停止朗读', exact: true }).waitFor();
+    await editable.fill('这是我核对后的关怀草稿，想和你聊聊最近看到的包装。');
+    await care.getByRole('button', { name: '朗读草稿', exact: true }).waitFor();
+    await care.getByRole('checkbox', { name: '我已核对草稿，作为录音参考' }).check();
+    delay = true; release = undefined;
+    await care.getByRole('button', { name: '生成关怀草稿', exact: true }).click({ timeout: 10000 });
+    while (!release) await cp.waitForTimeout(20);
+    assert.equal(await care.getByRole('button', { name: '带着草稿录音' }).count(), 0);
+    assert.equal(await editable.count(), 0);
+    await care.getByRole('button', { name: '取消本次等待', exact: true }).click(); release(); release = undefined;
+    await cp.waitForTimeout(100); assert.equal(await editable.count(), 0);
+    await care.getByRole('button', { name: '生成关怀草稿', exact: true }).click({ timeout: 10000 });
+    await editable.waitFor(); assert(await care.getByRole('button', { name: '带着草稿录音' }).isDisabled());
+    await editable.fill('这是我核对后的关怀草稿，想和你聊聊最近看到的包装。');
+    await care.getByRole('checkbox', { name: '我已核对草稿，作为录音参考' }).check();
+    await cp.evaluate(() => { Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async t => { window.testCopied = t; } } }); });
+    await care.getByRole('button', { name: '复制已核对草稿' }).click();
+    assert.equal(await cp.evaluate(() => window.testCopied), await editable.inputValue());
+    for (const width of [320, 430, 1280]) { await cp.setViewportSize({ width, height: 932 }); assert(await cp.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)); assert(await care.evaluate(e => e.scrollWidth <= e.clientWidth + 1)); }
+    await cp.setViewportSize({ width: 430, height: 932 });
+    fs.mkdirSync(path.join(root, '_qa', 'ai-insights-20261017'), { recursive: true });
+    await cp.screenshot({ path: path.join(root, '_qa', 'ai-insights-20261017', '关怀草稿.png'), fullPage: true });
+    await care.getByRole('button', { name: '带着草稿录音' }).click();
+    await cp.getByRole('region', { name: '关怀录音草稿', exact: true }).waitFor();
+    assert.equal(await cp.getByRole('textbox', { name: '关怀录音草稿' }).inputValue(), '这是我核对后的关怀草稿，想和你聊聊最近看到的包装。');
+    assert.equal((await api(child, '/voices', undefined, 'GET')).messages.length, 0);
+    await api(elder, '/records/one', undefined, 'DELETE');
+    await cp.getByRole('region', { name: '关怀录音草稿', exact: true }).waitFor({ state: 'hidden', timeout: 15000 });
+    console.log('PASS 草稿编辑停止朗读，重新生成清除旧稿及核对状态，取消后不恢复旧稿；复制/录音参考/三宽度/不自动发送/来源变化清稿');
+
+    await cp.getByRole('button', { name: '返回', exact: true }).click(); await cp.getByRole('button', { name: '起草关怀留言', exact: true }).click();
+    await care.getByRole('region', { name: '记录摘要' }).waitFor(); await care.getByRole('checkbox').check(); delay = true;
+    await care.getByRole('button', { name: '生成关怀草稿' }).click();
+    while (!release) await cp.waitForTimeout(20);
+    await api(elder, '/me', { prefs: { familyAssistantConsent: '' } }, 'PATCH');
+    await care.waitFor({ state: 'hidden', timeout: 15000 }); release();
+    assert(await cp.getByRole('button', { name: '起草关怀留言' }).isDisabled());
+    await api(elder, '/me', { prefs: { familyAssistantConsent: 'family-assistant-v1' } }, 'PATCH');
+    await cp.getByRole('button', { name: '起草关怀留言', exact: true }).click({ timeout: 15000 });
+    await care.getByRole('region', { name: '记录摘要' }).waitFor(); assert.equal(await care.getByRole('region', { name: '可编辑关怀草稿' }).count(), 0);
+    await care.getByRole('button', { name: '关闭关怀草稿' }).click();
+    assert.equal(errors.length, 0, errors.join('\n'));
+    console.log('PASS 撤权关闭页面并丢弃迟到结果，重新授权不恢复旧草稿，无脚本异常');
+  } finally { await browser?.close(); const stopped = new Promise(resolve => server.once('exit', resolve)); server.kill(); await stopped; }
+})().catch(error => { console.error(error); process.exitCode = 1; });

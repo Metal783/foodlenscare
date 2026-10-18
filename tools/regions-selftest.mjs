@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { labelFromRegions } from '../src/recognize/parse-regions.js';
-import { reviewLabel } from '../src/core/label-review.js';
-import { evaluate } from '../src/core/rules.js';
-import { todayTotals,scaleNutrients } from '../src/core/store.js';
+import { labelFromRegions } from '../src/legacy/recognize/parse-regions.js';
+import { reviewLabel } from '../src/legacy/core/label-review.js';
+import { evaluate } from '../src/legacy/core/rules.js';
+import { todayTotals,scaleNutrients } from '../src/legacy/core/store.js';
 let passed=0;
 const test=(name,fn)=>{fn();passed++;console.log('PASS '+name);};
 const box=(text,x,y,score=0.95)=>({text,score,poly:[[x,y],[x+100,y],[x+100,y+20],[x,y+20]]});
@@ -11,6 +11,23 @@ const items=[box('营养成分表',0,0),box('项目',0,30),box('每100毫升',20
  box('脂肪',0,120),box('0克',200,120),box('0%',400,120),box('碳水化合物',0,150),box('11.4克',200,150),box('4%',400,150),
  box('钠',0,180),box('8毫克',200,180),box('0%',400,180),box('产品名称：葡萄汁',0,210),box('配料表：水、葡萄浓缩汁。',0,240),box('果汁含量：100%',0,270)];
 const label=labelFromRegions({items:[...items].reverse(),image:{width:600,height:300}});
+
+test('左右双栏配料与营养行分别提取',()=>{
+  const columns=[box('配料：小麦粉、植物油、',0,0),box('营养成分表',500,0),box('淀粉、玉米粉、白砂糖、',0,30),box('项目 每份30克 NRV%',500,30),box('麦芽糖浆、食用盐。',0,60),box('能量 606千焦 7%',500,60),box('过敏原：含有小麦。',0,90),box('蛋白质 2.6克 4%',500,90),box('脂肪 5.8克 10%',500,120)];
+  const l=labelFromRegions({items:columns,image:{width:900,height:400}});
+  assert(l.ingredientText.includes('麦芽糖浆'));
+  assert(!/606|2.6|5.8|营养|NRV/.test(l.ingredientText));
+  assert.equal(l.declaredPer,'perServing');
+  assert.equal(l.nutritionPerServing.protein,2.6);
+  assert.equal(l.nutritionPer100g.protein,null);
+  assert.equal(l.nutritionTable.find(r=>r.key==='fat').nrv,10);
+});
+test('混排行只去营养片段不丢后续配料',()=>{
+  const text='配料：小麦粉、植物油。 能量 606千焦 7%\n白砂糖、麦芽糖浆。 蛋白质 2.6克 4%\n食用盐。';
+  const l=labelFromRegions({items:text.split('\n').map((t,i)=>box(t,0,i*30)),image:{width:800,height:300}});
+  assert(l.ingredientText.includes('食用盐'));
+  assert(!/606|蛋白质|2.6/.test(l.ingredientText));
+});
 test('乱序文字框恢复五项表格，NRV 不当作含量',()=>assert.deepEqual(label.nutritionPer100g,{energy:194,protein:0,fat:0,saturatedFat:null,carbohydrate:11.4,sugar:null,sodium:8}));
 test('配料区段排除上方营养表和下方其他字段',()=>assert.equal(label.ingredientText,'配料表：水、葡萄浓缩汁。'));
 test('毫升口径与零值保留',()=>{assert.equal(label.servingUnit,'ml');assert.equal(label.nutritionPer100g.fat,0);});

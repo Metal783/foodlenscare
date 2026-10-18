@@ -6,7 +6,7 @@
  *
  * 运行：node tools/ingredient-section-selftest.mjs
  */
-import { extractIngredientSection, findIngredientHeading, parseLabelText } from '../src/recognize/parse-label.js';
+import { extractIngredientSection, findIngredientHeading, parseLabelText } from '../src/legacy/recognize/parse-label.js';
 
 let pass = 0;
 const failures = [];

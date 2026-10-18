@@ -1,0 +1,10 @@
+{
+  "description": "This app streamlines the login process for users seeking health and wellness resources, offering mobile and WeChat login options for easy access.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

@@ -1,0 +1,88 @@
+.flc-date-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgb(0 32 14 / 38%);
+}
+.flc-date-sheet {
+  width: min(100%, 540px);
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  background: #f7faf5;
+  border: 1px solid #dce5db;
+  border-radius: 16px 16px 0 0;
+  padding: 8px 16px max(12px, env(safe-area-inset-bottom));
+  color: #191d1a;
+}
+.flc-date-header {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) 56px;
+  align-items: center;
+  min-height: 52px;
+  border-bottom: 1px solid #dce5db;
+}
+.flc-date-header h2 {
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+}
+.flc-date-header button, .flc-date-footer button {
+  min-height: 44px;
+  color: #596359;
+  font-size: 16px;
+}
+.flc-date-header .flc-date-confirm {
+  color: #003e1c;
+  font-weight: 700;
+}
+.flc-date-columns {
+  display: grid;
+  position: relative;
+  grid-template-columns: minmax(0, 1.3fr) repeat(2, minmax(0, 1fr));
+  margin: 12px 0;
+}
+.flc-date-band {
+  position: absolute;
+  height: 44px;
+  top: 50%;
+  transform: translateY(-50%);
+  inset-inline: 0;
+  pointer-events: none;
+  background: #e9f5e8;
+  border-block: 1px solid #c8ddc7;
+}
+.flc-date-wheel {
+  position: relative;
+  height: 220px;
+  padding-block: 88px;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  mask-image: linear-gradient(to bottom, transparent, #000 25%, #000 75%, transparent);
+}
+.flc-date-wheel::-webkit-scrollbar { display: none; }
+.flc-date-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  flex-shrink: 0;
+  scroll-snap-align: center;
+  color: #778077;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.flc-date-option.is-selected { color: #003e1c; font-weight: 700; }
+.flc-date-wheel:focus-visible { outline: 2px solid #5c8b62; outline-offset: -2px; }
+.flc-date-footer { text-align: center; border-top: 1px solid #dce5db; }
+@media (max-height: 480px) {
+  .flc-date-wheel { height: 132px; padding-block: 44px; }
+}

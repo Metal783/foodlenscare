@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192" role="img" aria-label="食护家 Foodlenscare">
-  <rect width="192" height="192" rx="42" fill="#E8F5E9"/>
-  <path d="M32 100 84 35q12-15 24 0l52 65" fill="none" stroke="#004726" stroke-width="13" stroke-linecap="round"/>
-  <path d="M43 110h106c-3 34-24 50-53 50s-50-16-53-50Z" fill="#004726"/>
-  <path d="M88 110c-3-26-21-39-39-36 3 21 16 31 39 36Zm8-3c-8-32 5-53 29-55 3 26-8 45-29 55Z" fill="#79A887"/>
-  <path d="M88 153h16v14H88Z" fill="#004726"/>
-</svg>

@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
-import { labelFromRegions } from '../src/recognize/parse-regions.js';
-import { reviewLabel } from '../src/core/label-review.js';
-import { evaluate } from '../src/core/rules.js';
-import { missingMandatoryFields } from '../src/recognize/parse-label.js';
-import { scaleNutrients, todayTotals, loadRecords } from '../src/core/store.js';
-import { recordResult, speakAndRecord } from '../src/core/flow.js';
-import { crossCheck } from '../src/recognize/index.js';
+import { labelFromRegions } from '../src/legacy/recognize/parse-regions.js';
+import { reviewLabel } from '../src/legacy/core/label-review.js';
+import { evaluate } from '../src/legacy/core/rules.js';
+import { missingMandatoryFields } from '../src/legacy/recognize/parse-label.js';
+import { scaleNutrients, todayTotals, loadRecords } from '../src/legacy/core/store.js';
+import { recordResult, speakAndRecord } from '../src/legacy/core/flow.js';
+import { crossCheck } from '../src/legacy/recognize/index.js';
 
 const storage = new Map();
 globalThis.window = { localStorage: { getItem: (k) => storage.get(k), setItem: (k, v) => storage.set(k, v) } };

@@ -7,6 +7,7 @@ import time
 from datetime import datetime, timedelta, timezone
 import deepseek_analysis as ai
 from food_assistant import validate_answer
+import diet_index
 
 FAMILY_AI_CONSENT = 'family-assistant-v1'
 SHANGHAI = timezone(timedelta(hours=8))
@@ -27,6 +28,8 @@ care模式：按指定语气写一段对子女长辈都适用、尊重对方的�
 diet模式：为子女写一份近期饮食观察小结，只描述记录中呈现的包装线索与记录完整度，不判断饮食好坏、是否吃够或营养是否均衡。
 diet必须分别给出 observations（看到了什么，至多四条）、suggestions（家人可做的小行动，至多四条）、questions（可以温和询问老人的问题，至多三条）。
 diet不能把识别次数当作食用次数；没有记录的天数不等于没吃；建议只围绕核对标签、补拍、一起选购、询问口味等，不写医疗、药物或疾病建议。
+stats.index是程序计算的参考评分：只能解释各维度线索与参考度，不得改写分数、不得声称老人健康或不健康、不得把它当作诊断；评分数字由界面展示，正文仍不写阿拉伯数字。
+diet回答要结合stats.index说明主要线索（如糖、钠或油脂），但不复述分数，不把评分说成健康或疾病判断。
 没有记录时只写通用问候，不能虚构任何食品事实；有记录时只能说最近看过/识别过的包装，不能说最近吃过。
 不得把照护草稿写成诊断、已发送消息或语音转写，不写人名、电话、网址、医学阈值、食用克数。
 所有统计数字由界面展示，回答及说明中不写阿拉伯数字，不再编造次数、比例或营养数值。
@@ -64,6 +67,7 @@ def digest(records, date=None, days=7):
     start = datetime.combine(date - timedelta(days=days - 1), datetime.min.time(), SHANGHAI)
     end = datetime.combine(date + timedelta(days=1), datetime.min.time(), SHANGHAI)
     facts, days_seen, names, signatures = [], set(), set(), []
+    nutrition_samples = []
     buckets = {date - timedelta(days=offset): {'date': (date - timedelta(days=offset)).isoformat(), 'count': 0, 'readable': 0}
                for offset in range(days - 1, -1, -1)}
     clue_counts = {key: 0 for key in CLUES}
@@ -106,6 +110,12 @@ def digest(records, date=None, days=7):
             try:
                 evidence = ai.evidence(candidate, {'diseases': [], 'allergens': []})
                 fields = [key for key in coverage if key in evidence['food']['nutritionCandidates']]
+                if evidence['food'].get('nutritionBasis') == 'per100g':
+                    candidates = evidence['food'].get('nutritionCandidates') or {}
+                    sample = {key: float(candidates[key]) for key in ('sugar', 'sodium', 'fat')
+                              if isinstance(candidates.get(key), (int, float)) and not isinstance(candidates.get(key), bool)}
+                    if sample:
+                        nutrition_samples.append(sample)
             except ai.AnalysisError:
                 fields = []
             for key in fields:
@@ -119,6 +129,8 @@ def digest(records, date=None, days=7):
              'clues': [{'key': key, 'label': title, 'count': clue_counts[key]} for key, (title, _) in CLUES.items()],
              'nutritionCoverage': coverage,
              'dayBreakdown': [buckets[key] for key in sorted(buckets)]}
+    stats['index'] = diet_index.evaluate(days, len(selected), len(days_seen), readable, nutrition_samples,
+                                        {'sugar': clue_counts['sugar'], 'salt': clue_counts['salt'], 'oil': clue_counts['oil']})
     version = hashlib.sha256(json.dumps([stats, signatures], ensure_ascii=False, sort_keys=True).encode()).hexdigest()
     return {'summary': stats, 'samples': facts, 'version': version}
 

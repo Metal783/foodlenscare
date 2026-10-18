@@ -14,7 +14,7 @@ const fs = require('node:fs'), os = require('node:os'), path = require('node:pat
     const api = async (ctx, url, body, method = 'POST') => { const r = await ctx.request.fetch(origin + '/api' + url, { method, data: body, headers: { 'Content-Type': 'application/json' } }); assert(r.ok(), url + ':' + await r.text()); return r.json(); };
     const login = async (ctx, phone, role) => { const code = await api(ctx, '/auth/code', { phone }); await api(ctx, '/auth/login', { phone, code: code.testCode }); return (await api(ctx, '/me', { role, profile: { name: '回顾测试' + role, phone, completed: true, diseases: ['PRIVATE-HEALTH'], allergens: [] } }, 'PATCH')).user; };
     const user = await login(elder, '13800940001', 'elder'); await login(child, '13800940002', 'child');
-    for (const id of ['one', 'two']) await api(elder, '/records', { record: { id, at: new Date().toISOString(), productName: '回顾测试食品', label: { ingredientText: '小麦粉、白砂糖、食盐', declaredPer: 'per100g', servingLabel: '每100克', nutritionPer100g: { sodium: 220 }, confidence: { sodium: .99 } }, assessment: { level: 'gray' } } });
+    for (const [id, daysAgo] of [['one', 0], ['two', 1]]) await api(elder, '/records', { record: { id, at: new Date(Date.now() - daysAgo * 86400000).toISOString(), productName: '回顾测试食品', label: { ingredientText: '小麦粉、白砂糖、食盐', declaredPer: 'per100g', servingLabel: '每100克', nutritionPer100g: { sodium: 220 }, confidence: { sodium: .99 } }, assessment: { level: 'gray' } } });
     const invitation = await api(elder, '/family/invite', {}), family = await api(child, '/family/join', { code: invitation.code });
     await api(elder, '/family/' + family.id, { status: 'bound', records_allowed: true, profile_allowed: false }, 'PATCH');
     const ep = await elder.newPage(), cp = await child.newPage(), errors = [], calls = [];
@@ -79,10 +79,15 @@ const fs = require('node:fs'), os = require('node:os'), path = require('node:pat
     await cp.getByRole('button', { name: '生成饮食分析', exact: true }).click();
     const diet = cp.getByRole('dialog', { name: '饮食观察分析', exact: true });
     await diet.getByRole('region', { name: '记录摘要' }).waitFor();
+    const indexCard = diet.getByRole('group', { name: '饮食健康指数', exact: true });
+    await indexCard.waitFor();
+    assert((await indexCard.innerText()).includes('参考度'));
+    assert((await diet.innerText()).includes('数据不足，暂不评分'));
     assert((await diet.innerText()).includes('2 条识别记录'));
     await diet.getByRole('button', { name: '近3天', exact: true }).click();
     const dietGenerate = diet.getByRole('button', { name: '生成3天饮食分析', exact: true });
     await dietGenerate.waitFor();
+    assert(!(await indexCard.innerText()).includes('数据不足'));
     await diet.getByRole('checkbox').check();
     await dietGenerate.click();
     await diet.getByRole('region', { name: '饮食分析结果' }).waitFor();

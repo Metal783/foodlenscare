@@ -17,17 +17,30 @@ const dist = path.resolve(root, option('--dist', 'dist'));
 const rawBase = option('--base', '/');
 const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
 const assetDir = path.join(dist, 'assets');
-const cssFiles = fs.readdirSync(assetDir).filter(name => name.endsWith('.css'));
+let cssFiles = fs.readdirSync(assetDir).filter(name => name.endsWith('.css'));
+const indexPath = path.join(dist, 'index.html');
+let indexHtml = fs.readFileSync(indexPath, 'utf8');
 // 原 index.css 保留不动；只在构建产物中补 font-display:swap，
 // 避免外部字体服务不可达时整段中文长时间不显示（FOIT）。
+// 补丁后按内容重命名样式文件，防止 Pages/CDN 继续命中旧样式缓存。
 for (const name of cssFiles) {
   const file = path.join(assetDir, name);
   let css = fs.readFileSync(file, 'utf8');
   if (!css.includes('font-display')) {
     css = css.replace(/@font-face\s*\{/g, match => `${match}font-display:swap;`);
+  }
+  const digest = crypto.createHash('sha256').update(css).digest('hex').slice(0, 8);
+  const nextName = name.replace(/-[^-]+\.css$/, `-${digest}.css`);
+  if (nextName !== name) {
+    fs.writeFileSync(path.join(assetDir, nextName), css);
+    fs.unlinkSync(file);
+    indexHtml = indexHtml.split(name).join(nextName);
+  } else {
     fs.writeFileSync(file, css);
   }
 }
+fs.writeFileSync(indexPath, indexHtml);
+cssFiles = fs.readdirSync(assetDir).filter(name => name.endsWith('.css'));
 const resources = [
   base,
   base + 'index.html',

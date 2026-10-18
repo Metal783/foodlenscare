@@ -61,17 +61,6 @@ export default function SharedHelp({ onBack }: { onBack: () => void }) {
             说明所在页面与遇到的问题。请勿在反馈中发送验证码或不必要的健康资料。
           </p>
         </section>
-        <div className="child-sharing">
-          <img
-            alt=""
-            height="20"
-            src={`${assetPathPrefix}/b1192.svg`}
-            width="20"
-          />
-          <span>
-            普通帮助不是急救服务。遇到紧急危险，请立即拨打当地急救电话。
-          </span>
-        </div>
       </div>
     </main>
   )

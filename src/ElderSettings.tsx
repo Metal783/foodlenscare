@@ -2,6 +2,7 @@ import ElderBottomNav from "./ElderBottomNav";
 import * as backend from "./backend";
 import { useEffect, useRef, useState } from "react";
 import AccountExit from "./AccountExit";
+import AccountSecurity from "./AccountSecurity";
 import type { ElderDraft, SessionKind } from "./Onboarding";
 import {
   familyMembersFor,
@@ -12,6 +13,7 @@ import {
   type BindingRequest,
 } from "./preferences";
 import SharedHelp from "./SharedHelp";
+import FamilyAIConsent from './FamilyAIConsent';
 
 type SettingsPage = "main" | "guard" | "add-family" | "bind-family" | "help";
 type Notice = "edit" | "add" | null;
@@ -168,13 +170,11 @@ type RelationshipCorrection = {
 
 function AddFamilyPage({
   preferences,
-  save,
   onBack,
   onCandidate,
   onLogin,
 }: {
   preferences: ElderPreferences;
-  save: (next: ElderPreferences) => Promise<boolean>;
   onBack: () => void;
   onCandidate: (candidate: BindingCandidate) => void;
   onLogin: () => void;
@@ -184,8 +184,6 @@ function AddFamilyPage({
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(timer); }, []);
   const remaining = Math.max(0, Math.ceil((backend.bindingExpiresAt() - now) / 1000));
   const code = remaining ? preferences.bindingCode : "";
-  const [query, setQuery] = useState("");
-  const [relation, setRelation] = useState("女儿");
   const [message, setMessage] = useState("");
   const requests = preferences.requests.filter((item) => item.status === "pending");
   const copy = async () => {
@@ -195,15 +193,6 @@ function AddFamilyPage({
     } catch {
       setMessage("复制失败，请长按绑定码手动复制。");
     }
-  };
-  const lookup = async () => {
-    try {
-      const value = query.trim().toUpperCase();
-      const result = await backend.lookup(value);
-      if (result.role !== "child") throw new Error("请输入子女端提供的绑定码。");
-      const request = await backend.join(value, relation);
-      onCandidate({ id: request.id, requestId: request.id, name: result.member.name, relation, maskedPhone: result.member.phone, primary: !preferences.members.length, demo: false });
-    } catch (error) { setMessage((error as Error).message); }
   };
   const fromRequest = (request: BindingRequest) =>
     onCandidate({
@@ -223,7 +212,6 @@ function AddFamilyPage({
       </header>
       <div className="flow-content">
         <h2>和家人连在一起</h2>
-        <p className="flow-lead">先找到家人，再核对身份。绑定后，是否共享资料由您决定。</p>
         <section className="flow-card binding-code-card">
           <h3>我的绑定码</h3>
           <strong>{!service.account ? "请先登录" : service.inviteStatus === "loading" ? "正在生成…" : code || "绑定码已过期或尚未生成"}</strong>
@@ -231,21 +219,6 @@ function AddFamilyPage({
           {service.inviteError && <p role="alert">{service.inviteError}</p>}
           {!service.account ? <button className="recognition-secondary" type="button" onClick={onLogin}>登录后生成绑定码</button> : <><button className="recognition-secondary" disabled={service.inviteStatus === "loading" || !code} type="button" onClick={() => void copy()}>复制绑定码</button><button className="recognition-secondary" disabled={service.inviteStatus === "loading"} type="button" onClick={async () => { try { await backend.invite(true); setNow(Date.now()); setMessage("已生成新绑定码，旧码失效。"); } catch (error) { setMessage((error as Error).message); } }}>重新生成绑定码</button></>}
         </section>
-        <section className="flow-card">
-          <h3>填写家人的信息</h3>
-          <label className="flow-field">家人绑定码
-            <div><input value={query} placeholder="输入或粘贴绑定码" onChange={(e) => setQuery(e.target.value)} /><button type="button" onClick={async () => {
-              try { setQuery(await navigator.clipboard.readText()); }
-              catch { setMessage("粘贴失败，请手动输入。"); }
-            }}>粘贴</button></div>
-          </label>
-          <p>家人与您的关系</p>
-          <div className="font-options">
-            {["女儿", "儿子", "其他"].map((item) => <button className={relation === item ? "selected" : ""} key={item} type="button" onClick={() => setRelation(item)}>{relation === item && "✓ "}{item}</button>)}
-          </div>
-          <p className="flow-helper">输入家人提供的有效绑定码；下一步创建申请并核对身份。</p>
-        </section>
-        <button className="recognition-primary" type="button" onClick={lookup}>下一步，确认家人身份</button>
         <section className="flow-card">
           <h3>收到的绑定申请</h3>
           {requests.length ? requests.map((request) => (
@@ -255,7 +228,6 @@ function AddFamilyPage({
           )) : <p className="flow-empty">暂无待确认申请</p>}
         </section>
         {message && <button className="settings-notice" type="button" onClick={() => setMessage("")}>{message}　×</button>}
-        <div className="recognition-tip"><img alt="" src={`${assetPathPrefix}/b1192.svg`} /><p>不会默认共享所有资料。知道绑定码不代表已经绑定或获得授权。</p></div>
       </div>
     </main>
   );
@@ -372,7 +344,6 @@ function GuardPage({
   };
   return (
     <main className="guard-page">
-      <header className="records-brand">食护家 Foodlenscare</header>
       <div className="guard-content">
         <button className="guard-back" type="button" onClick={onBack}>
           <img alt="" src={`${assetPathPrefix}/489d9.svg`} />我的设置
@@ -480,7 +451,7 @@ export default function ElderSettings({
   savePreferences: (next: ElderPreferences) => Promise<boolean>;
   onHome: () => void;
   onRecords: () => void;
-  onEdit: () => void;
+  onEdit: (mode: 'basic' | 'health') => void;
   onLogin: () => void;
   onLogout: () => Promise<void>;
 }) {
@@ -489,16 +460,20 @@ export default function ElderSettings({
   const [notice, setNotice] = useState<Notice>(null);
   const [feedback, setFeedback] = useState("");
   const settingsScroll = useRef(0);
+  const account = backend.useBackend().account;
+  const [analysisConsent, setAnalysisConsent] = useState(false);
+  const [analysisAgreed, setAnalysisAgreed] = useState(false);
+  const [analysisSaving, setAnalysisSaving] = useState(false);
+  const autoAnalysis = account?.prefs.smartAnalysisConsent === ANALYSIS_CONSENT;
   const [candidate, setCandidate] = useState<BindingCandidate | null>(null);
   const members = familyMembersFor(session, preferences);
-  const profileParts = [elder.age && `${elder.age}岁`, maskedPhone(elder.phone)].filter(Boolean);
+  const profileParts = [elder.birthDate && elder.age ? `${elder.age}岁` : '年龄未设置', maskedPhone(elder.phone)].filter(Boolean);
   const tags = [...elder.diseases, ...elder.allergens].filter((item) => item !== "无");
 
   if (page === "add-family") {
     return (
       <AddFamilyPage
         preferences={preferences}
-        save={savePreferences}
         onLogin={onLogin}
         onBack={() => setPage("guard")}
         onCandidate={(next) => {
@@ -538,15 +513,14 @@ export default function ElderSettings({
   };
   return (
     <main className="settings-page">
-      <header className="records-brand">食护家 Foodlenscare</header>
       <div className="settings-content">
         <h1>我的设置</h1>
-        <button className="settings-card profile-settings-card" type="button" onClick={onEdit}>
+        <section className="settings-card profile-settings-card">
           <span className="profile-settings-icon"><img alt="" src={`${assetPathPrefix}/17eaf.svg`} /></span>
           <span><strong>{elder.name || "未填写称呼"}</strong><small>{profileParts.join(" · ") || "尚未填写年龄和手机号"}</small></span>
-          <img alt="" src={`${assetPathPrefix}/6c0ad.svg`} />
-          <span className="profile-tags">{tags.length ? tags.map((tag) => <em key={tag}>{tag}</em>) : <em>尚未填写饮食关注</em>}<i>编辑资料</i></span>
-        </button>
+          <button aria-label="修改个人信息" type="button" onClick={() => onEdit('basic')} style={{ width: 44, height: 44, justifySelf: 'end', display: 'grid', placeItems: 'center' }}><img alt="" width={20} height={20} src={`${assetPathPrefix}/6c0ad.svg`} /></button>
+          <span className="profile-tags">{tags.length ? tags.map((tag) => <em key={tag}>{tag}</em>) : <em>尚未填写饮食关注</em>}</span>
+        </section>
         <section className="settings-card">
           <h2>看得清，听得懂</h2>
           <button className="settings-row" type="button" onClick={() => setFontDialog(true)}>
@@ -564,9 +538,19 @@ export default function ElderSettings({
           </div>
         </section>
         <section className="settings-card">
-          <h2>基础信息</h2>
-          <button className="settings-row" type="button" onClick={onEdit}>
-            <img alt="" src={`${assetPathPrefix}/4a790.svg`} /><span>基础信息<small>查看并修改姓名、手机号码等信息</small></span><img alt="" src={`${assetPathPrefix}/170cb.svg`} />
+          <h2>健康资料</h2>
+          <FamilyAIConsent />
+          {account && <div className="settings-row">
+            <img alt="" src={`${assetPathPrefix}/b1192.svg`} />
+            <span>自动智能分析</span>
+            <Toggle checked={autoAnalysis} label="自动智能分析" onClick={async () => {
+              if (!autoAnalysis) { setAnalysisAgreed(false); setAnalysisConsent(true); return; }
+              try { await backend.savePrefs({ smartAnalysisConsent: '' }); setFeedback('已关闭自动智能分析。'); }
+              catch { setFeedback('设置保存失败，请重试。'); }
+            }} />
+          </div>}
+          <button className="settings-row" type="button" onClick={() => onEdit('health')}>
+            <img alt="" src={`${assetPathPrefix}/4a790.svg`} /><span>健康资料<small>疾病、过敏原等信息</small></span><img alt="" src={`${assetPathPrefix}/170cb.svg`} />
           </button>
         </section>
         <button className="settings-card guardian-settings-entry" type="button" onClick={() => {
@@ -581,6 +565,7 @@ export default function ElderSettings({
           <button className="settings-row" type="button" onClick={() => setPage("help")}><img alt="" src={`${assetPathPrefix}/b5a08.svg`} /><span>帮助与使用指南</span><img alt="" src={`${assetPathPrefix}/170cb.svg`} /></button>
         </section>
         {feedback && <button className="settings-notice" type="button" onClick={() => setFeedback("")}>{feedback}　×</button>}
+        <section className="settings-card"><AccountSecurity onLogout={onLogout} /></section>
         <AccountExit onLogout={onLogout} />
         <p className="settings-version">食护家 Foodlenscare · 版本 4.0.0</p>
       </div>
@@ -591,6 +576,18 @@ export default function ElderSettings({
           setFeedback(`已使用${fontLabels[fontSize]}`);
         } else setFeedback("字号保存失败，请重试。");
       }} />}
+      {analysisConsent && <div className="dialog-backdrop"><section className="dialog-card" role="dialog" aria-modal="true" aria-label="自动分析授权">
+        <h2>开启自动智能分析</h2>
+        <p>每次识别成功后，将本次食品配料、营养信息和已保存的疾病、过敏设置发送至 DeepSeek，生成食用建议。不发送照片、姓名、手机号或家人资料。可随时关闭。</p>
+        <label><input type="checkbox" checked={analysisAgreed} onChange={event => setAnalysisAgreed(event.target.checked)} />我同意上述信息用于自动分析</label>
+        <button className="primary-button" disabled={!analysisAgreed || analysisSaving} type="button" onClick={async () => {
+          setAnalysisSaving(true);
+          try { await backend.savePrefs({ smartAnalysisConsent: ANALYSIS_CONSENT }); setAnalysisConsent(false); setFeedback('已开启自动智能分析。'); }
+          catch { setFeedback('设置保存失败，请重试。'); }
+          finally { setAnalysisSaving(false); }
+        }}>同意并开启</button>
+        <button className="dialog-cancel" disabled={analysisSaving} type="button" onClick={() => setAnalysisConsent(false)}>取消</button>
+      </section></div>}
       {notice && (
         <div className="dialog-backdrop">
           <section className="dialog-card" role="dialog" aria-modal="true">
@@ -603,3 +600,4 @@ export default function ElderSettings({
     </main>
   );
 }
+import { ANALYSIS_CONSENT } from './SmartAnalysis';

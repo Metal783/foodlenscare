@@ -42,8 +42,10 @@ def main():
                 request('/api/me', 'PATCH', {'role': role, 'profile': {'name': role, 'completed': True, 'allergens': ['peanut']}})
             eid, cid, _ = users
             check(child(f'/api/records?elder={eid}')[0] == 403, '未绑定不能读取老人记录')
-            _, result = child('/api/family/invite', 'POST', {'role': 'child'})
-            _, relation = elder('/api/family/join', 'POST', {'code': result['code']})
+            check(child('/api/family/invite', 'POST', {'role': 'child'})[0] == 403, '子女不能反向生成邀请码')
+            _, result = elder('/api/family/invite', 'POST', {'role': 'elder'})
+            check(elder('/api/family/join', 'POST', {'code': result['code']})[0] == 403, '老人不能填写邀请码提交申请')
+            _, relation = child('/api/family/join', 'POST', {'code': result['code']})
             rid = relation['id']
             check(child(f'/api/records?elder={eid}')[0] == 403, '待确认关系不能读取')
             check(child(f'/api/family/{rid}', 'PATCH', {'status': 'bound', 'records_allowed': True})[0] == 403, '子女不能替老人确认授权')

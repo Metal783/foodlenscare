@@ -3,11 +3,13 @@ import { evaluate, matchAllergens } from "./legacy/core/rules.js";
 import { snapshot, dateKey } from "./backend";
 import type { ElderDraft } from "./Onboarding";
 import { diseaseReminders } from "./diseaseReminders";
+import { profileAge } from './birthDate';
 
 export function ruleProfile(elder: ElderDraft) {
   const allergens: Record<string, string> = { "花生": "peanut", "坚果": "nut", "牛奶": "milk", "乳制品": "milk", "鸡蛋": "egg", "大豆": "soy", "小麦": "gluten", "鱼类": "fish", "虾蟹": "crustacean", "蟹黄": "crustacean", "无": "none" };
   const conditions: Record<string, string> = { "高血压": "hypertension", "糖尿病": "diabetes", "高血脂": "hyperlipidemia", "冠心病": "coronary", "无": "none" };
-  return { allergens: [...new Set(elder.allergens.map(s => allergens[s]).filter(Boolean))], conditions: elder.diseases.map(s => conditions[s]).filter(Boolean), concerns: [], ageGroup: Number(elder.age) >= 80 ? "age80" : Number(elder.age) >= 70 ? "age70" : "age60", voiceOn: false };
+  const age = Number(profileAge(elder));
+  return { allergens: [...new Set(elder.allergens.map(s => allergens[s]).filter(Boolean))], conditions: elder.diseases.map(s => conditions[s]).filter(Boolean), concerns: [], ageGroup: age >= 80 ? "age80" : age >= 70 ? "age70" : "age60", voiceOn: false };
 }
 export function assess(label: any, elder: ElderDraft) {
   const consumed: any = { sodium: 0, sugar: 0, saturatedFat: 0, fat: 0, unknown: { sodium: 0, sugar: 0, saturatedFat: 0, fat: 0 } };
@@ -18,7 +20,9 @@ export function assess(label: any, elder: ElderDraft) {
   }
   const profile = ruleProfile(elder);
   const assessment = (evaluate as any)({ label, profile, consumedToday: consumed, servingGrams: Number(label.servingGrams) || 100 });
-  return { ...assessment, diseaseReminders: diseaseReminders(label, profile.conditions) };
+  const custom = elder.allergenOther?.split(/[、,，;；\n]/).map(value => value.trim()).filter(value => value.length >= 2 && value !== '无') || [];
+  const matched = custom.filter(value => `${label.ingredientText || ''} ${label.allergenDeclaration || ''}`.includes(value));
+  return { ...assessment, ...(matched.length ? { level: 'red', headline: `含有您填写的过敏原：${matched.join('、')}`, advice: '不建议食用，存在您已填写的过敏原线索。' } : {}), diseaseReminders: diseaseReminders(label, profile.conditions) };
 }
 export async function preparePhoto(dataUrl: string, signal: AbortSignal) {
   const blob = await (await fetch(dataUrl, { signal })).blob();

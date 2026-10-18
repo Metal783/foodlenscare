@@ -206,10 +206,6 @@ export default function ElderHome({
 
   return (
     <main className="elder-home">
-      <header className="elder-home-header">
-        <h1>食护家 Foodlenscare</h1>
-      </header>
-
       <div className="elder-home-content">
         {notice && (
           <button aria-label="关闭提示" className="home-notice" type="button" onClick={() => setNotice("")}>
@@ -247,7 +243,6 @@ export default function ElderHome({
             <div className="voice-empty">
               <img alt="" className="h-10 w-10" src={`${assetPathPrefix}/1adbb.svg`} />
               <p id="voice-title">暂无家人语音</p>
-              <span>收到真实语音后可在此播放</span>
             </div>
           )}
           {voicePlayer.error && <p className="voice-home-error" role="alert">{voicePlayer.error}</p>}

@@ -1,4 +1,5 @@
 import * as backend from "./backend"
+import ServerAddressSettings from "./ServerAddressSettings"
 import { useEffect, useMemo, useState } from "react"
 import {
   ChildProfilePage,
@@ -24,6 +25,7 @@ import {
 } from "./preferences"
 import ElderProfileEdit from "./ElderProfileEdit"
 import ChildApp from "./ChildApp"
+import LegalDialog, { type LegalKind } from "./LegalDialog"
 
 type View =
   | "welcome"
@@ -39,36 +41,10 @@ type View =
   | "care-voice"
   | "elder-settings"
   | "elder-edit"
+  | "elder-basic"
 type Session = SessionKind
-type LegalKind = "用户协议" | "隐私政策"
 
 const assetPathPrefix = "/assets"
-
-function LegalDialog({
-  kind,
-  onClose,
-}: {
-  kind: LegalKind
-  onClose: () => void
-}) {
-  return (
-    <div className="dialog-backdrop" role="presentation" onMouseDown={onClose}>
-      <section
-        aria-labelledby="legal-title"
-        aria-modal="true"
-        className="dialog-card"
-        role="dialog"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <h2 id="legal-title">{kind}</h2>
-        <p>{kind === "隐私政策" ? "游客资料仅保存在当前浏览器；登录后的本人资料、照片、记录和语音保存到本机家庭服务。老人确认绑定并单独授权后，子女才可读取对应范围，授权可随时撤回。" : "本版本供本机和可信局域网使用。验证码为本地测试，未接入短信或微信。食品标签识别需核对实物，饮食参考不替代医疗建议；求助入口需本人确认后拨号。"}</p>
-        <button className="primary-button" type="button" onClick={onClose}>
-          我知道了
-        </button>
-      </section>
-    </div>
-  )
-}
 
 function BrandLogo({ welcome = false }: { welcome?: boolean }) {
   return (
@@ -187,14 +163,15 @@ function WelcomePage({
       </div>
 
       <div className="mt-auto flex w-full flex-col items-center gap-[3px] pt-[68px] text-center text-sm leading-[22px]">
+        <ServerAddressSettings welcome />
         <p className="text-[#596359]">登录即表示您同意</p>
         <p className="text-[#003e1c]">
           <button
             className="legal-link"
             type="button"
-            onClick={() => openLegal("用户协议")}
+            onClick={() => openLegal("服务条款")}
           >
-            《用户协议》
+            《服务条款》
           </button>
           与
           <button
@@ -298,7 +275,7 @@ function PhonePage({
   }
   const submit = async () => {
     if (submitting || !validatePhone()) return
-    if (!draft.agreed) return setCodeError("请先同意用户协议与隐私政策")
+    if (!draft.agreed) return setCodeError("请先同意服务条款与隐私政策")
     if (!hasCurrentCode || draft.codeExpiresAt! <= Date.now()) return setCodeError("请重新获取验证码")
     setSubmitting(true)
     try { await backend.login(draft.phone, draft.code); onSuccess() }
@@ -319,12 +296,6 @@ function PhonePage({
             每一餐安心，每一天有伴。
           </p>
         </section>
-        <h2 className="font-inter-bold text-[26px] leading-[1.5] text-[#191d1a]">
-          用手机号登录
-        </h2>
-        <p className="text-base leading-6 text-[#596359]">
-          输入手机号码，页面将显示本地测试验证码。
-        </p>
 
         <label className="flex flex-col gap-2 text-lg leading-[1.5] text-[#191d1a]">
           手机号码
@@ -352,9 +323,9 @@ function PhonePage({
         </label>
 
         <label className="flex flex-col gap-2 text-lg leading-[1.5] text-[#191d1a]">
-          本地测试验证码
           <span className="input-shell">
             <input
+              aria-label="验证码"
               aria-describedby={codeError ? "code-error" : undefined}
               aria-invalid={Boolean(codeError)}
               autoComplete="one-time-code"
@@ -421,9 +392,9 @@ function PhonePage({
               <button
                 className="legal-link"
                 type="button"
-                onClick={() => openLegal("用户协议")}
+                onClick={() => openLegal("服务条款")}
               >
-                《用户协议》
+                《服务条款》
               </button>
               与
               <button
@@ -529,9 +500,9 @@ function WechatPage({
               <button
                 className="legal-link"
                 type="button"
-                onClick={() => openLegal("用户协议")}
+                onClick={() => openLegal("服务条款")}
               >
-                《用户协议》
+                《服务条款》
               </button>
               与
               <button
@@ -587,11 +558,18 @@ export default function App() {
   const [requestedVoiceId, setRequestedVoiceId] = useState<string | null>(null)
   const savedProfile = JSON.stringify(data.account?.profile || {})
   useEffect(() => {
-    if (!data.account || ["identity", "elder-profile", "child-profile", "elder-edit", "recognition"].includes(view)) return
+    if (!data.account || ["identity", "elder-profile", "child-profile", "elder-edit", "elder-basic", "recognition"].includes(view)) return
     if (data.account.role === "elder") setElderDraft(backend.elderProfile())
     else if (view !== "child-home") setChildDraft(backend.childProfile())
   }, [savedProfile, data.account?.phone, view])
   const voicePlayer = useVoicePlayer(session)
+  useEffect(() => {
+    if (!data.ready || data.account || data.guest || session === 'signed-out') return;
+    voicePlayer.pause(); window.speechSynthesis?.cancel();
+    setSession('signed-out'); setRole('elder'); setDraft(initialDraft);
+    setElderDraft(emptyElderDraft); setChildDraft(emptyChildDraft); setLegal(null); setRecognitionStage('camera');
+    window.history.replaceState({ foodlensView: 'welcome' }, ''); setView('welcome'); window.scrollTo(0, 0);
+  }, [data.ready, data.account, data.guest, session]);
   const { preferences, save: savePreferences } = useElderPreferences(session, elderDraft.phone)
   const familyMembers = familyMembersFor(session, preferences)
   const contactMember = familyMembers.find(m => m.primary) || familyMembers[0]
@@ -601,8 +579,8 @@ export default function App() {
   const enter = () => {
     const account = backend.snapshot().account
     setSession(account ? "phone-demo" : "guest-demo")
-    setElderDraft(account ? backend.elderProfile() : backend.localRead("elderProfile", emptyElderDraft))
-    setChildDraft(account ? backend.childProfile() : backend.localRead("childProfile", emptyChildDraft))
+    setElderDraft(account ? backend.elderProfile() : backend.elderProfile(backend.localRead("elderProfile", emptyElderDraft), backend.localRead<ElderDraft>("elderProfile", emptyElderDraft).phone))
+    setChildDraft(backend.childProfile())
     setRole(account?.role || "elder")
     navigate(account?.profile.completed ? account.role === "elder" ? "elder-home" : "child-home" : "identity")
   }
@@ -619,7 +597,7 @@ export default function App() {
   }, [])
   const saveElder = async (next: ElderDraft) => { try { await backend.saveProfile("elder", next); setElderDraft(next); return true } catch (error) { backend.report(error); return false } }
   const saveChild = async (next: ChildDraft) => { try { await backend.saveProfile("child", next); setChildDraft(next); return true } catch (error) { backend.report(error); return false } }
-  const completeElder = async () => { if (await saveElder(elderDraft)) navigate("elder-home") }
+  const completeElder = () => navigate("elder-home")
   const completeChild = async (skipped = false) => { if (skipped || await saveChild(childDraft)) navigate("child-home") }
   const exitAccount = async () => {
     voicePlayer.pause(); window.speechSynthesis?.cancel();
@@ -642,8 +620,8 @@ export default function App() {
   else if (view === "recognition") page = <FoodRecognition elder={elderDraft} session={session} setStage={setRecognitionStage} stage={recognitionStage} speechEnabled={preferences.speechEnabled} onStopFamilyAudio={voicePlayer.pause} onUpdateElder={saveElder} onHome={() => navigate("elder-home")} />
   else if (view === "health-records") page = <HealthRecords contact={contact} elder={elderDraft} session={session} onHome={() => navigate("elder-home")} onRecognize={beginScan} onSettings={() => navigate("elder-settings")} sharingStatus={sharing} />
   else if (view === "care-voice") page = <CareVoicePage player={voicePlayer} requestedId={requestedVoiceId} session={session} onBack={() => { voicePlayer.pause(); navigate("elder-home") }} />
-  else if (view === "elder-settings") page = <ElderSettings elder={elderDraft} preferences={preferences} savePreferences={savePreferences} session={session} onHome={() => navigate("elder-home")} onRecords={() => navigate("health-records")} onEdit={() => navigate("elder-edit")} onLogin={() => navigate("phone")} onLogout={exitAccount} />
-  else if (view === "elder-edit") page = <ElderProfileEdit initial={elderDraft} session={session} onBack={() => navigate("elder-settings")} onSave={saveElder} />
+  else if (view === "elder-settings") page = <ElderSettings elder={elderDraft} preferences={preferences} savePreferences={savePreferences} session={session} onHome={() => navigate("elder-home")} onRecords={() => navigate("health-records")} onEdit={mode => navigate(mode === 'basic' ? 'elder-basic' : 'elder-edit')} onLogin={() => navigate("phone")} onLogout={exitAccount} />
+  else if (view === "elder-edit" || view === "elder-basic") page = <ElderProfileEdit key={view} mode={view === 'elder-basic' ? 'basic' : 'health'} initial={elderDraft} session={session} onBack={() => navigate("elder-settings")} onSave={saveElder} />
   else page = <WelcomePage navigate={navigate} openLegal={setLegal} onGuest={async () => { try { await backend.guestMode(); enter() } catch (error) { backend.report(error) } }} />
   return <>{page}{legal && <LegalDialog kind={legal} onClose={() => setLegal(null)} />}{data.error && <div className="dialog-backdrop"><section className="dialog-card" role="dialog" aria-modal="true"><h2>{data.error ? "操作提示" : "关怀通知"}</h2><p role="status">{data.error || data.notice}</p><button className="primary-button" type="button" onClick={backend.clearNotice}>知道了</button></section></div>}</>
 }

@@ -1,6 +1,8 @@
 import * as backend from "./backend";
 import { useMemo, useState } from "react";
 import type { ElderDraft, SessionKind } from "./Onboarding";
+import BirthDateFields from './BirthDateFields';
+import { birthDateIssue, profileAge } from './birthDate';
 
 const assetPathPrefix = "/assets";
 const diseaseOptions = ["无", "高血压", "糖尿病", "高血脂", "冠心病", "其他"];
@@ -45,11 +47,13 @@ export default function ElderProfileEdit({
   session,
   onBack,
   onSave,
+  mode = 'health',
 }: {
   initial: ElderDraft;
   session: SessionKind;
   onBack: () => void;
   onSave: (draft: ElderDraft) => Promise<boolean>;
+  mode?: 'basic' | 'health';
 }) {
   const [draft, setDraft] = useState<ElderDraft>({ ...initial });
   const [error, setError] = useState("");
@@ -66,17 +70,20 @@ export default function ElderProfileEdit({
   };
   const save = async () => {
     const name = draft.name.trim();
+    if (saving) return;
     if (!name) return setError("姓名或称呼不能为空");
-    if (draft.age && (!/^\d+$/.test(draft.age) || +draft.age < 1 || +draft.age > 120)) {
-      return setError("年龄应为1至120之间的数字");
-    }
-    if (draft.weight && (!/^\d+(\.\d+)?$/.test(draft.weight) || +draft.weight < 1 || +draft.weight > 300)) {
+    const birthdayError = birthDateIssue(draft.birthDate);
+    if (birthdayError) return setError(birthdayError);
+    if (mode === 'health' && draft.weight && (!/^\d+(\.\d+)?$/.test(draft.weight) || +draft.weight < 1 || +draft.weight > 300)) {
       return setError("体重应为1至300公斤之间的数字");
     }
     const hasHealth = draft.diseases.length > 0 || draft.allergens.length > 0;
-    if (hasHealth && !draft.healthConsent) return setError("保存健康相关资料前，请先明确同意用途说明");
+    if (mode === 'health' && hasHealth && !draft.healthConsent) return setError("保存健康相关资料前，请先明确同意用途说明");
     setSaving(true);
-    if (await onSave({ ...draft, name })) onBack();
+    const current = backend.snapshot().account ? backend.elderProfile() : backend.elderProfile(backend.localRead('elderProfile', initial), draft.phone);
+    const personal = { name, phone: draft.phone, phoneVerified: draft.phoneVerified, birthDate: draft.birthDate, age: profileAge(draft) };
+    const changes = mode === 'basic' ? personal : { ...personal, gender: draft.gender, weight: draft.weight, diseases: draft.diseases, diseaseOther: draft.diseaseOther, allergens: draft.allergens, allergenOther: draft.allergenOther, healthConsent: draft.healthConsent };
+    if (await onSave({ ...current, ...changes })) onBack();
       else {
         setSaving(false);
         setError("保存失败，请重试");
@@ -96,22 +103,27 @@ export default function ElderProfileEdit({
 
   return (
     <main className="flow-page">
-      <header className="recognition-header"><button aria-label="返回来源页" type="button" onClick={leave}><img alt="" src={`${assetPathPrefix}/7e864.svg`} /></button><h1>编辑基础信息</h1></header>
+      <header className="recognition-header"><button aria-label="返回来源页" type="button" onClick={leave}><img alt="" src={`${assetPathPrefix}/7e864.svg`} /></button><h1>{mode === 'basic' ? '编辑个人信息' : '编辑健康资料'}</h1></header>
       <div className="flow-content edit-profile-content">
-        <h2>修改您的个人资料</h2>
+        <h2>{mode === 'basic' ? '个人信息' : '健康资料'}</h2>
         <p className="flow-lead">保存后更新当前资料，不会改写历史食品识别快照。</p>
         <section className="flow-card edit-fields">
           <h3>个人信息</h3>
           <label>姓名／称呼<input value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} /></label>
-          <label>手机号码<div className="profile-input-shell"><span>{draft.phone ? draft.phone.replace(/(\d{3})\d{4}(\d{4})/, "$1 **** $2") : "未填写"}</span><button type="button" onClick={() => setPhoneOpen(true)}>修改</button></div></label>
-          <p className="flow-helper">当前号码已验证。更换手机号需重新完成本地测试验证。</p>
-          <label>年龄（选填）<div className="profile-input-shell"><input inputMode="numeric" value={draft.age} onChange={(e) => setDraft((d) => ({ ...d, age: e.target.value }))} /><span>岁</span></div></label>
+          <label>手机号码<div className="profile-input-shell"><span>{draft.phone ? draft.phone.replace(/(\d{3})\d{4}(\d{4})/, "$1 **** $2") : "未填写"}</span><button aria-label="修改手机号" type="button" onClick={() => setPhoneOpen(true)}>修改</button></div></label>
+          <p className="flow-helper">更换手机号需完成本地测试验证。</p>
+          <BirthDateFields id="elder-edit" birthDate={draft.birthDate} age={draft.age} onChange={value => setDraft(d => ({ ...d, ...value }))} />
+        </section>
+        {mode === 'health' && <>
+        <section className="flow-card edit-fields">
+          <h3>身体情况</h3>
           <fieldset><legend>性别（选填）</legend><div className="font-options">{["女", "男"].map((item) => <button className={draft.gender === item ? "selected" : ""} key={item} type="button" onClick={() => setDraft((d) => ({ ...d, gender: d.gender === item ? "" : item as ElderDraft["gender"] }))}>{draft.gender === item && "✓ "}{item}</button>)}</div></fieldset>
           <label>体重（选填）<div className="profile-input-shell"><input inputMode="decimal" value={draft.weight} onChange={(e) => setDraft((d) => ({ ...d, weight: e.target.value }))} /><span>公斤</span></div></label>
         </section>
         <section className="flow-card"><h3>基础疾病（可多选）</h3><Chips options={diseaseOptions} selected={draft.diseases} onChange={(diseases) => setDraft((d) => ({ ...d, diseases }))} />{draft.diseases.includes("其他") && <input className="profile-input" placeholder="补充其他基础疾病" value={draft.diseaseOther} onChange={(e) => setDraft((d) => ({ ...d, diseaseOther: e.target.value }))} />}<p className="flow-helper">本人填写，不是照片检测结果。选“无”将取消具体疾病项。</p></section>
         <section className="flow-card"><h3>过敏原（可多选）</h3><Chips options={allergenOptions} selected={draft.allergens} onChange={(allergens) => setDraft((d) => ({ ...d, allergens }))} />{draft.allergens.includes("其他") && <input className="profile-input" placeholder="补充其他过敏原" value={draft.allergenOther} onChange={(e) => setDraft((d) => ({ ...d, allergenOther: e.target.value }))} />}<p className="flow-helper">保留已有选项；“无”与具体过敏原互斥。</p></section>
-        <div className="recognition-tip"><img alt="" src={`${assetPathPrefix}/b1192.svg`} /><div><p>资料用于您的饮食参考。修改资料不会新增共享授权。</p>{!draft.healthConsent && <label className="health-consent"><input type="checkbox" checked={draft.healthConsent} onChange={(e) => setDraft((d) => ({ ...d, healthConsent: e.target.checked }))} />我同意将健康相关资料保存为本机家庭服务数据</label>}</div></div>
+        <div className="recognition-tip"><img alt="" src={`${assetPathPrefix}/b1192.svg`} /><div><p>资料用于您的饮食参考。修改资料不会新增共享授权。</p>{!initial.healthConsent && <label className="health-consent"><input type="checkbox" checked={draft.healthConsent} onChange={(e) => setDraft((d) => ({ ...d, healthConsent: e.target.checked }))} />我同意将健康相关资料保存为本机家庭服务数据</label>}</div></div>
+        </>}
         {session === "guest-demo" && <p className="guest-note">游客修改仅保留在当前会话，不提交真实服务。</p>}
         {error && <p className="field-error" role="alert">{error}</p>}
         <button className="recognition-primary" disabled={saving} type="button" onClick={save}>{saving ? "保存中…" : "保存修改"}</button>

@@ -1,5 +1,7 @@
 import * as backend from "./backend"
 import { useEffect, useState } from "react"
+import BirthDateFields from './BirthDateFields'
+import { birthDateIssue, profileAge } from './birthDate'
 
 export type SessionKind = "signed-out" | "phone-demo" | "wechat-demo" | "guest-demo"
 export type Role = "child" | "elder"
@@ -9,6 +11,7 @@ export type ElderDraft = {
   phone: string
   phoneVerified: boolean
   age: string
+  birthDate: string
   gender: "" | "女" | "男"
   weight: string
   diseases: string[]
@@ -20,6 +23,8 @@ export type ElderDraft = {
 
 export type ChildDraft = {
   name: string
+  birthDate: string
+  age: string
   phone: string
   phoneVerified: boolean
   bindingCode: string
@@ -31,6 +36,7 @@ export const emptyElderDraft: ElderDraft = {
   phone: "",
   phoneVerified: false,
   age: "",
+  birthDate: "",
   gender: "",
   weight: "",
   diseases: [],
@@ -42,6 +48,8 @@ export const emptyElderDraft: ElderDraft = {
 
 export const emptyChildDraft: ChildDraft = {
   name: "",
+  birthDate: "",
+  age: "",
   phone: "",
   phoneVerified: false,
   bindingCode: "",
@@ -387,7 +395,7 @@ function StageComplete({
         <h2 id="stage-title">{title}</h2>
         <p role="status">{message}</p>
         <button className="primary-button" type="button" onClick={onClose}>
-          返回身份选择
+          继续
         </button>
       </section>
     </div>
@@ -418,12 +426,8 @@ export function ElderProfilePage({
     const name = draft.name.trim()
     if (!name) return setError("请输入姓名或称呼")
     if (!guest && !draft.phoneVerified) return setError("请先验证手机号码")
-    if (
-      draft.age &&
-      (!/^\d+$/.test(draft.age) || +draft.age < 1 || +draft.age > 120)
-    ) {
-      return setError("请检查年龄，年龄应为1至120之间的数字")
-    }
+    const birthdayError = birthDateIssue(draft.birthDate)
+    if (birthdayError) return setError(birthdayError)
     if (
       draft.weight &&
       (!/^\d+(\.\d+)?$/.test(draft.weight) ||
@@ -437,10 +441,11 @@ export function ElderProfilePage({
         "如需保存疾病或过敏原，请先明确同意保存健康资料；也可清空这些选项后继续",
       )
     }
-    setDraft((current) => ({ ...current, name }))
+    const next = { ...draft, name, age: profileAge(draft) }
+    setDraft(next)
     setError("")
     setSaving(true)
-    void backend.saveProfile("elder", draft).then(() => {
+    void backend.saveProfile("elder", next).then(() => {
       setSaving(false)
       onComplete()
     }).catch(error => { setSaving(false); setError(error.message) })
@@ -486,21 +491,7 @@ export function ElderProfilePage({
             }
             onVerified={() => setDraft((d) => ({ ...d, phoneVerified: true }))}
           />
-          <div className="form-field">
-            <label htmlFor="elder-age">年龄（选填）</label>
-            <div className="profile-input-shell">
-              <input
-                id="elder-age"
-                inputMode="numeric"
-                placeholder="请输入"
-                value={draft.age}
-                onChange={(e) =>
-                  setDraft((d) => ({ ...d, age: e.target.value }))
-                }
-              />
-              <span>岁</span>
-            </div>
-          </div>
+          <BirthDateFields id="elder" birthDate={draft.birthDate} age={draft.age} onChange={value => setDraft(d => ({ ...d, ...value }))} />
           <ChoiceGroup
             label="性别（选填）"
             options={["女", "男"]}
@@ -600,7 +591,7 @@ export function ElderProfilePage({
         暂时跳过基础信息设置
       </button>
       <p className="form-footer-note">
-        以后可在「我的设置 → 基础信息」查看和修改，不用担心填错。
+        以后可在「我的设置」查看和修改，不用担心填错。
       </p>
       </div>
     </main>
@@ -625,7 +616,7 @@ export function ChildProfilePage({
   const [error, setError] = useState("")
   const [saving, setSaving] = useState(false)
   const [review, setReview] = useState(false)
-  const [complete, setComplete] = useState<"saved" | "pending" | "skipped" | null>(null)
+  const [complete, setComplete] = useState<"pending" | "skipped" | null>(null)
   const guest = session === "guest-demo"
   const hasBindingCode = Boolean(draft.bindingCode.trim())
 
@@ -636,20 +627,22 @@ export function ChildProfilePage({
   const validatePersonal = () => {
     if (!draft.name.trim()) return "请输入姓名或称呼"
     if (!guest && !draft.phoneVerified) return "请先验证本人手机号码"
+    const birthdayError = birthDateIssue(draft.birthDate)
+    if (birthdayError) return birthdayError
     return ""
   }
 
-  const saveOnly = async () => {
+  const [candidate, setCandidate] = useState<any>(null)
+  const savePersonal = async () => {
     const issue = validatePersonal()
     if (issue) return setError(issue)
-    setSaving(true)
-    setError("")
-    try { await backend.saveProfile("child", draft); setComplete("saved") }
+    if (saving) return
+    setSaving(true); setError('')
+    const next = { ...draft, name: draft.name.trim(), age: profileAge(draft) }
+    try { await backend.saveProfile('child', next); setDraft(next); onComplete(true) }
     catch (error) { setError((error as Error).message) }
     finally { setSaving(false) }
   }
-
-  const [candidate, setCandidate] = useState<any>(null)
   const reviewBinding = async () => {
     const issue = validatePersonal()
     if (issue) return setError(issue)
@@ -706,6 +699,7 @@ export function ChildProfilePage({
             }
             onVerified={() => setDraft((d) => ({ ...d, phoneVerified: true }))}
           />
+          <BirthDateFields id="child" birthDate={draft.birthDate} age={draft.age} onChange={value => setDraft(d => ({ ...d, ...value }))} />
         </section>
         <section className="profile-card gap-3">
           <div className="card-heading">
@@ -758,22 +752,15 @@ export function ChildProfilePage({
             下一步，核对老人信息
           </button>
         )}
-        <button
-          className={hasBindingCode ? "onboarding-secondary" : "skip-binding"}
-          disabled={saving}
-          type="button"
-          onClick={saveOnly}
-        >
-          {saving ? "保存中…" : "暂不绑定，保存资料并开始使用"}
-        </button>
-      <p className="form-footer-note">之后可在「家人管理」添加老人</p>
+        {!hasBindingCode && <button className="onboarding-primary" disabled={saving} type="button" onClick={() => void savePersonal()}>{saving ? '保存中…' : '完成设置，开始使用'}</button>}
       <button
         className="skip-profile"
+        style={{ textDecoration: "underline", textUnderlineOffset: "4px" }}
         disabled={saving}
         type="button"
         onClick={() => setComplete("skipped")}
       >
-        暂时跳过基础信息设置
+        暂时跳过
       </button>
       </div>
       {review && (
@@ -833,18 +820,12 @@ export function ChildProfilePage({
           title={
             complete === "pending"
               ? "申请已发出"
-              : complete === "skipped"
-                ? "已跳过基础信息设置"
-                : "个人资料已保存"
+              : "已跳过基础信息设置"
           }
           message={
             complete === "pending"
               ? "申请已发出，等待老人确认。当前未绑定，也未获得任何共享权限。"
-              : complete === "skipped"
-                ? "已跳过基础信息设置，当前草稿未提交。现在可以进入子女端首页。"
-              : guest
-                ? "游客演示，资料仅保留在当前会话，保持未绑定状态。"
-                : "资料设置完成，当前保持未绑定状态。现在可以进入子女端首页。"
+              : "已跳过基础信息设置，当前草稿未提交。现在可以进入子女端首页。"
           }
           onClose={() => onComplete(complete === "skipped")}
         />

@@ -1,91 +1,162 @@
-# 食护家第四版
+# 食护家 · 完善版
 
-第四版以 `UI界面/Foodlenscare App Onboarding.zip` 中的 React 前端为界面，接入第三版的本机 PaddleOCR、配料/营养解析、风险规则和 Python/SQLite 家庭服务。页面布局、原始 CSS 和图片图标保留；示例人物、次数、记录及回执替换为实际业务数据。首次提取时修复了原包的三个 TypeScript 类型分隔符错误。
+2026-10-17新增三项功能：老人识别结果及本人历史详情可打开“选购替代思路”“日常搭配建议”，填写用餐场景或准备方式偏好，主动同意后生成并继续追问。两端标签下新增“查看标签核对清单”，本机列出配料、口径、营养字段、过敏原声明及储存日期的核对方向，可临时勾选和朗读；无需密钥，不修改OCR结果。详见 `AI功能扩展说明-2026-10-17.md`。
 
-身份选择图标已修复：选中显示白色，未选中显示深绿色，原图标与页面布局保留。老人端三项底部导航已统一尺寸、对齐与选中底色；相机图标保持原比例，当前选中项显示浅绿色圆角背景。
+2026-10-17助手体验优化：食品追问/包装解读新增常用问题，点选后可修改再发送；食品回答、识别回顾与关怀草稿均可停止朗读。生成过程中可取消等待，迟到结果不会恢复；食品追问保留问题并重新开始对话。过敏提醒和对比口径限制独立展示，重新生成草稿会清除旧文字及核对状态。变更和验证结果持续记录在 `CHANGELOG.md`。
 
-## GitHub 获取第四版
+2026-10-17第二批AI扩展：老人“健康记录”和子女首页新增近7天识别回顾，先查看真实摘要，再主动生成解读。子女可生成、编辑、朗读关怀草稿，核对后复制或带入录音页参考；不会自动发送。老人需在设置另行开启“允许家人AI整理记录”，并已共享食物记录。仅向模型发送最小食品摘要，识别记录不代表实际食用。详见 `AI功能扩展说明-2026-10-17.md` 与 `CHANGELOG.md`。
 
-第四版位于现有仓库的 `version-4` 分支，`main` 保留第三版。可从 [第四版分支](https://github.com/Metal783/foodlenscare/tree/version-4) 下载 ZIP，或运行：
+2026-10-17新增食品助手：老人本人在识别结果或历史详情中可点击“为什么这样建议”“解释包装说法”“和另一款比较”。支持连续追问、短回答/展开说明/朗读，以及从本人历史选择或拍摄上传第二款标签。需使用自己的DeepSeek密钥，并在提交问题前单独勾选授权；仅打开页面不调用模型。使用说明见 `AI功能扩展说明-2026-10-17.md`。
+
+这是供队友运行、演示和继续开发的项目副本，整理日期：2026-10-17。
+
+包含最新网页源码、已构建网页、本机OCR资源、Python后端及安卓工程源码。没有携带原作者的API密钥、账号数据库、健康资料、识别照片、家庭绑定或语音数据。启动后会生成你自己的本地数据。
+
+2026-10-17缺陷修复：历史返回白屏、失效会话恢复、迟到相机流释放、资料独立共享、需留意统计口径、低置信度AI输入和请求超时已修正。记录同步增加版本检查与每页50条列表，照片及语音按需读取；页面隐藏时暂停轮询。AI未开启或失败时显示已有本地疾病核对提醒。详见 `缺陷修复说明-2026-10-17.md`。
+
+更新后请关闭旧后端，重新双击 `启动完善版.cmd` 并刷新网页，让前后端同时使用本版。既有数据保留；本次未生成新APK。
+
+## 1. 先运行看看
+
+电脑需要 Python 3.10 或以上版本，以及新版 Edge / Chrome。后端仅使用 Python 标准库，不需要 `pip install`。只运行已构建网页，不需要 Node.js 或 Android Studio。
+
+1. 将整个文件夹解压到本地，不要在压缩包里直接运行。
+2. 双击 `启动完善版.cmd`。
+3. 浏览器会打开软件；默认地址是 `http://127.0.0.1:5184/`。端口被占用时会顺延，以终端显示的地址为准。
+4. 保持终端运行，可以最小化。关闭浏览器不等于关闭后端；终端内按 Ctrl+C 可停止服务。
+
+如果双击失败，在项目目录打开 PowerShell：
 
 ```powershell
-git clone --branch version-4 --single-branch https://github.com/Metal783/foodlenscare.git foodlenscare-v4
+python -X utf8 tools/family_server.py --open
 ```
 
-仓库包含已构建的 `dist`、一套共享的 `public` 公共资源（含完整本机OCR）与启动文件，下载解压后可直接按下面说明启动；无需 Git LFS。正式数据库、测试截图、本机依赖和环境配置均不上传。首次启动建立新的空数据库；本地已有的 `_local` 数据不受上传影响。
+也可以使用 `py -3 -X utf8 tools/family_server.py --open`。Linux/macOS 使用 `python3`。
 
-## 运行
+不要直接双击 `dist/index.html`，登录、绑定和共享功能需要后端。
 
-电脑双击 **启动第四版.cmd**，浏览器会打开第四版；保持服务窗口运行。已提供构建产物，日常运行只需要 Python，不需要重新安装前端依赖。
+### 测试老人端和子女端
 
-家人设备连接同一 Wi-Fi 后，双击 **启动第四版局域网.cmd**，使用窗口打印的局域网地址。不同家人使用不同测试手机号登录同一服务。
+- 一个普通浏览器窗口和一个隐私窗口，分别登录两个不同手机号，选择老人、子女身份。不要在共享同一登录Cookie的两个普通标签页中测试两个账号。
+- 登录验证码显示在页面中，是本地测试码，不会真的发送短信。
+- 老人生成5分钟有效的绑定码，子女填写发送申请，再由老人确认并选择共享范围。
+- 使用自己的食品包装照片测试。识别成功不自动保存，点击保存后才进入历史并共享。
+- 摄像头不可用时可以选择本地图片；桌面端 `localhost` / `127.0.0.1` 可用于录音权限测试。
 
-第四版默认端口是 5184；被占用时自动尝试后续端口。第三版保留原目录和端口，不覆盖旧版代码、数据库或浏览器数据。
+## 2. API说明
 
-## 两个账号体验
+**已去掉真实API密钥和本机私有配置，保留接口实现。** 未配置密钥时，OCR、登录、绑定、保存记录和语音功能仍可使用，DeepSeek智能分析不可用，不会伪造分析结果。
 
-1. 老人手机号登录：页面获取本地测试验证码，勾选协议并登录；选择老人身份并保存资料。
-2. 老人进入「我的设置 → 子女守护 → 添加家人」，复制本人6位随机数字绑定码。绑定码5分钟有效、只能使用一次，页面显示倒计时，可重新生成（旧码即刻失效）。游客会明确提示先登录，并提供登录入口。
-3. 子女在另一浏览器或设备登录，进入「家人 → 添加家人」，填写老人绑定码并提交申请。
-4. 老人在同一「添加家人」页查看申请，核对后确认绑定，分别选择食物记录和饮食资料的授权范围。第一位家人自动作为主要联系人。
-5. 老人拍食品标签或从相册选图，本机 OCR 读取照片，结合本人过敏/疾病资料给出规则提醒；点击「保存记录」后，识别历史与照片才写入家庭服务，并按授权供子女查看。未保存退出会提示放弃确认。独立演示用例不计为真实记录，两个端都不显示餐次。
-6. 子女查看获准的真实记录和照片，按近7天、日期及需留意筛选。点击家人切换入口可选择不同的已绑定老人。饮食资料未授权时，不返回相关画像或个性化依据。
-7. 子女在「发送语音」点击麦克风或开始录音，停止、试听后发送。老人实际接收和播放后才更新送达/播放回执。
-8. 老人关闭共享后，下一次查询会由服务端拒绝，子女页面清除旧共享数据。子女的关系更正申请由老人本人确认。
-9. 老人在「我的设置 → 子女守护」点击一位家人，选择「设为主要联系人」。首页呼叫家人会呼叫此人；紧急求助独立拨打120。两者仍需本人确认并使用系统电话，电脑不模拟拨通。
-10. 老人在上述家人详情，或子女在「家人管理」，均可确认解除绑定。解除后停止共享和语音，本人原始识别记录保留；解除主要联系人后由剩余家人接任，可以重新调整。
-11. 两个端的「设置」底部均有「退出登录」，确认退出后返回可选择手机号或微信登录的欢迎页，会话失效。再次登录可恢复本人保存资料。
+需要分析时，请使用自己的密钥，不要向原作者索取私有配置：
 
-## 功能缺口
+```powershell
+New-Item -ItemType Directory -Path _local -Force
+Copy-Item deepseek.example.json _local/deepseek.json
+```
 
-本次7项修改的入口见 **修改意见落实清单.md**。其余缺口见 **第四版功能接入与缺口清单.md**：营养表人工核对、实际食用数量/撤销、删除记录及登录后身份切换等仍未提供完整入口。这些第三版能力的接口或规则源码仍保留，不能据此宣称当前界面已经支持操作。
+编辑新文件，把 `apiKey` 的空字符串替换为自己的密钥。模型名称在同一文件中设置，应使用你的账号可用模型。配置后重启后端。
 
-## 使用边界
+- 服务端读取位置：`_local/deepseek.json`。
+- 也支持环境变量 `DEEPSEEK_API_KEY` / `DEEPSEEK_MODEL`，环境变量优先。
+- 不要把密钥放在 `src/`、`public/`、`dist/`，也不要放在前端环境变量或手机包中。
+- `tools/deepseek_analysis.py` 负责服务端调用；前端通过自己的后端请求分析。
+- 使用真实API会产生费用。只在有明确需要时测试，不要把回归测试改为批量调用真实模型。
 
-- 手机验证码显示在页面，是本机/可信局域网测试验证；不发送短信。微信认证未配置。
-- 普通手机局域网 HTTP 不能申请麦克风时，开始录音按钮改为选择已有录音；支持2分钟以内、8MB以内的 WAV/MP4/OGG/WebM，无法读取时长的文件会如实提示。直接拍摄也取决于浏览器权限，可使用相册。
-- 送达/播放开关控制真实回执提示，应用内提示保留原通知条样式。浏览器允许时可提示系统通知；应用需保持运行，没有后台推送服务。
-- 紧急求助固定拨打120，不依赖家人绑定；呼叫家人使用本人选择的主要联系人，可在子女守护的家人详情切换。两者均需确认后打开系统电话，电脑无法拨号时提示手动拨打。
-- 帮助/反馈邮箱尚未配置，原示例邮箱不会被当作真实服务地址。
-- OCR 不读取血压或血糖；未核对的营养候选和缺失值不当作完整营养数据，也不自动计入实际摄入。
-- 糖尿病提示糖和总碳水核对，高血压提示钠，高血脂提示脂肪/饱和脂肪。识别到的数值注明「OCR候选，尚未核对」；缺失糖不会按零糖处理。本人结果和保存历史保留提醒，子女查看个性化提醒需饮食资料授权。
+## 3. 想改代码
 
-## 数据
-
-登录后的资料、识别记录、照片和语音由这台电脑的 `_local/family.sqlite3` 保存。关闭服务后，可备份整个 `_local` 文件夹。家庭服务提供 `dist` 中的构建页面与 `public` 中的图标、音频和OCR资源；请求地址保持原样，`public` 不再重复复制进 `dist`。数据库、源码、工具与目录列表不提供网页下载。
-
-游客与账号隔离：游客资料/元数据保留在当前浏览器会话，照片与完整记录写入 IndexedDB，按游客会话编号隔离。不会自动并入登录账号。第三版已有数据库没有自动复制到第四版，原始私人数据保持在第三版目录。
-
-公共页面与已加载的 OCR 模型支持离线缓存，家庭接口和私人业务响应不进入网页缓存。离线可以进入游客模式使用已缓存的本机 OCR；登录、家人绑定和同步需要家庭服务在线。普通局域网 HTTP 可能不支持 Service Worker。
-
-## 开发
-
-源码在 `src`，第三版模块在 `src/legacy`，完整离线 OCR 资源在 `public/assets/paddle`，交付页面在 `dist`。
+本次构建与测试使用 Node.js 24.15.0、Python 3.13.9。继续开发可使用 Node.js 24 系列；项目构建最低要求为22.12，但下列直接执行TypeScript模块的自测在较早版本中可能需要额外参数。在本目录执行：
 
 ```powershell
 npm.cmd ci
 npm.cmd run typecheck
 npm.cmd run build
-python -X utf8 tools/family_server.py --open
 ```
 
-修改源码后需要重新构建。启动需要保留 `dist`、`public` 和 `tools/family_server.py`；公共资源只存一份，不能单独搬走 `dist`。`npm.cmd run preview` 也通过Python启动完整服务。本机服务和前端保持同源；没有把私人接口开放跨源。
+`npm ci` 根据锁文件安装依赖，需要联网。`node_modules` 没有放进分享包，安装后会自动生成。修改前端后，需要重新构建，再刷新浏览器查看；只修改Python代码时，需要重启后端。
 
-开发时先启动 Python 服务，再运行 `npm.cmd run dev`，开发服务器默认把 `/api` 代理到 `http://127.0.0.1:5184`；服务改用其他端口时，用 `FLC_API_URL` 指定实际地址。依赖以根目录 `package-lock.json` 为准。已删除一次性迁移脚本与旧Figma构建工具；当前构建不依赖 `.figma` 配置。
+### 开发时热更新
 
-检查：
+终端一启动后端：
 
 ```powershell
-node tools/rule-selftest.mjs
-node tools/regions-selftest.mjs
-node tools/ingredient-section-selftest.mjs
-node tools/review-selftest.mjs
-node tools/disease-reminders-selftest.mjs
-python -X utf8 tools/check-v3-api.py
-python -X utf8 tools/check-v4-api.py
-node tools/check-v4-browser.cjs
-node tools/check-v4-settings.cjs
-python -X utf8 tools/check-design-preserved.py
+python -X utf8 tools/family_server.py --host 127.0.0.1 --port 5184
 ```
 
-浏览器测试使用临时服务、临时数据库和两个隔离浏览器会话，包含真实 PaddleOCR 与真实 MediaRecorder；不向正式数据库写测试数据。截图保存在 `_qa/第四版截图`，其中姓名、食品和录音均为明确测试内容。可通过 `FLC_PLAYWRIGHT_PATH` 和 `FLC_BROWSER` 指定开发环境的 Playwright 包与浏览器。
+终端二启动Vite前端：
+
+```powershell
+npm.cmd run dev -- --port 5173
+```
+
+此时访问 `http://localhost:5173/`，前端会把 `/api` 代理到本机5184端口。若后端用了其他端口，在启动Vite前设置 `$env:FLC_API_URL='http://127.0.0.1:实际端口'`。
+
+### 常用修改位置
+
+| 路径 | 内容 |
+| --- | --- |
+| `src/App.tsx`、`src/Onboarding.tsx` | 主流程、登录后身份与资料填写 |
+| `src/ElderHome.tsx`、`src/ElderSettings.tsx` | 老人首页、设置 |
+| `src/ChildApp.tsx` | 子女首页、记录、家人、设置及通知开关 |
+| `src/FoodRecognition.tsx`、`src/recognition.ts` | 拍照/上传、OCR与结果流程 |
+| `src/FoodLabel.tsx`、`src/SavedFoodResult.tsx` | 当前识别及已保存记录的结果展示 |
+| `src/SmartAnalysis.tsx`、`src/analysisCopy.ts` | 智能分析展示、内容整理及朗读文本 |
+| `src/backend.ts` | 前端请求、账号状态、双端同步 |
+| `tools/family_server.py` | Python HTTP服务、SQLite、家庭权限和API路由 |
+| `tools/deepseek_analysis.py` | DeepSeek配置、请求、输入筛选和输出校验 |
+| `src/FoodAssistant.tsx`、`src/analysisInput.ts` | 食品追问、包装解读、对比与输入白名单 |
+| `tools/food_assistant.py`、`tools/assistant-allergens.json` | 食品助手上下文、比较换算、过敏保护；词典快照由既有本地词典生成 |
+| `src/recordNotifications.ts` | 新记录检测、去重和系统通知显示 |
+| `src/birthDate.ts`、`src/DateWheelPicker.tsx` | 生日滚轮与年龄计算 |
+| `src/mobile.ts`、`src/mobileCamera.ts` | Capacitor手机适配 |
+| `src/legacy/` | 复用的识别解析与规则模块，不是可随意删除的旧垃圾文件 |
+| `src/index.css`、`public/` | 原界面样式、图标、音频、OCR引擎与模型 |
+| `.figma/make/site.json` | Vite配置引用的构建配置，不能漏掉 |
+| `dist/` | 已构建的网页；由构建生成，不在这里手工改功能 |
+| `android/`、`capacitor.config.ts` | 安卓工程与打包配置 |
+
+原有协作约定见 `AGENTS.md`。默认保留 `src/index.css` 和原始素材；不要只修改当前结果页，漏掉历史记录详情。共享权限必须由服务端检查，不能只在界面上隐藏按钮。
+
+## 4. 修改后检查
+
+```powershell
+npm.cmd run typecheck
+npm.cmd run build
+node tools/rule-selftest.mjs
+node tools/record-notifications-selftest.mjs
+python -X utf8 tools/check-v4-api.py
+node tools/version-fixes-selftest.mjs
+python -X utf8 tools/check-version-fixes.py
+node tools/assistant-input-selftest.mjs
+python -X utf8 tools/check-food-assistant.py
+```
+
+这些检查不需要真实DeepSeek密钥，API检查使用隔离数据库，不修改你的正式数据。
+
+双账号浏览器检查还需要额外准备 Playwright 和 Edge：设置 `FLC_PLAYWRIGHT_PATH` 为你本机Playwright包目录，可选设置 `FLC_BROWSER` 为浏览器可执行文件，再运行 `node tools/check-v4-browser.cjs` / `node tools/check-record-notifications.cjs`。测试中的系统通知权限与显示使用模拟适配器，不代表手机后台推送验证。部分其他历史检查含原作者的环境路径，使用前按自己的环境调整。
+
+本次8项缺陷的专项浏览器回归：`node tools/check-version-fixes.cjs`，使用隔离账号与数据库、真实本地OCR及挂起的分析状态请求验证超时，不调用真实DeepSeek。新增照片/音频接口每次检查权限，媒体仅在当前页面会话内做有容量限制的内存缓存，不加入离线缓存。旧版完整记录与语音接口保留兼容。
+
+食品助手专项浏览器检查：`node tools/check-food-assistant.cjs`。回答使用模拟服务，第二张标签通过真实本地OCR读取，测试不会消耗真实模型额度。修改本地过敏词典后需同步服务端 `assistant-allergens.json`；输入自测会检查二者一致。
+
+选购、搭配与核对清单已纳入上述食品助手专项，服务端检查为 `python -X utf8 tools/check-food-assistant.py`；清单字段边界检查为 `node tools/label-checklist-selftest.mjs`。清单勾选只表示本次查看，收起或来源标签变化后清除，不等于确认识别正确。
+
+识别回顾/关怀草稿专项：`python -X utf8 tools/check-record-insights.py` 与 `node tools/check-record-insights.cjs`。覆盖服务端统计、最小化输入、家庭独立授权、生成后撤权/数据变更复核、编辑复制及录音参考；使用隔离数据库和模拟模型响应。
+
+`tools/check-design-preserved.py` 需要原始Figma界面压缩包，本分享包没有附带该历史压缩包；不要把缺少外部文件误认为应用运行失败。
+
+## 5. 数据、手机与局域网
+
+- 正式本地数据会生成在 `_local/`：包括SQLite数据库和可选API配置。请勿再分享这个目录。
+- 浏览器也可能保存本地偏好及游客记录。普通账号、隐私窗口、不同浏览器的数据并不完全共用。
+- 本分享包不含现成APK，也没有重新打包原作者的手机App；安卓源码用于后续开发。APK资源需在你自己的环境执行 `npx cap sync android` 后生成。
+- 安卓打包需要JDK 21、Android SDK及Gradle依赖；`tools/build-android.ps1` 默认工具目录是原作者的 `D:\Foodlenscare-Android`，使用前需要准备工具并按自己的路径调整。SDK路径配置、签名密钥和编译缓存均未分享。
+- 仅演示电脑网页不需要配置安卓环境，也不需要USB线。
+- 局域网可用 `只启动后端.cmd` 或 `python -X utf8 tools/family_server.py --host 0.0.0.0`。设备要能访问该电脑实际局域网地址和端口，并由你确认防火墙放行。
+- 手机浏览器通过局域网HTTP访问时，相机/麦克风可能受安全上下文限制；不要将其等同于真机App权限问题。
+- 当前通知依赖页面运行，没有手机后台推送。系统权限和“允许通知”开关都开启、且老人授权记录共享后，保存新记录才提醒。
+- 每日摄入打分仍处于讨论阶段，没有实现；识别记录不代表真实食用。
+- 当前是本机/可信局域网开发演示版，不要直接暴露到公网。真实短信/微信登录、生产HTTPS、后台推送和正式发布流程需另行接入。
+
+## 6. 本次没有带走的东西
+
+原作者的 `_local/`、`_qa/`、`node_modules/`、`无用/`、`附件/`、Python缓存、安卓编译缓存、机器SDK路径、签名文件和手机安装包均未复制。接口源码及空密钥模板是开发所需文件，不是泄漏的密钥。

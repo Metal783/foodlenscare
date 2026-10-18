@@ -1,10 +1,16 @@
 import * as backend from "./backend"
 import { toFrontRecord } from "./records"
+import SavedFoodResult from "./SavedFoodResult"
+import PrivatePhoto from './PrivatePhoto'
+import RecordInsights from './RecordInsights'
+import { recordNeedsAttention } from './recordStatus'
+import BirthDateFields from './BirthDateFields'
+import { birthDateIssue, profileAge } from './birthDate'
 import { useRecorder, blobDataUrl } from "./recorder"
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react"
 import SharedHelp from "./SharedHelp"
 import AccountExit from "./AccountExit"
-import type { ChildNotificationPreferences } from "./childNotifications"
+import AccountSecurity from "./AccountSecurity"
 import {
   isValidPhone,
   type ChildDraft,
@@ -38,7 +44,7 @@ type FoodItem = {
   note: string
 }
 
-const ChildContext = createContext<{ selectedRecord: string; selectRecord: (id: string) => void; openFamily: () => void }>({ selectedRecord: "", selectRecord: () => {}, openFamily: () => {} })
+const ChildContext = createContext<{ selectedRecord: string; selectRecord: (id: string) => void; openFamily: () => void; careDraft: string; setCareDraft: (text: string) => void }>({ selectedRecord: "", selectRecord: () => {}, openFamily: () => {}, careDraft: '', setCareDraft: () => {} })
 function selectedElder() { const family = backend.selectedFamily(); return family?.member.name || "家人" }
 function sharedLabel() { const f = backend.selectedFamily(); return !f ? "尚未绑定家人" : [f.records_allowed ? "食物记录已共享" : "食物记录未授权", f.profile_allowed ? "饮食设置已共享" : "饮食设置未授权"].join(" · ") }
 const waveform = [
@@ -56,15 +62,6 @@ function Icon({
   alt?: string
 }) {
   return <img alt={alt} height={size} src={`${assets}/${name}`} width={size} />
-}
-
-function Brand() {
-  return (
-    <header className="child-brand">
-      <Icon name="34f9d.svg" size={30} />
-      <span>食护家 Foodlenscare</span>
-    </header>
-  )
 }
 
 function BackHeader({ title, onBack }: { title: string; onBack: () => void }) {
@@ -191,9 +188,9 @@ function Home({
   const data = backend.useBackend()
   const family = backend.selectedFamily()
   const stats = backend.weekStats(data.sharedRecords)
+  const { setCareDraft } = useContext(ChildContext)
   return (
     <>
-      <Brand />
       <div className="child-content">
         <section>
           <h1 className="child-page-title">{childName || "我"}，{new Date().getHours() < 12 ? "早上好" : new Date().getHours() < 18 ? "下午好" : "晚上好"}</h1>
@@ -253,6 +250,7 @@ function Home({
             ))}
           </div>
         </section>
+        <RecordInsights elderId={family?.member.id} onUseDraft={text => { setCareDraft(text); go('voice') }} />
         <a className="child-secondary" href={backend.selectedFamily() ? `tel:${backend.selectedFamily()!.member.phone}` : undefined}>
           <Icon name="de89b.svg" size={22} /> 联系{selectedElder()}
         </a>
@@ -266,7 +264,7 @@ function FoodCard({ food, onOpen }: { food: FoodItem; onOpen: () => void }) {
   return (
     <article className="child-food-card">
       <div className="flex items-center gap-3">
-        <img
+        <PrivatePhoto
           alt={food.name}
           className="h-[72px] w-[72px] shrink-0 rounded-[10px] object-cover"
           src={food.image}
@@ -318,12 +316,11 @@ function Records({
   const [date, setDate] = useState("")
   const [attentionOnly, setAttentionOnly] = useState(false)
   const oldest = new Date(); oldest.setHours(0,0,0,0); oldest.setDate(oldest.getDate()-6)
-  const records = data.sharedRecords.filter(record => date ? backend.dateKey(record.at) === date : new Date(record.at) >= oldest).filter(record => !attentionOnly || record.assessment?.level !== "green")
+  const records = data.sharedRecords.filter(record => date ? backend.dateKey(record.at) === date : new Date(record.at) >= oldest).filter(record => !attentionOnly || recordNeedsAttention(record))
   const groups = new Map<string, any[]>()
   records.sort((a,b) => new Date(b.at).getTime()-new Date(a.at).getTime()).forEach(record => { const key = backend.dateKey(record.at); groups.set(key, [...(groups.get(key)||[]), record]) })
   return (
     <>
-      <Brand />
       <div className="child-content">
         <section>
           <h1 className="child-page-title">{selectedElder()}的食物记录</h1>
@@ -369,70 +366,12 @@ function Detail({
   const { selectedRecord } = useContext(ChildContext)
   const record = data.sharedRecords.find(r => r.id === selectedRecord)
   const front = record ? toFrontRecord(record) : null
-  const diseases = data.sharedProfile ? elder.diseases.join("、") || "未填写" : "未授权"
-  const allergens = data.sharedProfile ? elder.allergens.join("、") || "未填写" : "未授权"
   if (!record || !front) return <><BackHeader title="识别记录详情" onBack={() => go("records")} /><div className="child-content"><section className="child-card"><h2>当前记录不可访问</h2><p>请返回列表；老人可能已撤回共享或删除记录。</p></section></div></>
   return (
     <>
       <BackHeader title="识别记录详情" onBack={() => go("records")} />
       <div className="child-content child-detail">
-        <section className="child-photo-card">
-          <img alt={front.foodName} src={front.photo} />
-          <div className="flex items-center justify-between">
-            <h1>{front.foodName}</h1>
-            <span className={front.attention ? "warning" : "safe"}>{front.reference}</span>
-          </div>
-          <p>{selectedElder()}拍摄 · {backend.timeText(record.at)}</p>
-        </section>
-        <section className="child-card">
-          <h2 className="text-xl">包装成分识别</h2>
-          <div className="child-example-note">
-            <Icon name="4a800.svg" size={18} />
-            <span>
-              {record.label?.ingredientsConfirmed ? "当时已人工核对配料，请仍以实物为准。" : "OCR读取结果尚未核对，请对照实物包装。"}
-            </span>
-          </div>
-          {[
-            ["配料", record.label?.ingredientText || "未读清"],
-            ["过敏原声明", record.label?.allergenDeclaration || "未识别，不代表不含"],
-            ["净含量", record.label?.netContent || "未读清"],
-          ].map(([label, value]) => (
-            <div className="child-field-row" key={label}>
-              <span>{label}</span>
-              <strong>{value}</strong>
-            </div>
-          ))}
-        </section>
-        <section className="child-card">
-          <h2 className="text-xl">适量提示</h2>
-          <p>
-            {record.assessment?.advice || "请核对包装与食用份量。"}
-          </p>
-          <small>糖、钠等营养数据请以包装营养表为准。</small>
-        </section>
-        <section className="child-card">
-          <h2 className="flex items-center gap-2 text-lg">
-            <Icon name="b1192.svg" size={20} />
-            结合{selectedElder()}的已有设置
-          </h2>
-          <p>基础疾病：{diseases}</p>
-          <p>过敏原：{allergens}</p>
-          {(record.assessment?.diseaseReminders || []).map((item: any) => <p key={item.condition}><strong>{item.title}</strong><br />{item.message}</p>)}
-          <hr />
-          <p>
-            {data.sharedProfile ? record.assessment?.headline || "请核对包装" : "饮食设置未授权，不能查看个性化判断依据。"}
-          </p>
-          <p>
-            {allergens}
-            ：未读取到的成分仍需核对包装，不代表没有交叉接触风险。
-          </p>
-        </section>
-        <div className="child-sharing">
-          <Icon name="59b9d.svg" size={18} />
-          <span>
-            识别结果仅供参考，请核对包装。照片识别不是诊断，也不能判断血压或血糖。
-          </span>
-        </div>
+        <SavedFoodResult record={front} caption={`${selectedElder()}拍摄 · ${backend.timeText(record.at)}`} profileAllowed={!!data.sharedProfile} />
         <button
           className="child-primary"
           type="button"
@@ -456,56 +395,55 @@ function maskedPhone(phone: string): string {
     : phone || "未填写手机号"
 }
 
-function notificationPermissionLabel(): string {
-  if (!("Notification" in window)) return "当前浏览器不支持系统通知"
-  if (Notification.permission === "granted") return "系统通知已允许"
-  if (Notification.permission === "denied")
-    return "系统通知未授权，可在系统设置中更改"
-  return "系统通知尚未授权"
-}
-
-function SettingsToggle({
-  checked,
-  label,
-  onClick,
-}: {
-  checked: boolean
-  label: string
-  onClick: () => void
-}) {
-  return (
-    <button
-      aria-checked={checked}
-      aria-label={label}
-      className={`child-settings-toggle ${checked ? "on" : ""}`}
-      role="switch"
-      type="button"
-      onClick={onClick}
-    >
-      <span />
-    </button>
-  )
+function notificationPermission(): NotificationPermission | null {
+  return "Notification" in window ? Notification.permission : null
 }
 
 function SettingsPage({
   child,
   elder,
   linked,
-  notifications,
   go,
-  onToggleNotification,
-  onRequestPermission,
   onLogout,
 }: {
   child: ChildDraft
   elder: ElderDraft
   linked: LinkedElder
-  notifications: ChildNotificationPreferences
   go: (page: ChildPage) => void
-  onToggleNotification: (field: keyof ChildNotificationPreferences) => void
-  onRequestPermission: () => void
   onLogout: () => Promise<void>
 }) {
+  const data = backend.useBackend()
+  const [permission, setPermission] = useState(notificationPermission)
+  const [requesting, setRequesting] = useState(false)
+  const enabled = permission === 'granted' && (data.account?.prefs || backend.localRead<Record<string, unknown>>('prefs', {})).recordNotificationsEnabled !== false
+  useEffect(() => {
+    const update = () => setPermission(notificationPermission())
+    window.addEventListener('focus', update)
+    document.addEventListener('visibilitychange', update)
+    return () => {
+      window.removeEventListener('focus', update)
+      document.removeEventListener('visibilitychange', update)
+    }
+  }, [])
+  const toggleNotifications = async () => {
+    const owner = data.account?.id
+    setRequesting(true)
+    try {
+      if (!enabled) {
+        if (!("Notification" in window)) throw new Error('当前环境不支持系统通知。')
+        const next = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission
+        setPermission(next)
+        if (next !== 'granted') {
+          if (next === 'denied') throw new Error('通知权限未允许，请在浏览器或系统设置中开启。')
+          return
+        }
+      }
+      if (backend.snapshot().account?.id !== owner) return
+      await backend.savePrefs({ recordNotificationsEnabled: !enabled })
+    }
+    catch (error) { backend.report(error) }
+    finally { setPermission(notificationPermission()); setRequesting(false) }
+  }
   const accepted = linked.status === "accepted"
   const relation = accepted ? linked.request?.relation || "家人" : ""
   const grantLabels = [
@@ -516,13 +454,10 @@ function SettingsPage({
 
   return (
     <>
-      <Brand />
       <div className="child-content child-settings-content">
         <h1 className="child-page-title">我的设置</h1>
-        <button
+        <section
           className="child-card child-profile-summary"
-          type="button"
-          onClick={() => go("edit-profile")}
         >
           <span className="child-settings-avatar">
             {(child.name.trim() || "我").slice(-1)}
@@ -532,14 +467,14 @@ function SettingsPage({
               {relation ? `${relation} · ` : ""}
               {child.name.trim() || "未填写称呼"}
             </strong>
-            <small>{maskedPhone(child.phone)}</small>
+            <small>{[child.birthDate && child.age ? `${child.age}岁` : '年龄未设置', maskedPhone(child.phone)].filter(Boolean).join(' · ')}</small>
           </span>
-          <Icon name="3ffb6.svg" size={16} />
+          <button aria-label="修改个人信息" type="button" onClick={() => go('edit-profile')} style={{ width: 44, height: 44, display: 'grid', placeItems: 'center' }}><Icon name="3ffb6.svg" size={16} /></button>
           <span className="child-profile-tags">
             <em>子女端</em>
             {accepted && <em>已绑定家人</em>}
           </span>
-        </button>
+        </section>
 
         {accepted && (
           <button
@@ -564,19 +499,6 @@ function SettingsPage({
           <button
             className="child-settings-row"
             type="button"
-            onClick={() => go("edit-profile")}
-          >
-            <Icon name="9b15a.svg" size={22} />
-            <span>
-              基础信息
-              <small>查看和修改自己的姓名、手机号码</small>
-            </span>
-            <Icon name="3ffb6.svg" size={16} />
-          </button>
-          <hr />
-          <button
-            className="child-settings-row"
-            type="button"
             onClick={() => go("family")}
           >
             <Icon name="89a9e.svg" size={22} />
@@ -596,49 +518,20 @@ function SettingsPage({
           </button>
         </section>
 
-        <section className="child-card child-settings-card">
-          <h2>语音通知</h2>
-          <div className="child-settings-row">
-            <Icon name="de36d.svg" size={22} />
-            <span>
-              语音送达通知
-              <small>家人实际接收后显示应用内提醒</small>
-            </span>
-            <SettingsToggle
-              checked={notifications.delivery}
-              label="语音送达通知"
-              onClick={() => onToggleNotification("delivery")}
-            />
-          </div>
-          <hr />
-          <div className="child-settings-row">
-            <Icon name="47e38.svg" size={22} />
-            <span>
-              语音播放通知
-              <small>老人实际开始播放后显示应用内提醒</small>
-            </span>
-            <SettingsToggle
-              checked={notifications.playback}
-              label="语音播放通知"
-              onClick={() => onToggleNotification("playback")}
-            />
-          </div>
-          <hr />
+        <section aria-label="通知设置" className="child-card" style={{ padding: '12px 20px' }}>
           <div className="child-system-notice">
-            <span>
-              <strong>系统通知</strong>
-              <small>当前使用应用内通知，页面需保持运行</small>
-            </span>
-            {"Notification" in window &&
-              Notification.permission === "default" && (
-                <button type="button" onClick={onRequestPermission}>
-                  了解并允许
-                </button>
-              )}
+            <span>允许通知</span>
+            <button
+              aria-busy={requesting}
+              aria-checked={enabled}
+              aria-label="允许通知"
+              className={`child-settings-toggle ${enabled ? 'on' : ''}`}
+              disabled={requesting}
+              role="switch"
+              type="button"
+              onClick={() => void toggleNotifications()}
+            ><span /></button>
           </div>
-          <p className="child-settings-helper">
-            应用内开关与系统通知权限相互独立；未授权时只在应用内提示。
-          </p>
         </section>
 
         <section className="child-card child-settings-card">
@@ -652,6 +545,9 @@ function SettingsPage({
             <span>帮助与使用指南</span>
             <Icon name="3ffb6.svg" size={16} />
           </button>
+        </section>
+        <section className="child-card child-settings-card">
+          <AccountSecurity child onLogout={onLogout} />
         </section>
         <AccountExit child onLogout={onLogout} />
         <p className="child-settings-version">
@@ -756,11 +652,13 @@ function PhoneChangeDialog({
 function RelationCorrectionDialog({
   current,
   pending,
+  error,
   onCancel,
   onSubmit,
 }: {
   current: string
   pending: string
+  error?: string
   onCancel: () => void
   onSubmit: (relation: string) => void
 }) {
@@ -775,6 +673,7 @@ function RelationCorrectionDialog({
         onMouseDown={(event) => event.stopPropagation()}
       >
         <h2 id="relation-title">申请更正关系</h2>
+        {error && <p className="field-error" role="alert">{error}</p>}
         <p className="text-[#596359]">
           关系属于双方绑定信息。提交后需老人确认，当前关系不会立即改变。
         </p>
@@ -824,16 +723,14 @@ function EditProfilePage({
   onSave: (next: ChildDraft) => Promise<boolean>
 }) {
   const [name, setName] = useState(child.name)
+  const [birthday, setBirthday] = useState({ birthDate: child.birthDate, age: child.age })
   const [phone, setPhone] = useState(child.phone)
   const [phoneOpen, setPhoneOpen] = useState(false)
-  const [relationOpen, setRelationOpen] = useState(false)
-  const data = backend.useBackend()
-  const pendingRelation = data.families.find(f => f.id === linked.memberId)?.requested_relation || ""
   const [error, setError] = useState("")
   const [saving, setSaving] = useState(false)
   const relation =
     linked.status === "accepted" ? linked.request?.relation || "" : ""
-  const dirty = name !== child.name || phone !== child.phone
+  const dirty = name !== child.name || phone !== child.phone || birthday.birthDate !== child.birthDate
 
   const back = () => {
     if (dirty && !window.confirm("存在未保存修改，确定放弃并返回吗？")) return
@@ -846,12 +743,16 @@ function EditProfilePage({
       return
     }
     if (saving) return
+    const birthdayError = birthDateIssue(birthday.birthDate)
+    if (birthdayError) return setError(birthdayError)
     setSaving(true)
     setError("")
     try {
       const next = {
-        ...child,
+        ...backend.childProfile(),
         name: name.trim(),
+        ...birthday,
+        age: profileAge(birthday),
         phone,
         phoneVerified: phone ? true : child.phoneVerified,
       }
@@ -863,16 +764,11 @@ function EditProfilePage({
     } finally { setSaving(false) }
   }
 
-  const requestRelation = async (requestedRelation: string) => {
-    if (!linked.memberId) return
-    try { await backend.requestRelation(linked.memberId, requestedRelation); setRelationOpen(false) }
-    catch (error) { setError((error as Error).message) }
-  }
 
   return (
     <>
       <BackHeader title="我的基础信息" onBack={back} />
-      <div className="child-content child-edit-content">
+      <div className="child-content child-edit-content" style={{ paddingBottom: 96 }}>
         <section className="child-card child-edit-summary">
           <span className="child-avatar">
             {(name.trim() || "我").slice(-1)}
@@ -897,6 +793,7 @@ function EditProfilePage({
               }}
             />
           </label>
+          <BirthDateFields id="child-edit" child birthDate={birthday.birthDate} age={birthday.age} onChange={setBirthday} />
           <label className="child-edit-field">
             手机号码
             <span className="child-readonly-field">
@@ -909,20 +806,7 @@ function EditProfilePage({
           <p className="child-settings-helper">
             更换手机号需验证新号码；验证成功前不会替换原号码。
           </p>
-          {linked.status === "accepted" && (
-            <label className="child-edit-field">
-              与家人的关系
-              <span className="child-readonly-field">
-                {relation || "已绑定家人"}
-                <button type="button" aria-label={pendingRelation ? "查看申请" : "申请更正"} onClick={() => setRelationOpen(true)}>
-                  {pendingRelation ? "查看申请" : "申请更正"}
-                </button>
-              </span>
-              {pendingRelation && (
-                <small>“{pendingRelation}”更正申请待老人确认</small>
-              )}
-            </label>
-          )}
+
         </section>
         {error && (
           <p className="field-error" role="alert">
@@ -949,14 +833,7 @@ function EditProfilePage({
           }}
         />
       )}
-      {relationOpen && (
-        <RelationCorrectionDialog
-          current={relation}
-          pending={pendingRelation}
-          onCancel={() => setRelationOpen(false)}
-          onSubmit={requestRelation}
-        />
-      )}
+
     </>
   )
 }
@@ -973,6 +850,14 @@ function FamilyPage({
   go: (page: ChildPage) => void
 }) {
   const service = backend.useBackend()
+  const [relationOpen, setRelationOpen] = useState(false)
+  const [relationError, setRelationError] = useState("")
+  const pendingRelation = service.families.find(f => f.id === linked.memberId)?.requested_relation || ""
+  const requestRelation = async (relation: string) => {
+    if (!linked.memberId) return
+    try { await backend.requestRelation(linked.memberId, relation); setRelationOpen(false); setRelationError("") }
+    catch (error) { setRelationError((error as Error).message) }
+  }
   const [removeConfirm, setRemoveConfirm] = useState(false)
   const [removing, setRemoving] = useState(false)
   const [removeError, setRemoveError] = useState("")
@@ -984,7 +869,6 @@ function FamilyPage({
   const elderName = elder.name.trim() || "已绑定老人"
   return (
     <>
-      <Brand />
       <div className="child-content child-family-content">
         <section>
           <h1 className="child-page-title">家人管理</h1>
@@ -1017,6 +901,9 @@ function FamilyPage({
                   : "未授权共享"}
               </em>
             </div>
+            <div className="child-field-row"><span>与家人的关系</span><strong>{linked.request?.relation || '家人'}</strong></div>
+            <button className="child-secondary" type="button" onClick={() => { setRelationError(""); setRelationOpen(true) }}>{pendingRelation ? '查看关系更正申请' : '申请更正关系'}</button>
+            {pendingRelation && <p>“{pendingRelation}”更正申请待老人确认</p>}
             {elder.phone && (
               <a className="child-secondary" href={`tel:${elder.phone}`}>
                 <Icon name="de89b.svg" size={22} />
@@ -1053,6 +940,7 @@ function FamilyPage({
         )}
       </div>
       <BottomNav active="family" go={go} />
+      {relationOpen && <RelationCorrectionDialog current={linked.request?.relation || ''} pending={pendingRelation} error={relationError} onCancel={() => setRelationOpen(false)} onSubmit={requestRelation} />}
       {removeConfirm && <div className="child-modal-backdrop"><section className="child-modal" role="dialog" aria-modal="true" aria-label="解除绑定确认"><h2>解除与{elderName}的绑定？</h2><p>解除后停止查看此人的共享资料和关怀语音；老人本人保存的记录保留。</p>{removeError && <p role="alert">{removeError}</p>}<button className="child-primary" disabled={removing} type="button" onClick={async () => { if (!linked.memberId) return; setRemoving(true); try { await backend.removeFamily(linked.memberId); setRemoveConfirm(false); go("family"); } catch (error) { setRemoveError((error as Error).message); } finally { setRemoving(false); } }}>确认解除绑定</button><button className="child-secondary" disabled={removing} type="button" onClick={() => setRemoveConfirm(false)}>取消</button></section></div>}
     </>
   )
@@ -1153,13 +1041,6 @@ function AddFamilyPage({
         >
           下一步：发送绑定申请
         </button>
-        <p className="child-subtitle">
-          申请需老人本人确认。确认绑定后仍由老人单独授权共享范围。
-        </p>
-        <div className="child-sharing">
-          <Icon name="f654c.svg" size={20} />
-          <span>老人确认绑定并授权后，才可查看对应记录。</span>
-        </div>
       </div>
       <BottomNav active="family" go={go} />
     </>
@@ -1169,7 +1050,7 @@ function AddFamilyPage({
 function RecentVoices({ onHistory }: { onHistory: () => void }) {
   const data = backend.useBackend()
   const messages = data.messages.filter(m => m.sender === data.account?.id && (!data.selectedId || m.recipient === data.selectedId))
-  return <section className="child-card"><div className="flex items-center justify-between"><h2 className="text-xl">最近发送</h2><button className="text-sm text-[#003e1c]" type="button" onClick={onHistory}>发给{selectedElder()}</button></div>{messages.slice(0,2).map(m => <div className="child-voice-row" key={m.id}><p>{m.note || "关怀语音"}</p><div><span role="button" tabIndex={0} onClick={() => void new Audio(m.audioDataUrl).play()}>▷ {backend.timeText(m.sentAt)} · {Math.round(m.duration)}秒</span><b className={m.playedAt ? "" : "pending"}>{m.playedAt ? "已送达 · 已播放" : m.deliveredAt ? "已送达 · 待播放" : "已发送 · 待送达"}</b></div></div>)}{!messages.length && <p>还没有发送语音。</p>}</section>
+  return <section className="child-card"><div className="flex items-center justify-between"><h2 className="text-xl">最近发送</h2><button className="text-sm text-[#003e1c]" type="button" onClick={onHistory}>发给{selectedElder()}</button></div>{messages.slice(0,2).map(m => <div className="child-voice-row" key={m.id}><p>{m.note || "关怀语音"}</p><div><span role="button" tabIndex={0} onClick={() => void backend.previewVoice(m)}>▷ {backend.timeText(m.sentAt)} · {Math.round(m.duration)}秒</span><b className={m.playedAt ? "" : "pending"}>{m.playedAt ? "已送达 · 已播放" : m.deliveredAt ? "已送达 · 待播放" : "已发送 · 待送达"}</b></div></div>)}{!messages.length && <p>还没有发送语音。</p>}</section>
 }
 
 function Voice({
@@ -1187,6 +1068,7 @@ function Voice({
   const [sending, setSending] = useState(false)
   const [error, setError] = useState("")
   const recording = useRecorder()
+  const { careDraft, setCareDraft } = useContext(ChildContext)
   const fileInput = useRef<HTMLInputElement>(null)
   const action = () => {
     if (recording.status === "recording") recording.stop()
@@ -1197,7 +1079,7 @@ function Voice({
   const send = async () => {
     if (sending) return
     setSending(true)
-    try { if (recording.status !== "ready" || !recording.blob.current) throw new Error("请先录制或选择录音。"); const family = backend.selectedFamily(); if (!family) throw new Error("请先绑定家人。"); await backend.sendVoice(await blobDataUrl(recording.blob.current), recording.seconds, family.member.id); setSent(true) }
+    try { if (recording.status !== "ready" || !recording.blob.current) throw new Error("请先录制或选择录音。"); const family = backend.selectedFamily(); if (!family) throw new Error("请先绑定家人。"); await backend.sendVoice(await blobDataUrl(recording.blob.current), recording.seconds, family.member.id); setCareDraft(''); setSent(true) }
     catch (error) { setError((error as Error).message) }
     finally { setSending(false) }
   }
@@ -1211,6 +1093,11 @@ function Voice({
             发送者：{senderRelation} · {senderName}
           </p>
         </section>
+        {careDraft && <section className="child-card" aria-label="关怀录音草稿">
+          <h2 className="text-xl">关怀录音草稿</h2><p>可参考下面的草稿自行录音，试听确认后再发送。</p>
+          <textarea aria-label="关怀录音草稿" className="field-input" rows={4} maxLength={500} value={careDraft} onChange={event => setCareDraft(event.target.value)} style={{ width: '100%', minHeight: 120, marginTop: 12 }} />
+          <button className="child-secondary" type="button" onClick={() => setCareDraft('')}>清除录音草稿</button>
+        </section>}
         <FamilyStrip />
         <section className="child-card child-recorder">
           <span className="child-chip selected">{recording.status === "recording" ? "正在录音" : recording.status === "ready" ? "录制完成 · 待发送" : "准备录音"}</span>
@@ -1288,35 +1175,36 @@ function Voice({
 
 function VoiceHistory({ go }: { go: (page: ChildPage) => void }) {
   const data = backend.useBackend()
-  return <><BackHeader title="语音历史" onBack={() => go("voice")} /><div className="child-content">{data.messages.filter(m => m.sender === data.account?.id && m.recipient === data.selectedId).map(m => <section className="child-card" key={m.id}><h2>{backend.timeText(m.sentAt)}</h2><h3 className="text-lg">收件人：{selectedElder()}</h3><p>{m.note || "关怀语音"}</p><div className="child-voice-row"><span role="button" tabIndex={0} onClick={() => void new Audio(m.audioDataUrl).play()}>▷ {Math.round(m.duration)}秒 · 试听</span><b>{m.playedAt ? "已送达 · 已播放" : m.deliveredAt ? "已送达 · 待播放" : "已发送 · 待送达"}</b></div></section>)}{!data.messages.some(m => m.sender === data.account?.id) && <section className="child-card"><p>暂无发送记录。</p></section>}</div></>
+  return <><BackHeader title="语音历史" onBack={() => go("voice")} /><div className="child-content">{data.messages.filter(m => m.sender === data.account?.id && m.recipient === data.selectedId).map(m => <section className="child-card" key={m.id}><h2>{backend.timeText(m.sentAt)}</h2><h3 className="text-lg">收件人：{selectedElder()}</h3><p>{m.note || "关怀语音"}</p><div className="child-voice-row"><span role="button" tabIndex={0} onClick={() => void backend.previewVoice(m)}>▷ {Math.round(m.duration)}秒 · 试听</span><b>{m.playedAt ? "已送达 · 已播放" : m.deliveredAt ? "已送达 · 待播放" : "已发送 · 待送达"}</b></div></section>)}{!data.messages.some(m => m.sender === data.account?.id) && <section className="child-card"><p>暂无发送记录。</p></section>}</div></>
 }
 
 export default function ChildApp({ child, elder: unusedElder, session, preferences, onUpdateChild, onLogout }: { child: ChildDraft; elder: ElderDraft; session: SessionKind; preferences: ElderPreferences; onUpdateChild: (next: ChildDraft) => Promise<boolean>; onLogout: () => Promise<void> }) {
   const data = backend.useBackend()
   const [page, setPage] = useState<ChildPage>("home")
   const [familyOpen, setFamilyOpen] = useState(false)
-  const [permissionOpen, setPermissionOpen] = useState(false)
   const [selectedRecord, setSelectedRecord] = useState("")
+  const [draftState, setDraftState] = useState({ source: '', text: '' })
   const f = backend.selectedFamily()
+  const draftSource = JSON.stringify([data.account?.id, data.selectedId, f?.records_allowed, f?.member.familyAiAllowed, data.sharedRecords.map(record => [record.id, record.at, record.productName, record.label?.ingredientText])])
+  const careDraft = draftState.source === draftSource ? draftState.text : ''
+  const setCareDraft = (text: string) => setDraftState({ source: draftSource, text })
+  useEffect(() => { setDraftState(old => old.source && old.source !== draftSource ? { source: '', text: '' } : old) }, [draftSource])
   const pending = data.families.find(item => !item.amElder && item.status === "pending")
   const linked: LinkedElder = { status: f ? "accepted" : pending ? "pending" : "none", memberId: f?.id || null, grant: f ? { memberId:f.id, foodRecords:!!f.records_allowed, dietProfile:!!f.profile_allowed } : null, request: f || pending ? { id:(f||pending)!.id, applicantName:(f||pending)!.member.name, relation:(f||pending)!.relation, maskedPhone:backend.mask((f||pending)!.member.phone), lookupCode:"", status:f ? "accepted" : "pending" } : null }
-  const elder = backend.elderProfile(data.sharedProfile || { name:f?.member.name || "", age:f?.member.age },f?.member.phone || "")
-  const notifications: ChildNotificationPreferences = data.account?.prefs.childNotifications || backend.localRead("childNotifications",{delivery:true,playback:true})
+  const elder = backend.elderProfile(data.sharedProfile ? { ...data.sharedProfile, age: data.sharedProfile.birthDate ? data.sharedProfile.age : '' } : { name:f?.member.name || "", age:f?.member.age },f?.member.phone || "")
   const go = (next: ChildPage) => { setPage(next); window.scrollTo(0,0) }
-  const toggle = async (field: keyof ChildNotificationPreferences) => { try { await backend.savePrefs({childNotifications:{...notifications,[field]:!notifications[field]}}) } catch (error) { backend.report(error) } }
-  return <ChildContext.Provider value={{selectedRecord,selectRecord:setSelectedRecord,openFamily:() => setFamilyOpen(true)}}><main className="child-app">
+  return <ChildContext.Provider value={{selectedRecord,selectRecord:setSelectedRecord,openFamily:() => setFamilyOpen(true),careDraft,setCareDraft}}><main className="child-app">
     {page === "home" && <Home childName={child.name} go={go} openFamily={() => setFamilyOpen(true)} />}
     {page === "records" && <Records go={go} openFamily={() => setFamilyOpen(true)} />}
     {page === "detail" && <Detail elder={elder} go={go} />}
     {page === "voice" && <Voice go={go} senderName={child.name || "我"} senderRelation={f?.relation || child.relation || "子女"} onDelivered={() => {}} />}
     {page === "voice-history" && <VoiceHistory go={go} />}
-    {page === "settings" && <SettingsPage child={child} elder={elder} linked={linked} notifications={notifications} go={go} onToggleNotification={toggle} onRequestPermission={() => setPermissionOpen(true)} onLogout={onLogout} />}
+    {page === "settings" && <SettingsPage child={child} elder={elder} linked={linked} go={go} onLogout={onLogout} />}
     {page === "edit-profile" && <EditProfilePage child={child} linked={linked} go={go} onSave={onUpdateChild} />}
     {page === "family" && <FamilyPage child={child} elder={elder} linked={linked} go={go} />}
     {page === "add-family" && <AddFamilyPage child={child} go={go} onRequest={() => false} />}
     {page === "help" && <SharedHelp onBack={() => go("settings")} />}
     {familyOpen && <FamilyDialog onClose={() => setFamilyOpen(false)} />}
-    {data.notice && <button className="child-in-app-notice" type="button" onClick={backend.clearNotice}>{data.notice}　×</button>}
-    {permissionOpen && <div className="child-modal-backdrop" onMouseDown={() => setPermissionOpen(false)}><section aria-labelledby="notification-permission-title" aria-modal="true" className="child-modal" role="dialog" onMouseDown={event => event.stopPropagation()}><h2 id="notification-permission-title">允许系统通知？</h2><p className="text-[#596359]">仅在服务端确认家人接收或实际播放、对应应用开关开启时提示。应用需保持运行，未接入后台推送。</p><button className="child-primary" type="button" onClick={async () => { if ("Notification" in window) await Notification.requestPermission(); setPermissionOpen(false); }}>主动允许系统通知</button><button className="child-secondary" type="button" onClick={() => setPermissionOpen(false)}>暂不允许</button></section></div>}
+    {data.notice && <button className="child-in-app-notice" style={page === 'edit-profile' ? { position: 'static', width: 'calc(100% - 40px)', margin: '0 20px 24px' } : undefined} type="button" onClick={backend.clearNotice}>{data.notice}　×</button>}
   </main></ChildContext.Provider>
 }

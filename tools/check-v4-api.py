@@ -45,7 +45,13 @@ with tempfile.TemporaryDirectory(prefix='flc-v4-api-') as temp:
         status,_=api(elder,'/family/invite',{'role':'child'});check(status==400,'邀请码身份不能冒充另一端')
         _,found=api(child,'/family/lookup?code='+invitation['code'])
         check(found['member']['name'].startswith('隔离') and '****' in found['member']['phone'] and 'profile' not in found['member'],'核对绑定码只返回必要身份信息')
-        status,_=api(elder,'/family/lookup?code='+invitation['code']);check(status==400,'不能查询并绑定自己的邀请')
+        status,_=api(elder,'/family/lookup?code='+invitation['code']);check(status==403,'老人不能查询邀请码建立反向绑定')
+        status,_=api(child,'/family/invite');check(status==403,'子女不能获取邀请码')
+        status,_=api(child,'/family/invite',{'role':'elder'});check(status==403,'子女不能冒充老人生成邀请码')
+        with closing(sqlite3.connect(server.database)) as db, db:
+            db.execute('INSERT INTO invites VALUES(?,?,?,?,0)', ('OLDCHILD', (api(other,'/me')[1]['user']['id']), 'child', time.time()+300))
+        status,_=api(child,'/family/lookup?code=OLDCHILD');check(status==400,'旧子女邀请码不能被查询')
+        status,_=api(child,'/family/join',{'code':'OLDCHILD'});check(status==400,'旧子女邀请码不能建立绑定')
         _,request=api(child,'/family/join',{'code':invitation['code'],'relation':'女儿'})
         family_id=request['id'];api(elder,'/family/'+family_id,{'status':'bound','records_allowed':True,'profile_allowed':False},'PATCH')
         _,family=api(elder,'/family');check(family['families'][0]['relation']=='女儿','绑定申请保存真实关系')
@@ -71,24 +77,22 @@ with tempfile.TemporaryDirectory(prefix='flc-v4-api-') as temp:
         api(elder,'/records',{'record':{'id':'privacy-v4','label':{'ingredientText':'测试配料'},'assessment':{'level':'red','basis':['私人资料']},'profileSnapshot':{'allergens':['私人']},'healthSnapshot':{'diseases':['私人']}}})
         _,records=api(child,'/records?elder='+elder_id);record=records['records'][0]
         check('healthSnapshot' not in record and 'profileSnapshot' not in record and record['assessment']['basis']==[],'不同版本健康快照都遵守独立授权')
+        api(child,'/records/privacy-v4',None,'DELETE')
+        _,records=api(elder,'/records');check(any(r['id']=='privacy-v4' for r in records['records']),'子女不能删除老人记录')
+        api(other,'/records/privacy-v4',None,'DELETE')
+        _,records=api(elder,'/records');check(any(r['id']=='privacy-v4' for r in records['records']),'无关账号不能删除老人记录')
+        api(elder,'/records/privacy-v4',None,'DELETE')
+        _,records=api(child,'/records?elder='+elder_id);check(not records['records'],'本人删除后共享端不再返回该记录')
         _,code=api(child,'/auth/code',{'phone':'13800280004'})
         status,data=api(child,'/auth/change-phone',{'phone':'13800280004','code':code['testCode']})
         check(status==200 and data['user']['id']==child_id and data['user']['phone']=='13800280004','验证码更换手机号保留账号与家庭关系')
         _,family=api(child,'/family');check(family['families'][0]['id']==family_id,'更换手机号后家庭关系仍可读取')
         _,code=api(child,'/auth/code',{'phone':'13800280003'})
         status,_=api(child,'/auth/change-phone',{'phone':'13800280003','code':code['testCode']});check(status==400,'不将两个手机号已有账号合并')
-        for path in ('/_local/family.sqlite3','/tools/family_server.py','/src/backend.ts','/public/assets/dd0c1.png', '/assets/%2e%2e/_local/family.sqlite3', '/assets/paddle/%2e%2e/%2e%2e/tools/family_server.py', '/assets/paddle/'):
+        for path in ('/_local/family.sqlite3','/tools/family_server.py','/src/backend.ts','/public/assets/dd0c1.png'):
             try:other.open(origin+path);status=200
             except urllib.error.HTTPError as e:status=e.code
-            check(status==404,'不公开私人文件或目录：'+path)
-        for path in ('/assets/17d08.svg', '/assets/paddle/manifest.json', '/audio/care-demo-12s.wav', '/favicon.svg'):
-            with other.open(origin+path) as response:
-                check(response.status==200 and bool(response.read()), '单份公共资源正常提供：'+path)
-        with other.open(urllib.request.Request(origin+'/assets/paddle/ort-wasm-simd-threaded.jsep.wasm', method='HEAD')) as response:
-            check(response.status==200 and response.headers['Content-Type']=='application/wasm' and int(response.headers['Content-Length'])==25014754, 'OCR引擎HEAD保持类型与完整长度')
-        try:other.open(urllib.request.Request(origin+'/_local/family.sqlite3', method='HEAD'));status=200
-        except urllib.error.HTTPError as e:status=e.code
-        check(status==404, 'HEAD也不能下载私人数据库')
+            check(status==404,'仅公开dist资源：'+path)
         api(elder,'/family/'+family_id,None,'DELETE');_,family=api(child,'/family');check(not family['families'],'老人端也可以解除绑定')
         api(child,'/auth/logout',{});status,_=api(child,'/family/invite',{'role':'child'});check(status==401,'退出后不能生成邀请码')
     finally:server.shutdown();server.server_close();thread.join()

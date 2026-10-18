@@ -111,7 +111,7 @@ export function guessProductName(text) {
   const m = text.match(/(?:产品名称|品名|名称)[:：\s]*([^\n，,。；;]{2,24})/);
   if (m) return m[1].trim();
   const first = text.split(/[\n。]/).map((s) => s.trim()).find(Boolean);
-  if (first && first.length <= 24 && !/\d{3}\s*(kJ|kJ|千焦|mg)/i.test(first)) return first;
+  if (first && first.length <= 24 && !/配料|原料|营养|项目|每\s*\d|蛋白质|脂肪|碳水|过敏原|致敏|^钠|\d{3}\s*(kJ|千焦|mg)/i.test(first)) return first;
   return '';
 }
 
@@ -122,7 +122,7 @@ export function guessProductName(text) {
 export function extractAllergenDeclaration(text) {
   if (!text) return '';
   const m = text.match(/(?:致敏物质提示|致敏物质|过敏原信息|过敏原|本品含有|含有)[:：\s]*([^\n]{2,80})/);
-  return m ? m[1].trim() : '';
+  return m ? m[1].split(/(?:能量|蛋白质|脂肪|碳水化合物|钠)\s*\d/)[0].trim() : '';
 }
 
 /**
@@ -260,7 +260,12 @@ export function findIngredientHeading(text) {
 export function extractIngredientSection(text) {
   if (!text) return '';
   // 与 findIngredientHeading 用同一份「去掉汉字间空白」的文本，索引才对得上
-  const squeezed = squeezeCjkSpaces(text);
+  const squeezed = squeezeCjkSpaces(text).split('\n').map(line => {
+    // OCR can interleave the right-hand nutrition column into an ingredient line.
+    const nutrient = line.search(/(?:能量|热量|蛋白质|饱和脂肪(?:酸)?|脂肪|碳水(?:化合物|化物)|总糖|糖分|钠)\s*[:：]?\s*\d+(?:\.\d+)?\s*(?:千焦|干焦|千卡|kJ|kcal|毫克|mg|克|g)/i);
+    if (nutrient >= 0) line = line.slice(0, nutrient);
+    return line.replace(/(?:项目\s*(?:每|NRV)|营养素参考值|NRV\s*%).*$/i, '').trim();
+  }).join('\n');
   const heading = findIngredientHeading(squeezed);
 
   // 没有配料标题就不猜：返回空，由页面如实说明「没有读到配料表」。
@@ -278,7 +283,7 @@ export function extractIngredientSection(text) {
   const sliced = tail.slice(0, end).trim();
   // 兜底：万一截断掉的信息比留下的还少，说明这个标签排版很特殊，
   // 宁可不截断（多留一点原文），也不要丢掉配料表主体。
-  return sliced.length >= 6 ? sliced : tail.trim();
+  return sliced;
 }
 
 /**

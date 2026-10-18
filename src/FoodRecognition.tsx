@@ -4,9 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import type { ElderDraft, SessionKind } from "./Onboarding";
 import { recordAccount, type RecognitionRecord } from "./records";
 import ElderProfileEdit from "./ElderProfileEdit";
+import SmartAnalysis, { type AIAnalysis } from './SmartAnalysis';
+import FoodLabel from './FoodLabel';
+import { analysisSpeech } from './analysisCopy';
+import LocalDiseaseReminders from './LocalDiseaseReminders';
+import FoodAssistant from './FoodAssistant';
 
 export type RecognitionStage = "camera" | "processing" | "result" | "failure";
-type DemoOutcome = "success" | "failure";
 type ConfirmAction = "home" | "camera" | null;
 
 const assetPathPrefix = "/assets";
@@ -45,19 +49,17 @@ function readImage(file: File): Promise<string> {
 }
 
 function CameraPage({
-  outcome,
-  setOutcome,
   onBack,
   onRecognize,
 }: {
-  outcome: DemoOutcome;
-  setOutcome: (outcome: DemoOutcome) => void;
   onBack: () => void;
   onRecognize: (photo: string, userPhoto: boolean) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const cameraRequest = useRef(0);
+  const mounted = useRef(false);
   const [cameraState, setCameraState] = useState<"preparing" | "ready" | "unavailable">(
     "preparing",
   );
@@ -66,17 +68,20 @@ function CameraPage({
   const [busy, setBusy] = useState(false);
 
   const stopCamera = () => {
+    cameraRequest.current++;
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
   };
 
   const startCamera = async () => {
     stopCamera();
+    const request = cameraRequest.current;
     setCameraState("preparing");
     setCameraMessage("正在准备相机…");
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraState("unavailable");
-      setCameraMessage("当前浏览器不支持相机，请从相册选择或使用演示照片。");
+      setCameraMessage("当前浏览器不支持相机，请从相册选择照片。");
       return;
     }
     try {
@@ -84,14 +89,21 @@ function CameraPage({
         video: { facingMode: { ideal: "environment" } },
         audio: false,
       });
+      if (!mounted.current || request !== cameraRequest.current || !videoRef.current) {
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
+      if (!mounted.current || request !== cameraRequest.current) return;
       setCameraState("ready");
       setCameraMessage("");
     } catch (error) {
+      if (!mounted.current || request !== cameraRequest.current) return;
+      stopCamera();
       const denied =
         error instanceof DOMException &&
         (error.name === "NotAllowedError" || error.name === "PermissionDeniedError");
@@ -99,17 +111,19 @@ function CameraPage({
       setCameraMessage(
         denied
           ? "相机权限已被拒绝。您可以重新授权后重试，或从相册选择照片。"
-          : "未找到可用相机。您仍可从相册选择或使用演示照片。",
+          : "未找到可用相机。您仍可从相册选择照片。",
       );
     }
   };
 
   useEffect(() => {
+    mounted.current = true;
     void startCamera();
-    return stopCamera;
+    return () => { mounted.current = false; stopCamera(); };
   }, []);
 
   const capture = () => {
+    if (isMobileApp() && cameraState !== 'ready') { void takeMobilePhoto(); return; }
     if (busy || cameraState !== "ready" || !videoRef.current) return;
     const video = videoRef.current;
     const canvas = document.createElement("canvas");
@@ -131,12 +145,20 @@ function CameraPage({
     try {
       setBusy(true);
       const photo = await readImage(file);
+      if (!mounted.current) return;
       stopCamera();
       onRecognize(photo, true);
     } catch (error) {
       setBusy(false);
       setCameraMessage(error instanceof Error ? error.message : "图片无法读取，请重新选择");
     }
+  };
+
+  const takeMobilePhoto = async (album = false) => {
+    if (busy) return;
+    setBusy(true);
+    try { const photo = await mobilePhoto(album); if (!mounted.current) return; stopCamera(); onRecognize(photo, true); }
+    catch (error) { setBusy(false); setCameraMessage(error instanceof Error ? error.message : '拍照已取消或照片无法读取。'); }
   };
 
   const toggleFlash = async () => {
@@ -177,9 +199,9 @@ function CameraPage({
                   <button type="button" onClick={() => void startCamera()}>重新尝试</button>
                   <button
                     type="button"
-                    onClick={() => onRecognize(`${assetPathPrefix}/dd0c1.png`, false)}
+                    onClick={() => isMobileApp() ? void takeMobilePhoto(true) : fileRef.current?.click()}
                   >
-                    使用演示照片
+                    选择照片
                   </button>
                 </div>
               )}
@@ -192,36 +214,18 @@ function CameraPage({
           <div className="camera-frame" aria-hidden="true" />
         </div>
 
-        <div className="demo-outcome" aria-label="演示识别结果" role="group">
-          <span>演示识别：</span>
-          <button
-            aria-pressed={outcome === "success"}
-            type="button"
-            onClick={() => setOutcome("success")}
-          >
-            演示成功
-          </button>
-          <button
-            aria-pressed={outcome === "failure"}
-            type="button"
-            onClick={() => setOutcome("failure")}
-          >
-            演示未看清标签
-          </button>
-        </div>
-
         <div className="camera-actions">
           <button
             aria-label="从相册选择照片"
             type="button"
-            onClick={() => fileRef.current?.click()}
+            onClick={() => isMobileApp() ? void takeMobilePhoto(true) : fileRef.current?.click()}
           >
             <img alt="" src={`${assetPathPrefix}/fc17f.svg`} />
           </button>
           <button
             aria-label="拍照"
             className="shutter"
-            disabled={busy || cameraState !== "ready"}
+            disabled={busy || !isMobileApp() && cameraState !== "ready"}
             type="button"
             onClick={capture}
           >
@@ -344,6 +348,9 @@ function ResultPage({
   speechMessage,
   onToggleSpeech,
   onEditProfile,
+  onAnalysis,
+  onAnalysisBusy,
+  analysisBusy,
 }: {
   record: any;
   photo: string;
@@ -360,55 +367,26 @@ function ResultPage({
   speechMessage: string;
   onToggleSpeech: () => void;
   onEditProfile: () => void;
+  onAnalysis: (value: AIAnalysis) => void;
+  onAnalysisBusy: (value: boolean) => void;
+  analysisBusy: boolean;
 }) {
-  const diseases = elder.diseases.filter((item) => item !== "无");
-  const allergens = elder.allergens.filter((item) => item !== "无");
-  const hasSettings = diseases.length > 0 || allergens.length > 0;
-  const settingsText = hasSettings
-    ? `您本人填写：${diseases.length ? diseases.join("、") : "未填写基础疾病"}；过敏原：${
-        allergens.length ? allergens.join("、") : "未填写"
-      }。`
-    : "尚未填写饮食相关设置。";
-
+  const name = String(record?.productName || '');
+  const title = !name || /^(?:未识别|未读清|配料|原料|营养|每\\s*\\d)/.test(name) ? '食品识别' : name;
   return (
     <main className="recognition-page">
       <RecognitionHeader title="本次识别结果" onBack={onBack} />
       <div className="recognition-content result-content">
         <section className="recognition-card result-summary">
           <img alt="本次食品照片" className="result-photo" src={photo} />
-          <h2>{record?.productName || "未读清标签"}</h2>
-          <span className="result-badge" style={record?.assessment?.level === "red" ? { color: "#a21717", background: "#fff0f0" } : record?.assessment?.level !== "green" ? { color: "#7c4a12", background: "#fff2dc" } : undefined}>{record?.assessment?.headline || "待核对包装"}</span>
-          <p>本次识别 · {saved ? "已保存" : "尚未保存记录"}</p>
+          <h2>{title}</h2>
+          <p>{saved ? "已保存记录" : "本次识别"}</p>
           {!userPhoto && <small>独立演示用例，不记入真实识别历史。</small>}
         </section>
-        <section className="recognition-card">
-          <h3>识别到的成分</h3>
-          <div className="result-warning">
-            <img alt="" src={`${assetPathPrefix}/dae24.svg`} />
-            <p>{record?.label?.ingredientsConfirmed ? "已核对配料，请仍以实物包装为准。" : "本机OCR读取内容，尚未人工核对，请对照完整包装。"}</p>
-          </div>
-          <p className="result-large">配料：{record?.label?.ingredientText || "未读清，请重新拍摄配料区域"}</p>
-          <p>{record?.label?.allergenDeclaration || "未读到过敏原声明不等于不含过敏原，请核对完整包装。"}</p>
-        </section>
-        <section className="recognition-card">
-          <h3>吃多少，慢慢安排</h3>
-          <p className="result-large">{record?.assessment?.advice || "请核对营养表和实际食用份量。"}</p>
-        </section>
-        <section className="recognition-card">
-          <h3>结合您的已有设置</h3>
-          <p className="result-settings">
-            {session === "guest-demo" && "游客演示信息："}{settingsText}
-          </p>
-          {(record?.assessment?.diseaseReminders || []).map((item: any) => <div className="result-warning" key={item.condition}><img alt="" src={`${assetPathPrefix}/dae24.svg`} /><p><strong>{item.title}</strong><br />{item.message}</p></div>)}
-          <p className="result-large">请核对糖、钠和食用份量。配料未列出过敏原，不代表没有交叉接触风险。</p>
-          <button className="settings-link" type="button" onClick={onEditProfile}>
-            查看／修改饮食相关设置 ›
-          </button>
-        </section>
-        <div className="recognition-tip">
-          <img alt="" src={`${assetPathPrefix}/b1192.svg`} />
-          <p>照片识别可能遗漏或误读，需要核对完整包装和营养表；不能判断血压、血糖，也不是医疗诊断。</p>
-        </div>
+        <SmartAnalysis key={`${record.id}:${JSON.stringify(record.profileSnapshot)}`} record={record} onAnalysis={onAnalysis} onBusy={onAnalysisBusy} />
+        <LocalDiseaseReminders record={record} />
+        <FoodAssistant record={record} />
+        <FoodLabel label={record.label} />
         {speechMessage && !speechEnabled && <p className="saved-message" role="status">{speechMessage}</p>}
         {speechEnabled && (
           <>
@@ -418,8 +396,8 @@ function ResultPage({
             {speechMessage && <p className="saved-message" role="status">{speechMessage}</p>}
           </>
         )}
-        <button className="recognition-primary" disabled={saved || saving} type="button" onClick={onSave}>
-          {saving ? "保存中…" : saved ? "已保存" : "保存记录"}
+        <button className="recognition-primary" disabled={saved || saving || analysisBusy} type="button" onClick={onSave}>
+          {analysisBusy ? "请等待分析完成" : saving ? "保存中…" : saved ? "已保存" : "保存记录"}
         </button>
         {saved && <p className="saved-message" role="status">已保存识别历史；尚未计为实际食用</p>}
         <button className="recognition-secondary" type="button" onClick={onRetake}>
@@ -453,8 +431,12 @@ export default function FoodRecognition({
   const [progress, setProgress] = useState("");
   const controller = useRef<AbortController | null>(null);
   const alive = useRef(true);
-  useEffect(() => { alive.current = true; return () => { alive.current = false; controller.current?.abort(); window.speechSynthesis?.cancel(); }; }, []);
-  const [outcome, setOutcome] = useState<DemoOutcome>("success");
+  useEffect(() => {
+    alive.current = true;
+    // History can remount this component after its transient record was released.
+    if (stage === 'result' || stage === 'processing') setStage('camera');
+    return () => { alive.current = false; controller.current?.abort(); window.speechSynthesis?.cancel(); };
+  }, []);
   const [photo, setPhoto] = useState(`${assetPathPrefix}/dd0c1.png`);
   const [userPhoto, setUserPhoto] = useState(false);
   const [taskId, setTaskId] = useState(0);
@@ -463,6 +445,7 @@ export default function FoodRecognition({
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [speaking, setSpeaking] = useState(false);
   const [speechMessage, setSpeechMessage] = useState("");
+  const [analysisBusy, setAnalysisBusy] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const spokenTask = useRef<number | null>(null);
 
@@ -484,7 +467,7 @@ export default function FoodRecognition({
     onStopFamilyAudio();
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(
-      `${record?.productName || "未读清标签"}。${record?.assessment?.headline || "待核对"}。${record?.assessment?.advice || "请核对完整包装"}。${(record?.assessment?.diseaseReminders || []).map((item: any) => item.message).join("。")}。识别不是医疗诊断。`,
+      `${record?.productName || "食品识别"}。${record?.aiAnalysis ? analysisSpeech(record.aiAnalysis) : record?.assessment?.headline || '暂无食用建议'}。饮食建议仅供参考，不替代医疗诊断。`,
     );
     utterance.lang = "zh-CN";
     utterance.onstart = () => {
@@ -538,7 +521,6 @@ export default function FoodRecognition({
     setPhoto(nextPhoto); setUserPhoto(isUserPhoto); setRecord(null); setSaved(false);
     setTaskId(current => current + 1); setProgress("正在准备照片…"); setStage("processing");
     try {
-      if (!isUserPhoto && outcome === "failure") { setStage("failure"); return; }
       const result = await runRecognition(nextPhoto, elder, active.signal, text => { if (!active.signal.aborted) setProgress(text); }, !isUserPhoto);
       if (!alive.current || active.signal.aborted) return;
       setRecord(result); setPhoto(result.photoDataUrl);
@@ -555,7 +537,7 @@ export default function FoodRecognition({
   };
 
   const save = async () => {
-    if (saving || saved || !record) return;
+    if (saving || saved || analysisBusy || !record) return;
     if (!userPhoto) { setSpeechMessage("演示用例不保存到真实识别历史。"); return; }
     setSaving(true);
     try { await putRecord(record); setSaved(true); }
@@ -563,11 +545,9 @@ export default function FoodRecognition({
     finally { setSaving(false); }
   };
 
-  if (stage === "camera") {
+  if (stage === "camera" || stage === 'result' && !record) {
     return (
       <CameraPage
-        outcome={outcome}
-        setOutcome={setOutcome}
         onBack={onHome}
         onRecognize={recognize}
       />
@@ -581,7 +561,7 @@ export default function FoodRecognition({
         onBack={() => setEditOpen(false)}
         onSave={async (next) => {
           const success = await onUpdateElder(next);
-          if (success && record) { setRecord({ ...record, assessment: assess(record.label, next), profileSnapshot: { ...ruleProfile(next), name: next.name, diseases: next.diseases, allergens: next.allergens } }); setSaved(false); }
+          if (success && record) { setRecord({ ...record, aiAnalysis: undefined, assessment: assess(record.label, next), profileSnapshot: { ...ruleProfile(next), name: next.name, diseases: next.diseases, allergens: next.allergens } }); setSaved(false); }
           if (success) setEditOpen(false);
           return success;
         }}
@@ -608,6 +588,7 @@ export default function FoodRecognition({
         photo={photo}
         saved={saved}
         saving={saving}
+        analysisBusy={analysisBusy}
         session={session}
         userPhoto={userPhoto}
         onBack={() => requestLeave("home")}
@@ -618,6 +599,15 @@ export default function FoodRecognition({
         speechEnabled={speechEnabled}
         speechMessage={speechMessage}
         onEditProfile={() => setEditOpen(true)}
+        onAnalysis={value => {
+          setRecord((current: any) => {
+            if (current?.id !== record.id) return current;
+            const level = value.recommendation === 'not_recommended' ? 'red' : value.recommendation === 'caution' && current.assessment.level !== 'red' ? 'orange' : current.assessment.level;
+            return { ...current, aiAnalysis: value, assessment: { ...current.assessment, level } };
+          });
+          setSaved(false);
+        }}
+        onAnalysisBusy={setAnalysisBusy}
       />
       {confirmAction && (
         <div className="dialog-backdrop">
@@ -644,3 +634,5 @@ export default function FoodRecognition({
     </>
   );
 }
+import { isMobileApp } from './mobile';
+import { mobilePhoto } from './mobileCamera';

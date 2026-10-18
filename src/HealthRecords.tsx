@@ -1,5 +1,8 @@
 import ElderBottomNav from "./ElderBottomNav";
-import { useBackend } from "./backend";
+import { deleteRecord, useBackend } from "./backend";
+import SavedFoodResult from "./SavedFoodResult";
+import PrivatePhoto from './PrivatePhoto';
+import RecordInsights from './RecordInsights';
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FamilyContact } from "./ElderHome";
 import type { ElderDraft, SessionKind } from "./Onboarding";
@@ -80,7 +83,7 @@ function RecordRow({
       onClick={onClick}
     >
       <div className="record-main">
-        <img alt={`${record.foodName}照片`} src={record.photo} />
+        <PrivatePhoto alt={`${record.foodName}照片`} src={record.photo} />
         <div>
           <strong>{record.foodName}</strong>
           <span>
@@ -145,7 +148,6 @@ function OverviewPage({
 
   return (
     <main className="records-page">
-      <header className="records-brand">食护家 Foodlenscare</header>
       <div className="records-content">
         <section className="week-card">
           <div className="week-heading">
@@ -163,6 +165,7 @@ function OverviewPage({
           </div>
         </section>
         <button className="records-primary" type="button" onClick={onAll}>全部记录</button>
+        <RecordInsights />
         {records.length ? (
           <section className="recent-records">
             <h2>最近识别记录</h2>
@@ -329,19 +332,19 @@ function AllRecordsPage({
 
 function DetailPage({
   record,
-  elder,
   contact,
   onBack,
-  onRecognize,
   sharingStatus,
 }: {
   record: RecognitionRecord | null;
-  elder: ElderDraft;
   contact: FamilyContact | null;
   onBack: () => void;
-  onRecognize: () => void;
   sharingStatus: string;
 }) {
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const deletingRef = useRef(false);
   const [callOpen, setCallOpen] = useState(false);
   const [callMessage, setCallMessage] = useState("");
   if (!record) {
@@ -359,11 +362,17 @@ function DetailPage({
       </main>
     );
   }
-  const snapshot = record.healthSnapshot;
-  const currentSettings = [
-    ...elder.diseases.filter((item) => item !== "无"),
-    ...elder.allergens.filter((item) => item !== "无"),
-  ];
+  const confirmDelete = async () => {
+    if (deletingRef.current) return;
+    deletingRef.current = true;
+    setDeleting(true); setDeleteError("");
+    try {
+      await deleteRecord(record.id);
+      onBack();
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "删除失败，请重试。");
+    } finally { deletingRef.current = false; setDeleting(false); }
+  };
 
   const confirmCall = () => {
     if (!contact?.fullPhone || !/^1[3-9]\d{9}$/.test(contact.fullPhone)) {
@@ -386,56 +395,26 @@ function DetailPage({
         <h1>我的识别记录</h1>
       </header>
       <div className="records-content detail-content">
-        <section className="recognition-card result-summary">
-          <img alt={`${record.foodName}照片`} className="result-photo" src={record.photo} />
-          <h2>{record.foodName}</h2>
-          <p>我拍摄的 · {formatRecordDate(record.recognizedAt)}</p>
-          <span className={`history-status ${record.attention ? "attention" : ""}`}>
-            {record.attention ? "注意成分" : record.reference}
-          </span>
-        </section>
-        <section className="recognition-card">
-          <h3>当时识别到的包装信息</h3>
-          <div className="result-warning">
-            <img alt="" src={`${assetPathPrefix}/dae24.svg`} />
-            <p>{record.raw?.label?.ingredientsConfirmed ? "当时已核对配料，请仍以包装为准。" : "当时OCR读取内容，尚未人工核对包装。"}</p>
-          </div>
-          <p className="result-large">配料：{record.ingredients?.length ? record.ingredients.join("、") : "未识别／请核对实物"}</p>
-          <p className="result-large">过敏原：{record.allergens?.length ? record.allergens.join("、") : "未识别／请核对实物"}</p>
-          <p className="result-large">净含量：{record.netContent || "未识别／请核对实物"}</p>
-          <p className="result-settings">照片中的份量或净含量不是建议食用量。</p>
-        </section>
-        <section className="recognition-card">
-          <h3>请再核对一下实物</h3>
-          <p className="result-large">{record.raw?.assessment?.advice || "请核对完整包装。"}</p>
-          {(record.raw?.assessment?.diseaseReminders || []).map((item: any) => <p className="result-large" key={item.condition}><strong>{item.title}</strong><br />{item.message}</p>)}
-          <p className="result-large">请查看完整配料表、过敏原声明和营养表，不凭包装宣传字样判断是否适合您。</p>
-          <p className="result-large">
-            当时资料快照：
-            {snapshot && (snapshot.diseases.length || snapshot.allergens.length)
-              ? `基础疾病 ${snapshot.diseases.join("、") || "未填写"}；过敏原 ${snapshot.allergens.join("、") || "未填写"}。`
-              : "未保存相关设置。"}
-          </p>
-          <p className="current-settings">
-            当前个人设置：{currentSettings.length ? currentSettings.join("、") : "尚未填写饮食相关设置"}
-          </p>
-        </section>
-        <div className="recognition-tip">
-          <img alt="" src={`${assetPathPrefix}/b1192.svg`} />
-          <p>成分、过敏原及营养信息需要核对实物。识别不是诊断，不能判断血糖或血压。</p>
-        </div>
+        <SavedFoodResult record={record} caption={`我拍摄的 · ${formatRecordDate(record.recognizedAt)}`} />
         <p className="sharing-line">{sharingStatus}</p>
-        {contact ? (
+        {contact && (
           <button className="recognition-primary" type="button" onClick={() => setCallOpen(true)}>
             <img alt="" src={`${assetPathPrefix}/fb9fa.svg`} />联系{contact.relation}{contact.name}
           </button>
-        ) : (
-          <button className="recognition-primary" disabled type="button">未绑定家人</button>
         )}
-        <button className="recognition-secondary" type="button" onClick={onRecognize}>
-          <img alt="" src={`${assetPathPrefix}/b09bd.svg`} />重新识别食品
-        </button>
+        <button className="recognition-secondary" type="button" onClick={() => { setDeleteError(""); setDeleteOpen(true); }}>删除记录</button>
       </div>
+      {deleteOpen && (
+        <div className="dialog-backdrop">
+          <section aria-modal="true" aria-labelledby="delete-record-title" className="dialog-card" role="dialog">
+            <h2 id="delete-record-title">删除这条识别记录？</h2>
+            <p>删除后无法恢复，家人也将无法查看这条记录。</p>
+            {deleteError && <p role="alert">{deleteError}</p>}
+            <button className="primary-button" disabled={deleting} type="button" onClick={() => void confirmDelete()}>{deleting ? "正在删除…" : "确认删除"}</button>
+            <button className="dialog-cancel" disabled={deleting} type="button" onClick={() => setDeleteOpen(false)}>取消</button>
+          </section>
+        </div>
+      )}
       {callOpen && contact && (
         <div className="home-modal-backdrop" role="presentation" onMouseDown={() => setCallOpen(false)}>
           <section aria-modal="true" className="home-dialog" role="dialog" onMouseDown={(event) => event.stopPropagation()}>
@@ -460,7 +439,6 @@ export default function HealthRecords({
   elder,
   contact,
   onHome,
-  onRecognize,
   onSettings,
   sharingStatus,
 }: {
@@ -568,10 +546,8 @@ export default function HealthRecords({
       {page === "detail" && (
         <DetailPage
           contact={contact}
-          elder={elder}
           record={selected}
           onBack={() => window.history.back()}
-          onRecognize={onRecognize}
           sharingStatus={sharingStatus}
         />
       )}

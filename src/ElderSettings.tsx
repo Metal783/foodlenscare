@@ -18,7 +18,7 @@ import FamilyAIConsent from './FamilyAIConsent';
 type SettingsPage = "main" | "guard" | "add-family" | "bind-family" | "help";
 type Notice = "edit" | "add" | null;
 
-const assetPathPrefix = "/assets";
+const assetPathPrefix = "assets";
 const fontLabels: Record<ElderFontSize, string> = {
   small: "小字",
   standard: "标准",
@@ -567,7 +567,7 @@ export default function ElderSettings({
         {feedback && <button className="settings-notice" type="button" onClick={() => setFeedback("")}>{feedback}　×</button>}
         <section className="settings-card"><AccountSecurity onLogout={onLogout} /></section>
         <AccountExit onLogout={onLogout} />
-        <p className="settings-version">食护家 Foodlenscare · 版本 4.0.0</p>
+        <p className="settings-version">食护家 Foodlenscare · 第五版 5.0.0</p>
       </div>
       <ElderBottomNav active="settings" onHome={onHome} onRecords={onRecords} />
       {fontDialog && <FontDialog current={preferences.fontSize} onCancel={() => setFontDialog(false)} onSave={async (fontSize) => {

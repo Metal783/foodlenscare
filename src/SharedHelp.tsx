@@ -1,5 +1,5 @@
 import { snapshot } from "./backend"
-const assetPathPrefix = "/assets"
+const assetPathPrefix = "assets"
 
 export default function SharedHelp({ onBack }: { onBack: () => void }) {
   return (

@@ -57,7 +57,7 @@ export default function AccountSecurity({ child = false, onLogout }: { child?: b
   const primary = child ? "child-primary" : "primary-button";
   const secondary = child ? "child-secondary" : "recognition-secondary";
   if (page === "closed") return <button className={child ? "child-settings-row" : "settings-row"} type="button" onClick={() => { setPage("security"); setError(""); }}>
-    <img alt="" width={22} height={22} src="/assets/f654c.svg" /><span>账号与安全</span><img alt="" width={16} height={16} src={child ? "/assets/3ffb6.svg" : "/assets/170cb.svg"} />
+    <img alt="" width={22} height={22} src="assets/f654c.svg" /><span>账号与安全</span><img alt="" width={16} height={16} src={child ? "assets/3ffb6.svg" : "assets/170cb.svg"} />
   </button>;
   const back = () => {
     if (busy && page === "confirm") return;
@@ -66,14 +66,14 @@ export default function AccountSecurity({ child = false, onLogout }: { child?: b
   };
   return createPortal(<main className="settings-page" style={{ position: "fixed", inset: 0, zIndex: 80, overflowY: "auto", paddingBottom: 0 }}>
     <header className="child-back-header">
-      <button aria-label="返回" disabled={busy && page === "confirm"} type="button" onClick={back}><img alt="" width={20} height={20} src="/assets/86194.svg" /></button>
+      <button aria-label="返回" disabled={busy && page === "confirm"} type="button" onClick={back}><img alt="" width={20} height={20} src="assets/86194.svg" /></button>
       <h1>{page === "security" ? "账号与安全" : page === "agreement" ? "账号注销协议" : page === "confirm" ? "确认注销账号" : "注销确认须知"}</h1>
     </header>
     <div className={child ? "child-content" : "settings-content"} style={{ paddingBottom: 36 }}>
       {page === "security" && <section className={child ? "child-card child-settings-card" : "settings-card"}>
         <ServerAddressSettings child={child} />
-        <button className={child ? "child-settings-row" : "settings-row"} type="button" onClick={() => setPrivacyOpen(true)}><span>隐私政策</span><img alt="" width={16} height={16} src="/assets/170cb.svg" /></button>
-        <button className={child ? "child-settings-row" : "settings-row"} disabled={!account} type="button" onClick={() => void openNotice()}><span>注销账号</span><img alt="" width={16} height={16} src="/assets/170cb.svg" /></button>
+        <button className={child ? "child-settings-row" : "settings-row"} type="button" onClick={() => setPrivacyOpen(true)}><span>隐私政策</span><img alt="" width={16} height={16} src="assets/170cb.svg" /></button>
+        <button className={child ? "child-settings-row" : "settings-row"} disabled={!account} type="button" onClick={() => void openNotice()}><span>注销账号</span><img alt="" width={16} height={16} src="assets/170cb.svg" /></button>
         {!account && <p>请先登录后管理账号。</p>}
       </section>}
       {(page === "notice" || page === "agreement") && <>

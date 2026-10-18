@@ -15,7 +15,7 @@ type RecordsPage = "overview" | "all" | "detail";
 type DetailSource = "overview" | "all";
 type DateMode = "recent" | "specific";
 
-const assetPathPrefix = "/assets";
+const assetPathPrefix = "assets";
 
 function localDateKey(value: Date | string): string {
   const date = typeof value === "string" ? new Date(value) : value;

@@ -4,7 +4,7 @@ import type { ElderDraft, SessionKind } from "./Onboarding";
 import BirthDateFields from './BirthDateFields';
 import { birthDateIssue, profileAge } from './birthDate';
 
-const assetPathPrefix = "/assets";
+const assetPathPrefix = "assets";
 const diseaseOptions = ["无", "高血压", "糖尿病", "高血脂", "冠心病", "其他"];
 const allergenOptions = ["无", "花生", "坚果", "牛奶", "鸡蛋", "大豆", "小麦", "鱼类", "虾蟹", "蟹黄", "其他"];
 

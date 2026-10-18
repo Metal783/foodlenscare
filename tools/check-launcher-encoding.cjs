@@ -4,7 +4,7 @@ const os = require('node:os');
 const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
 const root = path.resolve(__dirname, '..');
-const names = ['只启动后端.cmd', '启动第四版.cmd', '启动第四版局域网.cmd'];
+const names = ['只启动后端.cmd', '启动完善版.cmd'];
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'flc-launcher-'));
 try {
   // Substitute Python only, avoiding live servers, user data and browser windows.
@@ -23,6 +23,9 @@ try {
     if (name === names[0]) {
       assert.match(result.stdout, /仅启动局域网后端，不自动打开浏览器/);
       assert(!result.stdout.includes('--open'));
+    } else {
+      assert.match(result.stdout, /第五版 5\.0\.0/);
+      assert.match(result.stdout, /--open/);
     }
     console.log('PASS UTF-8/CRLF CMD: ' + name);
   }

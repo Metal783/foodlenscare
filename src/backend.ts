@@ -48,7 +48,7 @@ export async function api(path: string, options: { method?: string; body?: any; 
     return payload;
   }
   const response = await fetch(`/api${path}`, { method: options.method || "GET", credentials: "same-origin", cache: "no-store", signal: deadline.signal, headers: { "Content-Type": "application/json" }, body: options.body === undefined ? undefined : JSON.stringify(options.body) });
-  const payload = await response.json().catch(() => ({ error: "家庭服务未连接，请使用启动第四版.cmd打开。" }));
+  const payload = await response.json().catch(() => ({ error: "家庭服务未连接，请使用启动完善版.cmd打开。" }));
   if (!response.ok || payload.error) throw new RequestError(payload.error || "操作失败，请重试。", response.status);
   return payload;
   } catch (error) {

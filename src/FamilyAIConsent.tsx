@@ -17,7 +17,7 @@ export default function FamilyAIConsent() {
   };
   return <>
     <div className="settings-row">
-      <img alt="" src="/assets/b1192.svg" /><span>允许家人AI整理记录</span>
+      <img alt="" src="assets/b1192.svg" /><span>允许家人AI整理记录</span>
       <button className={`settings-toggle ${enabled ? 'on' : ''}`} type="button" role="switch" aria-label="允许家人AI整理记录" aria-checked={enabled} disabled={busy}
         onClick={() => { if (enabled) void save(false); else { setAgreed(false); setError(''); setOpen(true); } }}><span /></button>
     </div>

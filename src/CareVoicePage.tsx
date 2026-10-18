@@ -2,7 +2,7 @@ import { useEffect, useMemo } from "react";
 import type { SessionKind } from "./Onboarding";
 import type { CareVoice, VoicePlayer } from "./voice";
 
-const assetPathPrefix = "/assets";
+const assetPathPrefix = "assets";
 const wave = [10, 18, 14, 28, 38, 22, 32, 48, 26, 18, 34, 44, 30, 20, 40, 32, 18, 26, 36, 22, 14, 24, 12];
 
 function dateLabel(value: string): string {

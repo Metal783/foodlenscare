@@ -8,7 +8,7 @@ export function recordAccount(_session: SessionKind, _phone: string) { return sn
 export function toFrontRecord(record: any): RecognitionRecord {
   const titles: Record<string, string> = { not_recommended: '不建议食用', caution: '建议谨慎食用', moderate: '可考虑适量食用', unknown: '暂无法判断是否适合食用' };
   const analysis = record.aiAnalysis;
-  return { id: record.id, account: snapshot().account?.id || "guest", foodName: record.productName || record.label?.productName || "未读清标签", recognizedAt: record.at, photo: record.photoDataUrl || "/assets/dd0c1.png", ingredients: record.label?.ingredientText ? [record.label.ingredientText] : [], allergens: record.label?.allergenDeclaration ? [record.label.allergenDeclaration] : detectedAllergens(record.label || {}), netContent: record.label?.netContent, meal: record.meal,
+  return { id: record.id, account: snapshot().account?.id || "guest", foodName: record.productName || record.label?.productName || "未读清标签", recognizedAt: record.at, photo: record.photoDataUrl || "assets/dd0c1.png", ingredients: record.label?.ingredientText ? [record.label.ingredientText] : [], allergens: record.label?.allergenDeclaration ? [record.label.allergenDeclaration] : detectedAllergens(record.label || {}), netContent: record.label?.netContent, meal: record.meal,
     reference: titles[analysis?.recommendation] || record.assessment?.headline || "待核对",
     referenceNote: analysis ? analysisSummary(analysis) : record.assessment?.advice || '该记录未保存智能分析。',
     attention: recordNeedsAttention(record),

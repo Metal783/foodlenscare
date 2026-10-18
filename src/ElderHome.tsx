@@ -13,7 +13,7 @@ export type FamilyContact = {
   example?: boolean;
 };
 
-const assetPathPrefix = "/assets";
+const assetPathPrefix = "assets";
 
 function CallDialog({
   contact,

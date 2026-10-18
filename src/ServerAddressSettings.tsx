@@ -63,10 +63,10 @@ export default function ServerAddressSettings({ child = false, welcome = false }
   const secondary = child ? "child-secondary" : "recognition-secondary";
   return <>
     <button className={welcome ? "text-[#003e1c] underline" : child ? "child-settings-row" : "settings-row"} type="button" onClick={() => { resetResult(); setValue(savedServerAddress()); setOpen(true); }}>
-      {!welcome && <img alt="" width={22} height={22} src="/assets/f654c.svg" />}<span>服务器地址</span>{!welcome && <img alt="" width={16} height={16} src="/assets/170cb.svg" />}
+      {!welcome && <img alt="" width={22} height={22} src="assets/f654c.svg" />}<span>服务器地址</span>{!welcome && <img alt="" width={16} height={16} src="assets/170cb.svg" />}
     </button>
     {open && createPortal(<main className="settings-page" style={{ position: "fixed", inset: 0, zIndex: 100, overflowY: "auto", paddingBottom: 0 }}>
-      <header className="child-back-header"><button aria-label="返回" disabled={busy && !!candidate} type="button" onClick={() => { resetResult(); setOpen(false); }}><img alt="" width={20} height={20} src="/assets/86194.svg" /></button><h1>服务器地址</h1></header>
+      <header className="child-back-header"><button aria-label="返回" disabled={busy && !!candidate} type="button" onClick={() => { resetResult(); setOpen(false); }}><img alt="" width={20} height={20} src="assets/86194.svg" /></button><h1>服务器地址</h1></header>
       <div className={child ? "child-content" : "settings-content"}>
         <p>当前连接</p><p style={{ overflowWrap: "anywhere" }}>{currentServerAddress() || '尚未配置'}</p>
         <label className="flow-field">服务器地址<span className="input-shell"><input className="field-input" type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="http://192.168.1.10:5184" value={value} disabled={busy && !!candidate} onChange={e => { resetResult(); setValue(e.target.value); }} /></span></label>

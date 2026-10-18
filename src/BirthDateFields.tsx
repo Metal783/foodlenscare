@@ -13,7 +13,7 @@ export default function BirthDateFields({ id, birthDate, onChange, child = false
       <button id={`${id}-birth-date`} className="profile-input" type="button" value={birthDate} aria-haspopup="dialog" aria-expanded={open}
         style={{ minWidth: 0, width: '100%', maxWidth: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', textAlign: 'left' }}
         onClick={() => setOpen(true)}>
-        <span>{birthDate ? birthDate.replaceAll('-', '/') : '请选择出生日期'}</span><img alt="" width={20} height={20} src="/assets/25744.svg" />
+        <span>{birthDate ? birthDate.replaceAll('-', '/') : '请选择出生日期'}</span><img alt="" width={20} height={20} src="assets/25744.svg" />
       </button>
     </div>
     <div className={fieldClass}>

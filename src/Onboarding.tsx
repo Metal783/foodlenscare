@@ -56,7 +56,7 @@ export const emptyChildDraft: ChildDraft = {
   relation: "",
 }
 
-const assetPathPrefix = "/assets"
+const assetPathPrefix = "assets"
 
 export function isValidPhone(phone: string): boolean {
   return /^1[3-9]\d{9}$/.test(phone)

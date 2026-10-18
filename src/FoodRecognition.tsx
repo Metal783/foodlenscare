@@ -13,7 +13,7 @@ import FoodAssistant from './FoodAssistant';
 export type RecognitionStage = "camera" | "processing" | "result" | "failure";
 type ConfirmAction = "home" | "camera" | null;
 
-const assetPathPrefix = "/assets";
+const assetPathPrefix = "assets";
 
 function RecognitionHeader({
   title,

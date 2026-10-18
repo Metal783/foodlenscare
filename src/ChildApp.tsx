@@ -23,7 +23,7 @@ import type {
   ShareGrant,
 } from "./preferences"
 
-const assets = "/assets"
+const assets = "assets"
 
 type ChildPage = "home" | "records" | "detail" | "voice" | "voice-history" | "settings" | "edit-profile" | "family" | "add-family" | "help"
 
@@ -551,7 +551,7 @@ function SettingsPage({
         </section>
         <AccountExit child onLogout={onLogout} />
         <p className="child-settings-version">
-          食护家 Foodlenscare · 子女端 · 版本 4.0.0
+          食护家 Foodlenscare · 子女端 · 第五版 5.0.0
         </p>
       </div>
       <BottomNav active="settings" go={go} />

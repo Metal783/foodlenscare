@@ -44,7 +44,7 @@ type View =
   | "elder-basic"
 type Session = SessionKind
 
-const assetPathPrefix = "/assets"
+const assetPathPrefix = "assets"
 
 function BrandLogo({ welcome = false }: { welcome?: boolean }) {
   return (

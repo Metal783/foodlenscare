@@ -1,11 +1,13 @@
 {
-  "name": "foodlenscare-v4",
+  "name": "foodlenscare-v5",
   "private": true,
-  "version": "4.0.0",
+  "version": "5.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build && node tools/prepare-offline.mjs",
+    "build:pages": "node tools/build-pages.mjs",
+    "build:all": "npm run build && npm run build:pages",
     "preview": "vite preview",
     "format": "oxfmt",
     "typecheck": "tsc --noEmit",

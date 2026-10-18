@@ -1,4 +1,14 @@
-# 第四版交付记录
+# 食护家交付记录
+
+## 2026-10-18 第五版 5.0.0：版本统一与 GitHub Pages
+
+- 版本号统一为 **5.0.0**：`package.json`、两端设置页脚、`/api/status`、`/api/connection-info`、安卓 `versionName` 同步；修订号改为 `20261018-1`。
+- 启动入口统一：保留 `启动完善版.cmd`（优先 `python`，兼容 `py -3`，启动时显示第五版 5.0.0）和 `只启动后端.cmd`；移除旧的 `启动第四版.cmd`，断连提示改为“请使用启动完善版.cmd打开”。
+- 资源路径改为相对路径，前端可在根路径与 `/foodlenscare/` 子路径下运行；新增 `npm run build:pages`，输出 `docs/`（base `/foodlenscare/`）供 GitHub Pages 使用，本地 `dist/` 仍使用根路径。
+- Service Worker 按 base 生成缓存清单、作用域与 `flc-v5-*` 缓存名，并清理旧的 `flc-v4-public-*` 缓存；`sw.js` 改为跟随 `BASE_URL` 注册。
+- 页面元数据改为中文：标题“食护家 FoodLenscare · 第五版”、`lang="zh-CN"`、中文描述（`.figma/make/site.json`）。
+- GitHub Pages 只提供游客拍照识别、标签核对与离线缓存；登录、家庭绑定、关怀语音和 AI 助手仍需本机启动 Python 服务。
+- 验证：类型检查、`dist`/`docs` 双构建、启动脚本编码、规则与接口自测、双账号浏览器回归，以及 Pages 子路径下真实 OCR 与游客流程通过。
 
 ## 2026-10-17 选购、搭配与标签核对
 

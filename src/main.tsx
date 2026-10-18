@@ -6,7 +6,7 @@ import { initializeMobile, isMobileApp } from './mobile'
 import { App as NativeApp } from '@capacitor/app'
 
 if (!isMobileApp() && 'serviceWorker' in navigator && window.isSecureContext) {
-  window.addEventListener('load', () => { void navigator.serviceWorker.register('/sw.js').catch(() => {}); });
+  window.addEventListener('load', () => { void navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {}); });
 }
 
 async function mount() {

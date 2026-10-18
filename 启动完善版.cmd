@@ -8,15 +8,16 @@ if not exist "dist\index.html" (
   pause
   exit /b 1
 )
-py -3 -c "import sys; assert sys.version_info >= (3, 10)" >nul 2>&1
+echo 正在启动食护家 第五版 5.0.0 ...
+call python -c "import sys; assert sys.version_info >= (3, 10)" >nul 2>&1
 if not errorlevel 1 (
-  py -3 -X utf8 tools\family_server.py --open
+  call python -X utf8 tools\family_server.py --open
   if errorlevel 1 pause
   exit /b
 )
-python -c "import sys; assert sys.version_info >= (3, 10)" >nul 2>&1
+call py -3 -c "import sys; assert sys.version_info >= (3, 10)" >nul 2>&1
 if not errorlevel 1 (
-  python -X utf8 tools\family_server.py --open
+  call py -3 -X utf8 tools\family_server.py --open
   if errorlevel 1 pause
   exit /b
 )

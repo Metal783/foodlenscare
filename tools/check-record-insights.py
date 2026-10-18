@@ -33,7 +33,14 @@ check(many['summary']['recordCount'] == 37 and len(many['samples']) == 30, '完�
 check(not any(c['count'] for c in insights.digest([record('polyol', '2026-10-17T00:00:00Z', '赤藓糖醇')], date(2026, 10, 17))['summary']['clues']), '糖醇不误计为糖类配料')
 check(insights.digest(source, date(2026, 10, 17))['version'] == digest['version'], '同一数据摘要版本稳定')
 check(insights.digest(source[:-1], date(2026, 10, 17))['version'] != digest['version'], '删改记录使摘要版本变化')
+three = insights.digest(source, date(2026, 10, 17), days=3)
+check(three['summary']['days'] == 3 and len(three['summary']['dayBreakdown']) == 3, '三天范围包含逐日分布且天数正确')
+check(sum(day['count'] for day in three['summary']['dayBreakdown']) == 2 and three['summary']['dayBreakdown'][-1]['count'] == 2, '逐日分布按上海日期计数且保留空缺日')
 sample = {'answer': '最近看过的食品包装，可以一起核对完整配料。也记得照顾好自己，有空聊聊天。', 'details': ['这份整理只反映保存的识别记录。'], 'followUps': []}
+diet_sample = {'answer': '这段时间保存的包装里，糖和盐的线索都有出现，记录也有空缺；可以一起核对。',
+               'observations': ['糖类配料线索出现在部分标签中。', '有几天没有保存记录，不能当作没有吃。'],
+               'suggestions': ['下次买同类食品时一起看配料表。', '可以请老人补拍看不清的包装。'],
+               'questions': ['最近哪几款包装最常买？', '哪几天方便一起看标签？']}
 with tempfile.TemporaryDirectory(prefix='flc-insights-') as temp:
     server = app.create_server(port=0, database=Path(temp) / 'test.sqlite3')
     thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
@@ -66,6 +73,8 @@ with tempfile.TemporaryDirectory(prefix='flc-insights-') as temp:
         api(elder, '/me', {'prefs': {'familyAssistantConsent': insights.FAMILY_AI_CONSENT}}, 'PATCH')
         api(elder, '/family/' + family, {'profile_allowed': False}, 'PATCH')
         check(api(child, '/record-insights?elder=' + uid)[0] == 200, '老人单独允许后，只共享记录也能整理非健康摘要')
+        check(api(child, '/record-insights?elder=' + uid + '&days=3')[1]['summary']['days'] == 3, '可按三天范围读取摘要')
+        check(api(child, '/record-insights?elder=' + uid + '&days=5')[0] == 400, '拒绝不支持的分析天数')
         check(api(child, '/family')[1]['families'][0]['member']['familyAiAllowed'], '家庭摘要可见老人授权状态')
         with patch.object(ai, 'configuration', return_value=('', 'test-model')), patch.object(ai, 'request_assistant_json') as cloud:
             check(api(elder, '/record-insights?elder=' + uid)[1]['summary']['recordCount'] == 1 and not cloud.called, '查看摘要不调用模型')
@@ -81,6 +90,21 @@ with tempfile.TemporaryDirectory(prefix='flc-insights-') as temp:
             check(api(elder, '/record-insights', request)[0] == 429, '本人请求限流')
             check(ask(child, {**request, 'mode': 'care', 'tone': 'warm'}, cid)[0] == 200 and cloud.call_args.args[3]['tone'] == '亲切问候', '子女按语气生成草稿，不自动发送')
             check(not api(child, '/voices')[1]['messages'], '生成草稿不写入语音或回执')
+            diet_request = {'elder': uid, 'mode': 'diet', 'days': 3, 'consent': True}
+            cloud.return_value = diet_sample
+            status, value = ask(child, diet_request, cid)
+            check(status == 200 and value['result']['observations'] and value['result']['suggestions'] and value['result']['questions'], '子女按范围生成饮食观察分析')
+            payload = cloud.call_args.args[3]
+            check(payload['mode'] == 'diet' and payload['days'] == 3 and payload['stats']['days'] == 3 and len(payload['stats']['dayBreakdown']) == 3, '饮食分析使用所选范围和逐日统计')
+            serialized = json.dumps(payload, ensure_ascii=False)
+            check(all(s not in serialized for s in ('私人姓名', '13800930001', '私人疾病', '私人过敏', uid)), '饮食分析不发送健康档案与账号信息')
+            check(ask(elder, diet_request, uid)[0] == 403, '饮食观察分析仅子女端生成')
+            check(ask(child, {**diet_request, 'days': 5}, cid)[0] == 400, '饮食分析拒绝不支持的天数')
+            cloud.return_value = {**diet_sample, 'answer': '本周有12条识别记录，糖和盐都出现了。'}
+            check(ask(child, diet_request, cid)[0] == 502, '拒绝饮食分析中的未经核对数字')
+            cloud.return_value = {**diet_sample, 'answer': '老人最近吃得太咸，饮食不健康。'}
+            check(ask(child, diet_request, cid)[0] == 502, '拒绝把识别记录误写为实际食用或健康判断')
+            cloud.return_value = sample
             check(ask(body={**request, 'mode': 'wrong'})[0] == 400, '拒绝未知任务')
             check(ask(child, {**request, 'mode': 'care', 'tone': 'injected'}, cid)[0] == 400, '拒绝未知语气或注入指令')
             check(ask(empty, {**request, 'elder': empty_id}, empty_id)[0] == 400, '没有记录不生成假回顾')

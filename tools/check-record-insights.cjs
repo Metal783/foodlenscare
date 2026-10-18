@@ -21,6 +21,7 @@ const fs = require('node:fs'), os = require('node:os'), path = require('node:pat
     for (const p of [ep, cp]) p.on('pageerror', e => errors.push(e.message));
     await ep.goto(origin); await cp.goto(origin);
     assert(await cp.getByRole('button', { name: '起草关怀留言', exact: true }).isDisabled());
+    assert(await cp.getByRole('button', { name: '生成饮食分析', exact: true }).isDisabled());
     await ep.getByRole('button', { name: '我的设置', exact: true }).click();
     const toggle = () => ep.getByRole('switch', { name: '允许家人AI整理记录', exact: true });
     await toggle().click(); const grant = ep.getByRole('dialog', { name: '家人AI整理授权' });
@@ -46,10 +47,13 @@ const fs = require('node:fs'), os = require('node:os'), path = require('node:pat
     const mock = async route => {
       if (route.request().method() !== 'POST') return route.continue();
       const request = route.request().postDataJSON(); calls.push(request);
-      assert.deepEqual(Object.keys(request).sort(), ['consent', 'elder', 'mode', 'tone']); assert.equal(request.consent, true);
-      const preview = await api(elder, '/record-insights?elder=' + request.elder, undefined, 'GET');
+      const keys = request.mode === 'diet' ? ['consent', 'days', 'elder', 'mode'] : ['consent', 'elder', 'mode', 'tone'];
+      assert.deepEqual(Object.keys(request).sort(), keys.sort()); assert.equal(request.consent, true);
+      const preview = await api(elder, '/record-insights?elder=' + request.elder + (request.days ? `&days=${request.days}` : ''), undefined, 'GET');
       if (delay) { delay = false; await new Promise(resolve => { release = resolve; }); }
-      try { await route.fulfill({ json: { ...preview, result: { answer: request.mode === 'care' ? '最近看过的食品包装，我们有空一起核对。也记得休息，想聊的时候随时找我。' : '这些是保存的识别记录，可以继续核对标签，不能据此推断实际食用。', details: ['只记录包装上的线索，不判断摄入或病情。'], generatedAt: new Date().toISOString() } } }); } catch { /* Intentional revocation aborts waiting pages. */ }
+      const dietResult = { answer: '这段时间保存的包装里，糖和盐的线索都有出现，记录也有空缺；可以一起核对。', observations: ['糖类配料线索出现在部分标签中。', '有几天没有保存记录，不能当作没有吃。'], suggestions: ['下次买同类食品时一起看配料表。', '可以请老人补拍看不清的包装。'], questions: ['最近哪几款包装最常买？', '哪几天方便一起看标签？'], generatedAt: new Date().toISOString() };
+      const reviewResult = { answer: request.mode === 'care' ? '最近看过的食品包装，我们有空一起核对。也记得休息，想聊的时候随时找我。' : '这些是保存的识别记录，可以继续核对标签，不能据此推断实际食用。', details: ['只记录包装上的线索，不判断摄入或病情。'], generatedAt: new Date().toISOString() };
+      try { await route.fulfill({ json: { ...preview, result: request.mode === 'diet' ? dietResult : reviewResult } }); } catch { /* Intentional revocation aborts waiting pages. */ }
     };
     await elder.route('**/api/record-insights', mock); await child.route('**/api/record-insights', mock);
     await review.getByRole('button', { name: '生成识别回顾', exact: true }).click();
@@ -71,6 +75,29 @@ const fs = require('node:fs'), os = require('node:os'), path = require('node:pat
     assert.equal(await review.getByRole('region', { name: 'AI识别回顾' }).count(), 0);
     await ep.keyboard.press('Escape'); assert.equal(await review.count(), 0);
     console.log('PASS 回顾：真实摘要/显式生成/未配置提示、朗读含说明/停止/音频互斥、取消等待保留摘要并丢弃迟到结果');
+
+    await cp.getByRole('button', { name: '生成饮食分析', exact: true }).click();
+    const diet = cp.getByRole('dialog', { name: '饮食观察分析', exact: true });
+    await diet.getByRole('region', { name: '记录摘要' }).waitFor();
+    assert((await diet.innerText()).includes('2 条识别记录'));
+    await diet.getByRole('button', { name: '近3天', exact: true }).click();
+    const dietGenerate = diet.getByRole('button', { name: '生成3天饮食分析', exact: true });
+    await dietGenerate.waitFor();
+    await diet.getByRole('checkbox').check();
+    await dietGenerate.click();
+    await diet.getByRole('region', { name: '饮食分析结果' }).waitFor();
+    assert.equal(calls.at(-1).mode, 'diet'); assert.equal(calls.at(-1).days, 3);
+    assert((await diet.innerText()).includes('看到了什么') && (await diet.innerText()).includes('可以问问老人'));
+    await cp.evaluate(() => { window.testSpeech = ''; speechSynthesis.speak = u => { window.testSpeech = u.text; window.testUtterance = u; }; });
+    await diet.getByRole('button', { name: '朗读分析', exact: true }).click();
+    assert((await cp.evaluate(() => window.testSpeech)).includes('不能当作没有吃'));
+    await diet.getByRole('button', { name: '停止朗读', exact: true }).click();
+    await cp.setViewportSize({ width: 320, height: 640 });
+    assert(await diet.getByRole('region', { name: '饮食分析结果' }).isVisible());
+    assert(await cp.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+    await cp.setViewportSize({ width: 430, height: 932 });
+    await diet.getByRole('button', { name: '关闭饮食观察分析', exact: true }).click();
+    console.log('PASS 子女饮食分析：3/7/14 天范围、摘要、显式生成、分区结果、朗读与窄屏');
 
     await cp.getByRole('button', { name: '起草关怀留言', exact: true }).click();
     const care = cp.getByRole('dialog', { name: '关怀草稿', exact: true }); await care.getByRole('region', { name: '记录摘要' }).waitFor();

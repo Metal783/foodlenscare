@@ -7,7 +7,7 @@
 - 资源路径改为相对路径，前端可在根路径与 `/foodlenscare/` 子路径下运行；新增 `npm run build:pages`，输出 `docs/`（base `/foodlenscare/`）供 GitHub Pages 使用，本地 `dist/` 仍使用根路径。
 - Service Worker 按 base 生成缓存清单、作用域与 `flc-v5-*` 缓存名，并清理旧的 `flc-v4-public-*` 缓存；`sw.js` 改为跟随 `BASE_URL` 注册。
 - 页面元数据改为中文：标题“食护家 FoodLenscare · 第五版”、`lang="zh-CN"`、中文描述（`.figma/make/site.json`）。
-- 构建产物为每个 `@font-face` 补 `font-display: swap`（原 `src/index.css` 不改）：外部字体服务不可达时中文立即回退系统字体，不再出现整段文字长时间空白；字体可用时仍使用原字体。
+- 构建产物为每个 `@font-face` 补 `font-display: swap`（原 `src/index.css` 不改），并按内容重命名样式文件避免 CDN 旧缓存：外部字体服务不可达时中文立即回退系统字体，不再出现整段文字长时间空白；字体可用时仍使用原字体。
 - GitHub Pages 只提供游客拍照识别、标签核对与离线缓存；登录、家庭绑定、关怀语音和 AI 助手仍需本机启动 Python 服务。首次在线识别需下载约 50MB 本机 OCR 模型，网络较慢时请等待或改用 `启动完善版.cmd`。
 - 验证：类型检查、`dist`/`docs` 双构建、启动脚本编码、规则与接口自测、双账号浏览器回归，以及 Pages 子路径下真实 OCR 与游客流程通过。
 

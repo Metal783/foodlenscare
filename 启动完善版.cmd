@@ -8,7 +8,7 @@ if not exist "dist\index.html" (
   pause
   exit /b 1
 )
-echo 正在启动食护家 第五版 5.0.0 ...
+echo 正在启动食护家 第五版 5.1.0 ...
 call python -c "import sys; assert sys.version_info >= (3, 10)" >nul 2>&1
 if not errorlevel 1 (
   call python -X utf8 tools\family_server.py --open

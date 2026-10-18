@@ -110,7 +110,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         if urlsplit(self.path).path == '/api/connection-info':
             # 仅公开服务标识，不附带Cookie或私人数据；业务接口仍保持同源限制。
-            self.send_json({'service': 'foodlenscare', 'protocolVersion': 1, 'version': '5.0.0'})
+            self.send_json({'service': 'foodlenscare', 'protocolVersion': 1, 'version': '5.1.0'})
             return
         if self.path.startswith('/api/'):
             self.dispatch('GET')
@@ -214,7 +214,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if path == '/api/status' and method == 'GET':
             reset_file = Path(self.server.database).parent / 'browser-reset.json'
             reset_id = json.loads(reset_file.read_text(encoding='utf-8')).get('id', '') if reset_file.exists() else ''
-            return {'mode': 'local-test', 'sms': False, 'wechat': False, 'version': '5.0.0', 'revision': '20261018-1', 'browserReset': reset_id}, None
+            return {'mode': 'local-test', 'sms': False, 'wechat': False, 'version': '5.1.0', 'revision': '20261018-2', 'browserReset': reset_id}, None
         if path == '/api/auth/code' and method == 'POST':
             phone = str(data.get('phone', ''))
             if not re.fullmatch(r'1[3-9]\d{9}', phone):
@@ -267,14 +267,24 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if path == '/api/record-insights' and method in ('GET', 'POST'):
             elder = str(data.get('elder') or uid) if method == 'POST' else query.get('elder', [uid])[0]
             self.insights_access(db, user, elder)
-            source = record_insights.digest(record_insights.read_records(db, elder))
+            raw_days = data.get('days', 7) if method == 'POST' else query.get('days', ['7'])[0]
+            try:
+                days = int(raw_days)
+            except (TypeError, ValueError):
+                raise APIError('请选择近3天、近7天或近14天。', 400)
+            if days not in (3, 7, 14):
+                raise APIError('请选择近3天、近7天或近14天。', 400)
+            mode = data.get('mode') if method == 'POST' else None
+            scoped_days = days if mode == 'diet' or method == 'GET' else 7
+            source = record_insights.digest(record_insights.read_records(db, elder), days=scoped_days)
             if method == 'GET':
                 return {'summary': source['summary'], 'sourceVersion': source['version']}, None
             if data.get('consent') is not True:
                 raise APIError('请先同意将必要的食品记录摘要发送至 DeepSeek。', 400)
-            mode = data.get('mode')
             if mode == 'care' and user['role'] != 'child':
                 raise APIError('请在子女端生成关怀草稿。', 403)
+            if mode == 'diet' and user['role'] != 'child':
+                raise APIError('饮食观察分析请在子女端生成。', 403)
             try:
                 result = record_insights.generate(uid, mode, source, data.get('tone', 'gentle'))
             except deepseek_analysis.AnalysisError as error:
@@ -284,7 +294,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if not current or current['id'] != uid:
                 raise APIError('登录已失效，请重新登录。', 401)
             self.insights_access(db, current, elder)
-            latest = record_insights.digest(record_insights.read_records(db, elder))
+            latest = record_insights.digest(record_insights.read_records(db, elder), days=scoped_days)
             if latest['version'] != source['version']:
                 raise APIError('记录已变化，请刷新摘要后重新生成。', 409)
             return {'summary': source['summary'], 'sourceVersion': source['version'], 'result': result}, None
@@ -642,8 +652,8 @@ def main():
     else:
         raise SystemExit('没有可用端口。')
     port = server.server_port
-    url = f'http://127.0.0.1:{port}/?v=20261018-1'
-    print(f'第五版（完善版）5.0.0 已启动：{url}', flush=True)
+    url = f'http://127.0.0.1:{port}/?v=20261018-2'
+    print(f'第五版（完善版）5.1.0 已启动：{url}', flush=True)
     print('测试验证码会显示在页面，本服务仅供本机/可信局域网使用。', flush=True)
     print('手机录音要求 HTTPS 安全访问；电脑 localhost 可直接录音。', flush=True)
     if args.host == '0.0.0.0':
@@ -655,7 +665,7 @@ def main():
                     return probe.getsockname()[0]
                 except OSError:
                     return '127.0.0.1'
-        print(f'局域网访问：http://{local_ip()}:{port}/?v=20261018-1', flush=True)
+        print(f'局域网访问：http://{local_ip()}:{port}/?v=20261018-2', flush=True)
     if args.open:
         webbrowser.open(url)
     try:

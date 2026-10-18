@@ -3,6 +3,7 @@ import { toFrontRecord } from "./records"
 import SavedFoodResult from "./SavedFoodResult"
 import PrivatePhoto from './PrivatePhoto'
 import RecordInsights from './RecordInsights'
+import DietAnalysis from './DietAnalysis'
 import { recordNeedsAttention } from './recordStatus'
 import BirthDateFields from './BirthDateFields'
 import { birthDateIssue, profileAge } from './birthDate'
@@ -251,6 +252,7 @@ function Home({
           </div>
         </section>
         <RecordInsights elderId={family?.member.id} onUseDraft={text => { setCareDraft(text); go('voice') }} />
+        <DietAnalysis elderId={family?.member.id} />
         <a className="child-secondary" href={backend.selectedFamily() ? `tel:${backend.selectedFamily()!.member.phone}` : undefined}>
           <Icon name="de89b.svg" size={22} /> 联系{selectedElder()}
         </a>
@@ -551,7 +553,7 @@ function SettingsPage({
         </section>
         <AccountExit child onLogout={onLogout} />
         <p className="child-settings-version">
-          食护家 Foodlenscare · 子女端 · 第五版 5.0.0
+          食护家 Foodlenscare · 子女端 · 第五版 5.1.0
         </p>
       </div>
       <BottomNav active="settings" go={go} />

@@ -16,15 +16,30 @@ const option = (name, fallback) => {
 const dist = path.resolve(root, option('--dist', 'dist'));
 const rawBase = option('--base', '/');
 const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
+const assetDir = path.join(dist, 'assets');
+const cssFiles = fs.readdirSync(assetDir).filter(name => name.endsWith('.css'));
+// 原 index.css 保留不动；只在构建产物中补 font-display:swap，
+// 避免外部字体服务不可达时整段中文长时间不显示（FOIT）。
+for (const name of cssFiles) {
+  const file = path.join(assetDir, name);
+  let css = fs.readFileSync(file, 'utf8');
+  if (!css.includes('font-display')) {
+    css = css.replace(/@font-face\s*\{/g, match => `${match}font-display:swap;`);
+    fs.writeFileSync(file, css);
+  }
+}
 const resources = [
   base,
   base + 'index.html',
   base + 'favicon.svg',
-  ...fs.readdirSync(path.join(dist, 'assets'))
+  ...fs.readdirSync(assetDir)
     .filter(name => /\.(css|js|svg|png)$/.test(name))
     .map(name => base + 'assets/' + name),
 ];
-const signature = crypto.createHash('sha256').update(fs.readFileSync(path.join(dist, 'index.html'))).digest('hex').slice(0, 12);
+const signature = crypto.createHash('sha256')
+  .update(fs.readFileSync(path.join(dist, 'index.html')))
+  .update(cssFiles.map(name => fs.readFileSync(path.join(assetDir, name))).join(''))
+  .digest('hex').slice(0, 12);
 fs.writeFileSync(path.join(dist, 'sw.js'), `const BASE=${JSON.stringify(base)};
 const CACHE='flc-v5-public-${signature}',MODELS='flc-v5-paddle-v1';
 const SHELL=${JSON.stringify(resources)};

@@ -567,7 +567,7 @@ export default function ElderSettings({
         {feedback && <button className="settings-notice" type="button" onClick={() => setFeedback("")}>{feedback}　×</button>}
         <section className="settings-card"><AccountSecurity onLogout={onLogout} /></section>
         <AccountExit onLogout={onLogout} />
-        <p className="settings-version">食护家 Foodlenscare · 第五版 5.1.0</p>
+        <p className="settings-version">食护家 Foodlenscare · 第五版 5.2.0</p>
       </div>
       <ElderBottomNav active="settings" onHome={onHome} onRecords={onRecords} />
       {fontDialog && <FontDialog current={preferences.fontSize} onCancel={() => setFontDialog(false)} onSave={async (fontSize) => {

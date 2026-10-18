@@ -4,6 +4,12 @@ import AssistantModal from './AssistantModal';
 import useAssistantSpeech from './useAssistantSpeech';
 
 type DaySummary = { date: string; count: number; readable: number };
+type IndexDimension = { key: string; label: string; score: number | null; weight: number; note: string };
+type DietIndex = {
+  score: number | null; level: string; label: string; confidence: number; sufficient: boolean;
+  dimensions: IndexDimension[]; notes: string[];
+  basis: { days: number; records: number; daysWithRecords: number; readable: number; reliableNutrients: number };
+};
 type Summary = {
   days: number; periodStart: string; periodEnd: string; recordCount: number; dayCount: number;
   nameCount: number; readableCount: number; unreadableCount: number; undatedCount: number;
@@ -11,11 +17,13 @@ type Summary = {
   clues: { key: string; label: string; count: number }[];
   nutritionCoverage: Record<string, number>;
   dayBreakdown: DaySummary[];
+  index?: DietIndex;
 };
 type Result = { answer: string; observations: string[]; suggestions: string[]; questions: string[] };
 
 const RANGES = [3, 7, 14];
 const nutrientLabels: Record<string, string> = { energy: '能量', protein: '蛋白质', fat: '脂肪', carbohydrate: '碳水化合物', sugar: '糖', sodium: '钠' };
+const indexColor = (level: string) => level === 'good' ? '#1f6b3a' : level === 'fair' ? '#5f6b1f' : level === 'watch' ? '#8a5a12' : level === 'attention' ? '#8b2222' : '#596359';
 
 function DietDialog({ owner, onClose }: { owner: string; onClose: () => void }) {
   const [days, setDays] = useState(7);
@@ -108,6 +116,36 @@ function DietDialog({ owner, onClose }: { owner: string; onClose: () => void }) 
     {loading && <p role="status">正在读取记录摘要…</p>}
     {summary && <section className="recognition-card" aria-label="记录摘要" style={{ padding: 16 }}>
       <p>{summary.periodStart} 至 {summary.periodEnd}（上海日期）</p>
+      {summary.index && <div role="group" aria-label="饮食健康指数" style={{ marginTop: 12, padding: 14, borderRadius: 14, background: '#f2f8ef', border: '1px solid #dce5db' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12 }}>
+          <div>
+            <p style={{ fontSize: 14, color: '#596359' }}>饮食健康指数（参考）</p>
+            <p style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 2 }}>
+              <strong style={{ fontSize: 44, lineHeight: 1, color: indexColor(summary.index.level) }}>{summary.index.score ?? '—'}</strong>
+              <span style={{ color: '#596359' }}>/100</span>
+            </p>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <strong style={{ color: indexColor(summary.index.level) }}>{summary.index.label}</strong>
+            <p style={{ fontSize: 13, color: '#596359', marginTop: 4 }}>参考度 {summary.index.confidence}%</p>
+          </div>
+        </div>
+        <div style={{ display: 'grid', gap: 6, marginTop: 12 }}>
+          {summary.index.dimensions.map(item => <div key={item.key} style={{ display: 'grid', gridTemplateColumns: '70px 1fr 40px', gap: 8, alignItems: 'center', fontSize: 13 }}>
+            <span>{item.label}</span>
+            <span aria-hidden="true" style={{ height: 7, background: '#dce5db', borderRadius: 4, overflow: 'hidden' }}>
+              <span style={{ display: 'block', height: '100%', width: `${item.score ?? 0}%`, background: indexColor(summary.index!.level) }} />
+            </span>
+            <span style={{ textAlign: 'right', color: '#596359' }}>{item.score == null ? '—' : Math.round(item.score)}</span>
+          </div>)}
+        </div>
+        <p style={{ fontSize: 13, color: '#596359', marginTop: 10 }}>{summary.index.notes[0]}</p>
+        <details style={{ marginTop: 8 }}>
+          <summary style={{ cursor: 'pointer', color: '#003e1c' }}>评分说明与限制</summary>
+          {summary.index.notes.slice(1).map(note => <p key={note} style={{ fontSize: 13, color: '#596359', marginTop: 6 }}>{note}</p>)}
+          {summary.index.dimensions.map(item => <p key={item.key} style={{ fontSize: 13, color: '#596359', marginTop: 6 }}><strong>{item.label}</strong>：{item.note}</p>)}
+        </details>
+      </div>}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 12, marginTop: 12 }}>
         <p><strong>{summary.recordCount}</strong> 条识别记录</p>
         <p><strong>{summary.dayCount}</strong> 天有记录</p>

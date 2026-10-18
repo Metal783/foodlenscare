@@ -24,7 +24,7 @@ try {
       assert.match(result.stdout, /仅启动局域网后端，不自动打开浏览器/);
       assert(!result.stdout.includes('--open'));
     } else {
-      assert.match(result.stdout, /第五版 5\.1\.0/);
+      assert.match(result.stdout, /第五版 5\.2\.0/);
       assert.match(result.stdout, /--open/);
     }
     console.log('PASS UTF-8/CRLF CMD: ' + name);

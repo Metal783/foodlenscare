@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 import deepseek_analysis as ai
 import record_insights as insights
+import diet_index
 import family_server as app
 
 checks = 0
@@ -33,9 +34,19 @@ check(many['summary']['recordCount'] == 37 and len(many['samples']) == 30, '完�
 check(not any(c['count'] for c in insights.digest([record('polyol', '2026-10-17T00:00:00Z', '赤藓糖醇')], date(2026, 10, 17))['summary']['clues']), '糖醇不误计为糖类配料')
 check(insights.digest(source, date(2026, 10, 17))['version'] == digest['version'], '同一数据摘要版本稳定')
 check(insights.digest(source[:-1], date(2026, 10, 17))['version'] != digest['version'], '删改记录使摘要版本变化')
-three = insights.digest(source, date(2026, 10, 17), days=3)
+three = insights.digest(source + [record('extra', '2026-10-15T10:00:00Z')], date(2026, 10, 17), days=3)
 check(three['summary']['days'] == 3 and len(three['summary']['dayBreakdown']) == 3, '三天范围包含逐日分布且天数正确')
-check(sum(day['count'] for day in three['summary']['dayBreakdown']) == 2 and three['summary']['dayBreakdown'][-1]['count'] == 2, '逐日分布按上海日期计数且保留空缺日')
+check(sum(day['count'] for day in three['summary']['dayBreakdown']) == 3 and three['summary']['dayBreakdown'][-1]['count'] == 2, '逐日分布按上海日期计数且保留空缺日')
+check(three['summary']['index']['score'] is not None and three['summary']['index']['label'] != '数据不足，暂不评分', '三天摘要包含可计算的饮食健康指数')
+low = diet_index.evaluate(7, 4, 4, 4, [{'sugar': 2, 'sodium': 80, 'fat': 2}] * 4)
+check(low['sufficient'] and low['score'] >= 80 and low['level'] == 'good', '低糖低钠低脂标签得到较高参考分')
+low_clue = diet_index.evaluate(7, 4, 4, 4, [{'sugar': 2, 'sodium': 80, 'fat': 2}] * 4, {'sugar': 4, 'salt': 4, 'oil': 4})
+check(low_clue['score'] < low['score'], '重复糖盐油配料线索会降低参考分')
+high = diet_index.evaluate(7, 4, 4, 4, [{'sugar': 30, 'sodium': 700, 'fat': 20}] * 4)
+check(high['sufficient'] and high['score'] < 50 and high['level'] == 'attention', '高糖高钠高脂标签得到较低参考分')
+missing = diet_index.evaluate(7, 4, 4, 4, [{}, {}, {}, {}])
+check(not missing['sufficient'] and missing['score'] is None and missing['label'] == '数据不足，暂不评分', '缺少可靠营养字段时不强行评分')
+check('健康' not in low['label'] and '健康' not in high['label'], '指数文案不冒充健康诊断')
 sample = {'answer': '最近看过的食品包装，可以一起核对完整配料。也记得照顾好自己，有空聊聊天。', 'details': ['这份整理只反映保存的识别记录。'], 'followUps': []}
 diet_sample = {'answer': '这段时间保存的包装里，糖和盐的线索都有出现，记录也有空缺；可以一起核对。',
                'observations': ['糖类配料线索出现在部分标签中。', '有几天没有保存记录，不能当作没有吃。'],
@@ -74,6 +85,7 @@ with tempfile.TemporaryDirectory(prefix='flc-insights-') as temp:
         api(elder, '/family/' + family, {'profile_allowed': False}, 'PATCH')
         check(api(child, '/record-insights?elder=' + uid)[0] == 200, '老人单独允许后，只共享记录也能整理非健康摘要')
         check(api(child, '/record-insights?elder=' + uid + '&days=3')[1]['summary']['days'] == 3, '可按三天范围读取摘要')
+        check('index' in api(child, '/record-insights?elder=' + uid + '&days=3')[1]['summary'], '摘要包含饮食健康指数对象')
         check(api(child, '/record-insights?elder=' + uid + '&days=5')[0] == 400, '拒绝不支持的分析天数')
         check(api(child, '/family')[1]['families'][0]['member']['familyAiAllowed'], '家庭摘要可见老人授权状态')
         with patch.object(ai, 'configuration', return_value=('', 'test-model')), patch.object(ai, 'request_assistant_json') as cloud:
@@ -96,6 +108,7 @@ with tempfile.TemporaryDirectory(prefix='flc-insights-') as temp:
             check(status == 200 and value['result']['observations'] and value['result']['suggestions'] and value['result']['questions'], '子女按范围生成饮食观察分析')
             payload = cloud.call_args.args[3]
             check(payload['mode'] == 'diet' and payload['days'] == 3 and payload['stats']['days'] == 3 and len(payload['stats']['dayBreakdown']) == 3, '饮食分析使用所选范围和逐日统计')
+            check(payload['stats']['index']['basis']['days'] == 3, '饮食分析向模型提供程序计算的参考指数')
             serialized = json.dumps(payload, ensure_ascii=False)
             check(all(s not in serialized for s in ('私人姓名', '13800930001', '私人疾病', '私人过敏', uid)), '饮食分析不发送健康档案与账号信息')
             check(ask(elder, diet_request, uid)[0] == 403, '饮食观察分析仅子女端生成')

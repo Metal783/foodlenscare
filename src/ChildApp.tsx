@@ -553,7 +553,7 @@ function SettingsPage({
         </section>
         <AccountExit child onLogout={onLogout} />
         <p className="child-settings-version">
-          食护家 Foodlenscare · 子女端 · 第五版 5.1.0
+          食护家 Foodlenscare · 子女端 · 第五版 5.2.0
         </p>
       </div>
       <BottomNav active="settings" go={go} />
